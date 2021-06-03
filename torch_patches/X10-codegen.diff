@@ -1,0 +1,221 @@
+diff --git a/aten/src/ATen/templates/aten_xla_type.h b/aten/src/ATen/templates/aten_xla_type.h
+index 4dc34bc1a7..8c9cb73a6c 100644
+--- a/aten/src/ATen/templates/aten_xla_type.h
++++ b/aten/src/ATen/templates/aten_xla_type.h
+@@ -5,8 +5,8 @@
+ 
+ namespace ${cpp_namespace} {
+ 
+-// Base ATEN Type class where the XLA specific overrides should be defined.
+-class AtenXlaType {
++// Base ATEN Type class where the MNM specific overrides should be defined.
++class AtenMNMType {
+  public:
+   static void InitializeAtenBindings();
+ 
+@@ -19,4 +19,4 @@ class AtenXlaType {
+ ${dispatch_xla_declarations}
+ };
+ 
+-}  // namespace torch_xla
++}  // namespace torch_mnm
+diff --git a/aten/src/ATen/templates/aten_xla_type_default.cpp b/aten/src/ATen/templates/aten_xla_type_default.cpp
+index 56c2916697..e0b37d0765 100644
+--- a/aten/src/ATen/templates/aten_xla_type_default.cpp
++++ b/aten/src/ATen/templates/aten_xla_type_default.cpp
+@@ -1,16 +1,13 @@
+ // ${generated_comment}
+-#include <torch_xla/csrc/aten_xla_type_default.h>
++#include <torch_mnm/csrc/aten_mnm_type_default.h>
+ 
+ #include <ATen/Context.h>
+ #include <torch/library.h>
+ #include <ATen/CPUGeneratorImpl.h>
+ 
+-#include <tensorflow/compiler/xla/xla_client/debug_macros.h>
+-#include <tensorflow/compiler/xla/xla_client/metrics.h>
+-#include <tensorflow/compiler/xla/xla_client/tf_logging.h>
+-#include <torch_xla/csrc/aten_xla_bridge.h>
+-#include <torch_xla/csrc/aten_xla_type.h>
+-#include <torch_xla/csrc/function_call_tracker.h>
++#include <lazy_tensor_core/csrc/aten_ltc_bridge.h>
++#include <lazy_tensor_core/csrc/function_call_tracker.h>
++#include <torch_mnm/csrc/aten_mnm_type.h>
+ 
+ namespace ${cpp_namespace} {
+ 
+@@ -27,4 +24,4 @@ ${dispatch_autograd_registrations}
+ 
+ }
+ 
+-}  // namespace torch_xla
++}  // namespace torch_mnm
+diff --git a/aten/src/ATen/templates/aten_xla_type_default.h b/aten/src/ATen/templates/aten_xla_type_default.h
+index 6d1e84bdf4..85b006813e 100644
+--- a/aten/src/ATen/templates/aten_xla_type_default.h
++++ b/aten/src/ATen/templates/aten_xla_type_default.h
+@@ -7,13 +7,13 @@ using c10::Stream;
+ 
+ namespace ${cpp_namespace} {
+ 
+-class AtenXlaTypeDefault {
++class AtenMNMTypeDefault {
+  public:
+ ${dispatch_aten_fallback_declarations}
+ 
+ };
+ 
+-// TODO: maybe kill this, doesn't look like XLA actually calls it anywhere
++// TODO: maybe kill this, doesn't look like MNM actually calls it anywhere
+ void RegisterAtenTypeFunctions();
+ 
+-}  // namespace torch_xla
++}  // namespace torch_mnm
+diff --git a/tools/codegen/dest/gen_external_aten_fallbacks.py b/tools/codegen/dest/gen_external_aten_fallbacks.py
+index ee4a2c30d6..3cd42a99b7 100644
+--- a/tools/codegen/dest/gen_external_aten_fallbacks.py
++++ b/tools/codegen/dest/gen_external_aten_fallbacks.py
+@@ -90,14 +90,14 @@ def xla_tensor_creation_api(
+         # Only raw Tensor (non-reference) returns need to go through the XLA tensor creation API.
+         # Tensor references can be returned directly, since they've already been converted to XLA tensors.
+         # See Note [Tensor Copy Returns]
+-        bridge_api = 'CreateXlaTensor'
++        bridge_api = 'CreateLtcTensor'
+     elif isinstance(ret.type, ListType) and ret.type.elem == BaseType(BaseTy.Tensor):
+-        bridge_api = 'CreateXlaTensors'
++        bridge_api = 'CreateLtcTensors'
+     else:
+         # for non tensor-types, there's no need to wrap the output in an xla bridge api.
+         return ret_name
+ 
+-    return f"bridge::{bridge_api}({cpu_result_name}, bridge::GetXlaDevice({device_param_name}))"
++    return f"bridge::{bridge_api}({cpu_result_name}, bridge::GetLtcDevice({device_param_name}))"
+ 
+ 
+ 
+@@ -132,26 +132,25 @@ class GenExternalAtenFallback:
+             tensors = [a for a in dispatcher_order_args if a.type == BaseType(BaseTy.Tensor)]
+             print_args_str = ''.join([f' << " {a.name}=" << {a.name}.toString()' for a in tensors])
+ 
+-            func_name = f'AtenXlaTypeDefault::{name}'
++            func_name = f'AtenMNMTypeDefault::{name}'
+             functional_result_name = f'{name}_tmp'
+             return_names = cpp.return_names(g.out.native_function)
+             if len(return_names) > 1:
+                 updates = '\n  '.join(
+-                    f'bridge::XlaUpdateTensors({{{ret_name}}}, {{std::get<{i}>({functional_result_name})}}, {{0}});'
++                    f'bridge::LtcUpdateTensors({{{ret_name}}}, {{std::get<{i}>({functional_result_name})}}, {{0}});'
+                     for i, ret_name in enumerate(return_names))
+                 returns = f'{dispatcher_sig.returns_type().cpp_type()}({", ".join(return_names)})'
+             else:
+                 ret_name = return_names[0]
+-                updates = f'bridge::XlaUpdateTensors({{{ret_name}}}, {{{functional_result_name}}}, {{0}});'
++                updates = f'bridge::LtcUpdateTensors({{{ret_name}}}, {{{functional_result_name}}}, {{0}});'
+                 returns = ret_name
+ 
+             functional_sig = DispatcherSignature.from_schema(g.functional.native_function.func)
+ 
+             return f"""\
+ {dispatcher_sig.defn(name=func_name)} {{
+-  XLA_FN_TRACK(3);
+-  TF_VLOG(3) << "XLA {name} :"{print_args_str};
+-  auto {functional_result_name} = AtenXlaType::{functional_sig.name()}({", ".join(a.name for a in functional_sig.arguments())});
++  LTC_FN_TRACK(3);
++  auto {functional_result_name} = AtenMNMType::{functional_sig.name()}({", ".join(a.name for a in functional_sig.arguments())});
+   {updates}
+   return {returns};
+ }}
+@@ -192,10 +191,10 @@ class GenExternalAtenFallback:
+             elif self.target is Target.REGISTRATION:
+                 if f.metadata is not None:
+                     # xla has their own kernel: register it
+-                    namespace = 'AtenXlaType'
++                    namespace = 'AtenMNMType'
+                 else:
+                     # xla doesn't have a kernel: register the cpu fallback (or codegen'd out kernel).
+-                    namespace = 'AtenXlaTypeDefault'
++                    namespace = 'AtenMNMTypeDefault'
+                 payload = f"static_cast<{dispatcher_sig.ptr_type()}>(&{namespace}::{name})"
+                 return f'  m.impl("{f.native_function.func.name}", {payload});\n'
+ 
+@@ -232,26 +231,26 @@ class GenExternalAtenFallback:
+ 
+             tensorlist_intermediates_str = ''
+             if len(tensorlist_args) > 0:
+-                tensorlist_intermediates_str = '\n'.join([f'  auto {updated_name} = bridge::XlaCreateTensorList({arg.name});'
++                tensorlist_intermediates_str = '\n'.join([f'  auto {updated_name} = bridge::LtcCreateTensorList({arg.name});'
+                                                           for arg, updated_name in tensorlist_args.items()])
+ 
+             opt_tensor_intermediates_str = ''
+             if len(opt_tensor_args) > 0:
+                 arg_str = ", ".join([a.name for a in opt_tensor_args.keys()])
+                 opt_tensor_intermediates_str = f'\n  std::vector<c10::optional<at::Tensor>> xlatens_opt_tensors = {{{arg_str}}};'
+-                opt_tensor_intermediates_str += '\n  auto xlatens_opt = bridge::XlaCreateOptTensorList(xlatens_opt_tensors);'
++                opt_tensor_intermediates_str += '\n  auto xlatens_opt = bridge::LtcCreateOptTensorList(xlatens_opt_tensors);'
+ 
+             intermediates = ''
+             if tensorlist_intermediates_str != '':
+                 intermediates += tensorlist_intermediates_str + '\n'
+             intermediates += f"  std::vector<at::Tensor> xlatens_tensors = {{{', '.join([a.name for a in tensor_args.keys()])}}};"
+-            intermediates += "\n  auto xlatens = bridge::XlaCreateTensorList(xlatens_tensors);"
++            intermediates += "\n  auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);"
+             if opt_tensor_intermediates_str != '':
+                 intermediates += opt_tensor_intermediates_str
+ 
+ 
+             is_method = Variant.function not in f.native_function.variants
+-            func_name = f'AtenXlaTypeDefault::{name}'
++            func_name = f'AtenMNMTypeDefault::{name}'
+ 
+             # Gather all of the updated variable names to call into the CPU operator.
+             # Just use the original binding names for inputs where we didn't create explicit intermediate variables.
+@@ -278,7 +277,7 @@ class GenExternalAtenFallback:
+             if len(annotated_tensor_indices) > 0:
+                 indices_str = ", ".join([str(i) for i in annotated_tensor_indices])
+                 collect_mutated_tensors = f'\n  std::vector<size_t> xlatens_update_indices = {{{indices_str}}};'
+-                update_tensors = '\n  bridge::XlaUpdateTensors(xlatens_tensors, xlatens, xlatens_update_indices);'
++                update_tensors = '\n  bridge::LtcUpdateTensors(xlatens_tensors, xlatens, xlatens_update_indices);'
+ 
+             returns = ''
+             if f.native_function.func.returns:
+@@ -300,9 +299,8 @@ class GenExternalAtenFallback:
+ 
+             return f"""\
+ {dispatcher_sig.defn(name=func_name)} {{
+-  XLA_FN_TRACK(3);
+-  XLA_COUNTER("aten::{name}", 1);
+-  TF_VLOG(3) << "XLA {name} :"{print_args_str};
++  LTC_FN_TRACK(3);
++  LTC_COUNTER("aten::{name}", 1);
+ {intermediates}
+   {at_call}{collect_mutated_tensors}{update_tensors}{avoid_warning}{return_str}
+ }}
+diff --git a/tools/codegen/gen_backend_stubs.py b/tools/codegen/gen_backend_stubs.py
+index a67dbb9091..48aee987a3 100644
+--- a/tools/codegen/gen_backend_stubs.py
++++ b/tools/codegen/gen_backend_stubs.py
+@@ -92,13 +92,13 @@ def main() -> None:
+ 
+ 
+     generated_comment = 'Autogenerated file by gen_backend_stubs.py. Do not edit directly!'
+-    fm.write('aten_xla_type.h', lambda: {
++    fm.write_with_template('aten_mnm_type.h', 'aten_xla_type.h', lambda: {
+         'generated_comment': generated_comment,
+         'cpp_namespace': cpp_namespace,
+         'dispatch_xla_declarations': list(concatMap(dest.compute_native_function_declaration, external_backend_functions)),
+     })
+ 
+-    fm.write('aten_xla_type_default.h', lambda: {
++    fm.write_with_template('aten_mnm_type_default.h', 'aten_xla_type_default.h', lambda: {
+         'generated_comment': generated_comment,
+         'cpp_namespace': cpp_namespace,
+         'dispatch_aten_fallback_declarations': list(concatMap(
+@@ -106,7 +106,7 @@ def main() -> None:
+         )),
+     })
+ 
+-    fm.write('aten_xla_type_default.cpp', lambda: {
++    fm.write_with_template('aten_mnm_type_default.cpp', 'aten_xla_type_default.cpp', lambda: {
+         'generated_comment': generated_comment,
+         'cpp_namespace': cpp_namespace,
+         # TODO: after cpu fallbacks are moved to a boxed kernel,
