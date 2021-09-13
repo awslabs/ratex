@@ -133,27 +133,6 @@ def build_extra_libraries(base_dir, build_mode=None):
     sys.exit(1)
 
 
-# def generate_protos(base_dir, third_party_path):
-#   # Application proto files should be in torch_xla/pb/src/ and the generated
-#   # files will go in torch_xla/pb/cpp/.
-#   proto_files = glob.glob(os.path.join(base_dir, 'torch_xla/pb/src/*.proto'))
-#   if proto_files:
-#     protoc = os.path.join(
-#         third_party_path,
-#         'tensorflow/bazel-out/host/bin/external/com_google_protobuf/protoc')
-#     protoc_cmd = [
-#         protoc, '-I',
-#         os.path.join(third_party_path, 'tensorflow'), '-I',
-#         os.path.join(base_dir, 'torch_xla/pb/src'), '--cpp_out',
-#         os.path.join(base_dir, 'torch_xla/pb/cpp')
-#     ] + proto_files
-#     if subprocess.call(protoc_cmd) != 0:
-#       print(
-#           'Failed to generate protobuf files: {}'.format(protoc_cmd),
-#           file=sys.stderr)
-#       sys.exit(1)
-
-
 def _compile_parallel(self,
                       sources,
                       output_dir=None,
@@ -233,15 +212,6 @@ class Build(BuildExtension):
 
 mnm_git_sha, torch_git_sha = get_git_head_sha(base_dir)
 version = get_build_version(mnm_git_sha)
-
-# def _symlink_client_data_header():
-#   client_data_hdr = os.path.join(lazy_core_dir, 'third_party', 'computation_client', 'client_data.h')
-#   dest_client_data_hdr = os.path.join(third_party_path, 'xla_client', 'client_data.h')
-#   cmd = ['ln', '-sf', client_data_hdr, dest_client_data_hdr]
-#   if subprocess.call(cmd) != 0:
-#     print('Failed to copy header: {}'.format(cmd), file=sys.stderr)
-#     sys.exit(1)
-
 build_mode = _get_build_mode()
 if build_mode not in ['clean']:
   # Generate version info (lazy_xla.__version__).

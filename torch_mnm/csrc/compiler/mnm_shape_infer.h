@@ -118,16 +118,6 @@ inline lazy_tensors::Shape InferRelu(const ir::Node* node) {
   return input.shape();
 }
 
-// inline lazy_tensors::Shape InferComparisonOp(const ir::Node* node) {
-//   c10::Symbol kind = node->op().op;
-//   auto shape_fn = [kind](absl::Span<const xla::XlaOp> operands) -> xla::XlaOp {
-//     return BuildComparisonOp(kind, operands[0], operands[1]);
-//   };
-//   const ir::Output& input0 = node->operand(0);
-//   const ir::Output& input1 = node->operand(1);
-//   return ir::ops::InferOutputShape({input0.shape(), input1.shape()}, shape_fn);
-// }
-
 inline lazy_tensors::Shape InferGenericSlice(const ir::ops::GenericSlice* node) {
   const ir::Output& input = node->operand(0);
   lazy_tensors::Shape ret = input.shape();

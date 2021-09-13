@@ -53,21 +53,6 @@ using namespace mnm;
 using namespace mnm::value;
 using namespace mnm::ir;
 
-// lazy_tensors::client::ShapeData GetShapeData(
-//     const Shape& shape) {
-//   std::vector<int64_t> dimensions(shape.dimensions().begin(),
-//                                   shape.dimensions().end());
-//   lazy_tensors::PrimitiveType element_type = shape.element_type();
-//   std::vector<lazy_tensors::client::ShapeData> element_shapes;
-//   for (const Shape& element_shape : shape.tuple_shapes()) {
-//     element_shapes.push_back(GetShapeData(element_shape));
-//   }
-//   auto minor_to_major = shape.layout().minor_to_major();
-//   return lazy_tensors::client::ShapeData(
-//       element_type, dimensions, element_shapes,
-//       std::vector<int64_t>(minor_to_major.begin(), minor_to_major.end()));
-// }
-
 inline Shape WithDefaultMinorToMajor(const Shape& shape) {
   Shape ret = shape;
   Layout* layout = ret.mutable_layout();

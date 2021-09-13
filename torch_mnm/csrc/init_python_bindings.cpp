@@ -19,16 +19,6 @@ namespace {
 
 using namespace ir;
 
-// Value MakeTupleValue(ir::NodePtr node) {
-//   std::vector<Value> ops;
-//   ops.reserve(node->num_outputs());
-//   for (size_t i = 0; i < node->num_outputs(); ++i) {
-//     ops.emplace_back(node, i);
-//   }
-//   Value ret = ir::MakeNode<ir::ops::Tuple>(ops);
-//   return ret;
-// }
-
 Value MarkParameter(Output out) {
   auto* device_data = ir::ops::DeviceData::Cast(out.node);
   if (device_data) {
@@ -46,16 +36,6 @@ Value MarkParameter(Output out) {
   NodePtr new_node = out.node->Clone(new_ops);
   return Value(new_node, out.index);
 }
-
-// torch_mnm::MNMComputationClient::MNMData* GetData(Output out) {
-//   auto* device_data = ir::ops::DeviceData::Cast(out.node);
-//   if (device_data) {
-//     auto* data = static_cast<torch_mnm::MNMComputationClient::MNMData*>(device_data->data().get());
-//     return data;
-//   }
-//   LTC_CHECK_EQ(out.node->operands().size(), 1U);
-//   return GetData(out.node->operand(0));
-// }
 
 lazy_tensors::ComputationClient::DataPtr GetData(Output out) {
   auto* device_data = ir::ops::DeviceData::Cast(out.node);
@@ -89,7 +69,7 @@ void InitMNMModuleBindings(py::module m) {
     // TODO(@hzfan): handle the case where fwd result is a tuple
     // bwd is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy data type for it.
     Device dev(DeviceType::CPU, 0);
-    // Approach 1: RelayExpr returns multiple nodes
+    // RelayExpr returns multiple nodes
     ir::NodePtr ret = ir::MakeNode<ir::ops::RelayExpr>(input_values);
     if (ret->shape().IsTuple()) {
       std::vector<at::Tensor> unpacked_ret;
@@ -130,20 +110,7 @@ void InitMNMModuleBindings(py::module m) {
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);
     ir::Value ir_value = lazy_tensor.GetIrValue();
     GetMNMModelState()->AddModelState(lazy_tensor);
-    // ir::Value marked_ir_value = MarkParameter(ir_value);
-    // lazy_tensors::ComputationClient::DataPtr data = GetData(ir_value);
-    // lazy_tensor.SetDataHandle(data);
-    // auto mnm_data = static_cast<torch_mnm::MNMComputationClient::MNMData*>(data.get());
-    // mnm_data->is_param = true;
-    // std::cout << "ir_value: " << ir_value->ToString() << std::endl;
     return tensor;
-    // return bridge::AtenFromLtcTensor(LazyTensor::Create(marked_ir_value, lazy_tensor.GetDevice(), lazy_tensor.dtype_optional())); 
-    // auto* device_data = ir::ops::DeviceData::Cast(ir_value.operator->());
-    // LTC_CHECK(device_data);
-    // static_cast<const torch_mnm::MNMComputationClient::MNMData*>(device_data->data().get())->is_param = true;
-// LazyTensor LazyTensor::Create(
-//     ir::Value ir_value, const Device& device,
-//     c10::optional<at::ScalarType> logical_element_type)
   });
 }
   
