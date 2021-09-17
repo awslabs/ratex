@@ -1,0 +1,3 @@
+[submodule "third_party/meta"]
+	path = third_party/meta
+	url = git@github.com:meta-project/meta

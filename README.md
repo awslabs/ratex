@@ -1,6 +1,6 @@
-# Torch-MNM Bridge
+# PyTorch/RAF
 
-It aims to bridge torch models and MNM backends as follows. This repo is a POC.
+It aims to bridge torch models and RAF backends as follows. This repo is a POC.
 
 ```
 from torch_mnm import TorchModel, mnm_device, mark_step
