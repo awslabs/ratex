@@ -114,18 +114,10 @@ class MNMComputationClient : public lazy_tensors::ComputationClient {
   std::vector<ComputationPtr> Compile(
       std::vector<CompileInstance> instances) override;
 
-  std::vector<ComputationPtr> CompileSunda(
-      std::vector<CompileInstance> instances);
-
   std::vector<DataPtr> ExecuteComputation(
       const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
       const std::string& device,
       const ExecuteComputationOptions& options) override;
-
-  std::vector<DataPtr> ExecuteSundaComputation(
-      const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
-      const std::string& device,
-      const ExecuteComputationOptions& options);
 
   std::vector<std::vector<DataPtr>> ExecuteReplicated(
       const Computation& computation,
