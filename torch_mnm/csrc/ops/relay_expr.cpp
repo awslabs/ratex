@@ -1,7 +1,7 @@
 #include "torch_mnm/csrc/ops/relay_expr.h"
 #include "torch_mnm/csrc/ops/mnm_ops.h"
 #include "torch_mnm/csrc/compiler/utils.h"
-#include "mnm_client/mnm_computation_client.h"
+#include "client/mnm_computation_client.h"
 
 #include "absl/strings/str_join.h"
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"

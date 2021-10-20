@@ -7,7 +7,7 @@
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
 #include "lazy_tensor_core/csrc/lowering_context.h"
 #include "lazy_tensors/computation_client/computation_client.h"
-#include "mnm_client/mnm_computation_client.h"
+#include "client/base_computation_client.h"
 
 #include "./utils.h"
 
@@ -88,11 +88,7 @@ Var MNMLoweringContext::GetOutputOp(const ir::Output& output) {
   auto it = emitted_outputs_.find(output);
   if (it == emitted_outputs_.end()) {
     auto post_order = ir::Util::ComputePostOrder(output.node, &emit_status_);
-    std::cout << "*output.node == " << *output.node << std::endl;
-    std::cout << "post_order.size() == " << post_order.size() << std::endl;
     for (auto node : post_order) {
-      std::cout << "recursive lower:" << std::endl;
-      std::cout << *node << std::endl;
       LowerNode(node);
     }
     LowerNode(output.node);
@@ -143,7 +139,7 @@ Var MNMLoweringContext::GetParameter(
     Var param = MakeVar(absl::StrCat("p", parameters_.size()), tty);
     it = parameters_map_.emplace(handle, Parameter{param, parameters_.size()}).first;
     parameters_.push_back(data);
-    if (static_cast<torch_mnm::MNMComputationClient::MNMData*>(data.get())->is_param) {
+    if (static_cast<torch_mnm::BaseComputationClient::BaseData*>(data.get())->is_param) {
       model_states_.insert(param);
     }
   }

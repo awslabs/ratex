@@ -9,7 +9,7 @@
 #include "torch_mnm/csrc/ops/mnm_ops.h"
 #include "torch_mnm/csrc/compiler/utils.h"
 #include "torch_mnm/csrc/mnm_model_state.h"
-#include "mnm_client/mnm_computation_client.h"
+#include "client/mnm_computation_client.h"
 #include "mnm/registry.h"
 #include "meta/src/op/ty/utils.h"
 

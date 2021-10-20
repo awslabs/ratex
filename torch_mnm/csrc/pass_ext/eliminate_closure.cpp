@@ -11,6 +11,7 @@
 #include "mnm/ir.h"
 #include "mnm/pass.h"
 #include "mnm/binding.h"
+#include "mnm/value.h"
 #include "meta/src/pass/common.h"
 #include "meta/src/pass/let_list.h"
 
@@ -49,15 +50,22 @@ class ClosureEliminator {
     } else if (ty.as<TensorTypeNode>()) {
       return x;
     } else if (ty.as<FuncTypeNode>()) {
-      const static auto& relu = Op::Get("mnm.op.abs");
-      return ll_->Push(Call(relu, {MakeConstant(binding::MakeOnes(Device(DevType::kCPU(), 0)))}));
-      // return MakeConstant(binding::MakeOnes(Device(DevType::kCPU(), 0)));
+      const static auto& ones = Op::Get("mnm.op.ones");
+      return  ll_->Push(Call(ones, {
+        MakeConstant(mnm::value::TupleValue::make({})),
+        MakeConstant(mnm::value::StringValue::make("float32")),
+        MakeConstant(mnm::value::StringValue::make("cpu"))
+      }));
     }
     LOG(FATAL) << "Unsupported type: " << ty; 
   }
 
   Expr operator() (const Expr& e) {
     auto func = Downcast<Function>(e);
+    if (!func->body.as<LetNode>()) {
+      // Function is not in ANF
+      return func;
+    }
     std::unique_ptr<ExplicitLetList> ell = ExplicitLetList::make(func->body);
     std::vector<Var> vars = ell->vars;
     std::vector<Expr> exprs = ell->exprs;

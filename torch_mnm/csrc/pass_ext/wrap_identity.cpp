@@ -37,17 +37,8 @@ class IdentityWrapper : ExprMutator {
 
   Expr VisitExpr_(const VarNode* node) {
     const static Op copy = Op::Get("mnm.op.copy");
-    const static Op add = Op::Get("mnm.op.add");
-    const static Op multiply = Op::Get("mnm.op.multiply");
-    const static Op reshape = Op::Get("mnm.op.reshape");
-    const static Op cast_like = Op::Get("mnm.op.cast_like");
-    const static Op negative = Op::Get("mnm.op.negative");
     if (params_.find(GetRef<Var>(node)) != params_.end()) {
-      // Var v1 = MakeVar("neg" + std::to_string(cnt_++), {});
-      // Var v2 = MakeVar("neg" + std::to_string(cnt_++), {});
-      // return ll_->Push(v1, Call(negative, {ll_->Push(v2,
-      //   Call(negative, {GetRef<Var>(node)}))}));
-      Var v1 = MakeVar("neg" + std::to_string(cnt_++), {});
+      Var v1 = MakeVar("copy" + std::to_string(cnt_++), {});
       return ll_->Push(v1, Call(copy, {GetRef<Var>(node)}));
     }
     return ExprMutator::VisitExpr_(node);
@@ -55,6 +46,19 @@ class IdentityWrapper : ExprMutator {
 
   Expr operator() (const Expr& e) {
     auto func = Downcast<Function>(e);
+    if (!func->body.as<LetNode>()) {
+      // Function is not in ANF
+      if (func->body.as<RelayConstantNode>()) {
+        Expr body = LetList::With([&](LetList* ll) {
+          const static Op copy = Op::Get("mnm.op.copy");
+          Var v = MakeVar("copy" + std::to_string(cnt_++), {});
+          return ll->Push(v, Call(copy, {func->body}));
+        });
+        return Function(func->params, body, func->ret_type, func->type_params);
+      } else {
+        LOG(FATAL) << "Unsupported type " << func->body->GetTypeKey();
+      }
+    }
     std::unique_ptr<ExplicitLetList> ell = ExplicitLetList::make(func->body);
     std::vector<Var> vars = ell->vars;
     std::vector<Expr> exprs = ell->exprs;

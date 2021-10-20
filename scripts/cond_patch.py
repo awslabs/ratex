@@ -35,7 +35,7 @@ def select_patches(patch_folder, repo_folder, depth):
 def apply_patch(ppath, repo_folder, level):
   return subprocess.call([
       'patch', '-d', repo_folder, '-p{}'.format(level), '-i', ppath, '-E', '-l',
-      '-r', '-', '-s', '--no-backup-if-mismatch'
+      '-r', '-', '-s', '-f', '--no-backup-if-mismatch'
   ])
 
 

@@ -1,3 +1,4 @@
+#pragma once
 #include "lazy_tensors/computation_client/computation_client.h"
 #include "lazy_tensors/computation_client/client_data.h"
 #include "mnm/value.h"
@@ -7,7 +8,7 @@ namespace torch_mnm {
 
 using namespace lazy_tensors;
 
-class MNMComputationClient : public lazy_tensors::ComputationClient {
+class BaseComputationClient : public lazy_tensors::ComputationClient {
   struct DeviceHandle {
     std::string device;
     lazy_tensors::int64 handle;
@@ -16,45 +17,20 @@ class MNMComputationClient : public lazy_tensors::ComputationClient {
   using Data = lazy_tensors::client::Data;
 
  public:
-  struct MNMData : public Data {
-    MNMData(std::string device, Shape shape)
-        : Data(std::move(device), GetShapeData(std::move(shape))) {}
-    // MNMData(std::string device, Shape shape,
-    //         mnm::value::Value handle)
-    //     : Data(std::move(device), GetShapeData(std::move(shape))),
-    //       handle(handle) { }
-    MNMData(std::string device, Shape shape,
-            mnm::value::Value handle, bool is_param = false)
-        : Data(std::move(device), GetShapeData(std::move(shape))),
-          handle(handle), is_param(is_param) { }
+  struct BaseData : public Data {
+    BaseData(std::string device, Shape shape, bool is_param = false)
+        : Data(std::move(device), GetShapeData(std::move(shape))), is_param(is_param) { }
 
-    int64 get_handle() const { return reinterpret_cast<int64>(handle.get()); }
-
-    OpaqueHandle GetOpaqueHandle() override { return get_handle(); }
-
-    void Assign(const Data& data) override;
-
-    bool HasValue() const override { return handle.defined(); }
-
-    /*! \brief TupleValue or TensorValue */
-    mnm::value::Value handle;
     /*! \brief Whether it is a Parameter or not */
     bool is_param{false};
   };
 
-  struct MNMComputation : public Computation {
-    MNMComputation(std::shared_ptr<GenericComputation> computation,
+  struct BaseComputation : public Computation {
+    BaseComputation(std::shared_ptr<GenericComputation> computation,
                    ProgramShape program_shape, std::vector<std::string> devices,
-                   tvm::runtime::Module executable)
-        : Computation(computation, program_shape, devices), executable(executable) {}
+                   const std::unordered_map<int64_t, int64_t>& alias = {})
+        : Computation(computation, program_shape, devices), alias(alias) {}
 
-    MNMComputation(std::shared_ptr<GenericComputation> computation,
-                   ProgramShape program_shape, std::vector<std::string> devices,
-                   int neff_cnt, const std::unordered_map<int64_t, int64_t>& alias = {})
-        : Computation(computation, program_shape, devices), neff_cnt(neff_cnt), alias(alias) {}
-
-    tvm::runtime::Module executable;
-    int neff_cnt{-1};
     std::unordered_map<int64_t, int64_t> alias;
   };
 
@@ -101,23 +77,7 @@ class MNMComputationClient : public lazy_tensors::ComputationClient {
     // std::map<Worker, std::string> workers_map;
   };
 
-  MNMComputationClient(Options options);
-
-  DataPtr CreateDataPlaceholder(std::string device, Shape shape) override;
-
-  std::vector<DataPtr> TransferToServer(
-      lazy_tensors::Span<const TensorSource> tensors) override;
-
-  std::vector<Literal> TransferFromServer(
-      lazy_tensors::Span<const DataPtr> handles) override;
-
-  std::vector<ComputationPtr> Compile(
-      std::vector<CompileInstance> instances) override;
-
-  std::vector<DataPtr> ExecuteComputation(
-      const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
-      const std::string& device,
-      const ExecuteComputationOptions& options) override;
+  BaseComputationClient(Options options): options_(options) { }
 
   std::vector<std::vector<DataPtr>> ExecuteReplicated(
       const Computation& computation,
@@ -175,21 +135,15 @@ class MNMComputationClient : public lazy_tensors::ComputationClient {
 
   void PrepareToExit() override;
 
- private:
-  std::vector<DataPtr> TransferToServerInternal(
-      lazy_tensors::Span<const TensorSource> tensors);
-
+ protected:
   static lazy_tensors::client::ShapeData GetShapeData(const Shape& shape);
+
+ protected:
+  std::unordered_map<const Computation*, tvm::IRModule> lifted_computation_;
 
  private:
   Options options_;
-  int compilation_cnt_{0};
-  std::unordered_map<const Computation*, tvm::IRModule> lifted_computation_;
-
+  // int compilation_cnt_{0};
 };
 
-lazy_tensors::ComputationClient* MNMGet();
-
-lazy_tensors::ComputationClient* MNMGetIfInitialized();
-
-}
+}  // namespace torch_mnm

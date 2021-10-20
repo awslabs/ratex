@@ -1,13 +1,15 @@
+#pragma once
+
 #include "lazy_tensor_core/csrc/compiler/backend_impl_interface.h"
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
 #include "torch_mnm/csrc/compiler/mnm_node_lowering.h"
-#include "mnm_client/mnm_computation_client.h"
+#include "torch_mnm/csrc/compiler/backend_registry.h"
 
 namespace torch_lazy_tensors {
 namespace compiler {
 
-class MNMBackendImpl : public BackendImplInterface {
+class BaseBackendImpl : public BackendImplInterface {
  public:
   std::unique_ptr<NodeLowering> CreateNodeLowering(
       ir::LoweringContext* loctx) const override {
@@ -29,23 +31,6 @@ class MNMBackendImpl : public BackendImplInterface {
   std::unique_ptr<ir::LoweringContext> CreateLoweringContext(
       const std::string& name, Device device) const override {
     return std::make_unique<mnm_backend::MNMLoweringContext>(name, device);
-  }
-
-  lazy_tensors::ComputationClient* GetComputationClient() const override {
-    // TODO: confirm extended MNM ComputationClient shall be in
-    // pytorch-ltc/xla/lazy_xla/csrc/compiler/nnc_computation_client.h
-    // or pytorch-ltc/xla/third_party/xla_client/computation_client.cc
-    // return xla::compiler::NNCGet();
-    return torch_mnm::MNMGet();
-  }
-
-  lazy_tensors::ComputationClient* GetComputationClientIfInitialized()
-      const override {
-    // TODO: confirm extended MNM ComputationClient shall be in
-    // pytorch-ltc/xla/lazy_xla/csrc/compiler/nnc_computation_client.h
-    // or pytorch-ltc/xla/third_party/xla_client/computation_client.cc
-    // return xla::compiler::NNCGetIfInitialized();
-    return torch_mnm::MNMGetIfInitialized();
   }
 
   std::vector<std::string> GetCompilationDevices(
@@ -90,13 +75,6 @@ class MNMBackendImpl : public BackendImplInterface {
     LTC_LOG(FATAL) << "Not implemented.";
   }
 };
-
-BackendImplInterface* GetMNMBackendImpl() {
-  static MNMBackendImpl* mnm_backend_impl = new MNMBackendImpl();
-  return mnm_backend_impl;
-}
-
-BackendRegistrar g_registrar(GetMNMBackendImpl());
 
 }  // namespace compiler
 }  // namespace torch_lazy_tensors

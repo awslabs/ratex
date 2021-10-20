@@ -1,3 +1,4 @@
+#pragma once
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
 #include "lazy_tensor_core/csrc/data_ops.h"
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool2d.h"

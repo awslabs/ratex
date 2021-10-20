@@ -39,22 +39,28 @@ from setuptools import setup, find_packages, distutils
 from torch.utils.cpp_extension import BuildExtension, CppExtension
 import distutils.ccompiler
 import distutils.command.clean
+import warnings
 import glob
 import inspect
 import multiprocessing
 import multiprocessing.pool
 import os
+import imp
 import platform
 import re
 import shutil
 import subprocess
 import sys
+import site
 import torch
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
-lazy_core_dir = os.path.join(base_dir, '..', 'lazy_tensor_core')
-third_party_path = os.path.join(base_dir, 'third_party')
+import tvm
+import mnm
 
+base_dir = os.path.dirname(os.path.abspath(__file__))
+lazy_core_dir = os.getenv('LTC_SOURCE_PATH', os.path.join(base_dir, '..', 'lazy_tensor_core'))
+pytorch_dir = os.getenv('PYTORCH_SOURCE_PATH', os.path.dirname(base_dir))
+third_party_path = os.path.join(base_dir, 'third_party')
 
 def _get_build_mode():
   for i in range(1, len(sys.argv)):
@@ -112,11 +118,17 @@ def create_version_files(base_dir, version, mnm_git_sha, torch_git_sha):
 
 def generate_mnm_aten_code(base_dir):
   generate_code_cmd = [os.path.join(base_dir, 'scripts', 'generate_code.sh')]
-  if subprocess.call(generate_code_cmd) != 0:
+  if subprocess.call(generate_code_cmd, env=dict(os.environ, PTDIR=str(pytorch_dir))) != 0:
     print(
         'Failed to generate ATEN bindings: {}'.format(generate_code_cmd),
         file=sys.stderr)
     sys.exit(1)
+
+
+def apply_patches():
+  apply_patches_cmd = [os.path.join(base_dir, 'scripts', 'apply_patches.sh')]
+  if subprocess.call(apply_patches_cmd, env=dict(os.environ, PTDIR=str(pytorch_dir))) != 0:
+    warnings.warn('Failed to apply patches: {}'.format(apply_patches_cmd))
 
 
 def build_extra_libraries(base_dir, build_mode=None):
@@ -216,54 +228,49 @@ build_mode = _get_build_mode()
 if build_mode not in ['clean']:
   # Generate version info (lazy_xla.__version__).
   create_version_files(base_dir, version, mnm_git_sha, torch_git_sha)
-
+  # Apply code patches for PyTorch
+  apply_patches()
   # Generate the code before globbing!
   generate_mnm_aten_code(base_dir)
-
-  # _symlink_client_data_header()
-
-  # Build the support libraries (ie, TF).
-  build_extra_libraries(base_dir, build_mode=build_mode)
-
-  # Generate the proto C++/python files only after third_party has built.
-  # generate_protos(base_dir, third_party_path)
+  # Build the support libraries
+  # build_extra_libraries(base_dir, build_mode=build_mode)
 
 # Fetch the sources to be built.
 torch_mnm_sources = (
-    glob.glob('torch_mnm/csrc/*.cpp') + glob.glob('torch_mnm/csrc/ops/*.cpp') +
-    glob.glob('torch_mnm/csrc/compiler/*.cpp') + glob.glob('torch_mnm/csrc/value_ext/*.cpp') +
+    glob.glob('torch_mnm/csrc/*.cpp') +
+    glob.glob('torch_mnm/csrc/ops/*.cpp') +
+    glob.glob('torch_mnm/csrc/compiler/*.cpp') +
+    glob.glob('torch_mnm/csrc/value_ext/*.cpp') +
     glob.glob('torch_mnm/csrc/pass_ext/*.cpp') +
-    glob.glob('torch_mnm/pb/cpp/*.cc') + glob.glob('third_party/mnm_client/*.cpp'))
+    glob.glob('third_party/client/*.cpp')
+)
 
 # Constant known variables used throughout this file.
 lib_path = os.path.join(base_dir, 'torch_mnm/lib')
-pytorch_source_path = os.getenv('PYTORCH_SOURCE_PATH',
-                                os.path.dirname(base_dir))
 
 # Setup include directories folders.
 include_dirs = [
     base_dir,
     lazy_core_dir,
-]
-for ipath in [
-    'meta/include',
-    'meta/3rdparty/tvm/include',
-    'meta/3rdparty/tvm/3rdparty/dmlc-core/include',
-    'meta/3rdparty/tvm/3rdparty/dlpack/include',
-    ''
-]:
-  include_dirs.append(os.path.join(third_party_path, ipath))
-include_dirs += [
-    pytorch_source_path,
-    os.path.join(pytorch_source_path, 'torch/csrc'),
-    os.path.join(pytorch_source_path, 'torch/lib/tmp_install/include'),
-    os.path.join(lazy_core_dir, 'third_party/abseil-cpp')
+    pytorch_dir,
+    third_party_path,
+    os.path.join(third_party_path, 'meta/include'),
+    os.path.join(third_party_path, 'meta/3rdparty/tvm/include'),
+    os.path.join(third_party_path, 'meta/3rdparty/tvm/3rdparty/dmlc-core/include'),
+    os.path.join(third_party_path, 'meta/3rdparty/tvm/3rdparty/dlpack/include'),
+    os.path.join(pytorch_dir, 'torch/csrc'),
+    os.path.join(pytorch_dir, 'torch/lib/tmp_install/include'),
+    os.path.join(lazy_core_dir, 'third_party/abseil-cpp'),
 ]
 
-library_dirs = []
-library_dirs.append(lib_path)
-
-extra_link_args = []
+tvm_library_dir = os.path.dirname(tvm._ffi.libinfo.find_lib_path()[0])
+mnm_library_dir = os.path.dirname(mnm._lib.find_lib_path()[0])
+library_dirs = [
+    # lib_path,
+    os.path.dirname(imp.find_module("_LAZYC")[1]),
+    tvm_library_dir,
+    mnm_library_dir,
+]
 
 DEBUG = _check_env_flag('DEBUG')
 IS_DARWIN = (platform.system() == 'Darwin')
@@ -293,12 +300,24 @@ if re.match(r'clang', os.getenv('CC', '')):
 
 if DEBUG:
   extra_compile_args += ['-O0', '-g']
-  extra_link_args += ['-O0', '-g']
 else:
   extra_compile_args += ['-DNDEBUG']
 
-extra_link_args += ['-lmnm', '-ltvm']
-extra_link_args += glob.glob(os.path.join(lazy_core_dir, '*.so'))
+extra_link_args = [
+    '-l:_LAZYC.cpython-36m-x86_64-linux-gnu.so',
+    '-lmnm',
+    '-ltvm',
+    # make_relative_rpath('torch_mnm/lib'),
+    make_relative_rpath(''),
+    '-Wl,-rpath,{}'.format(site.getsitepackages()[0]),
+] + ([
+    '-O0',
+    '-g'
+] if DEBUG else [])
+
+# extra_link_args += glob.glob(os.path.join(lazy_core_dir, '*.so'))
+print("library_dirs = ", library_dirs)
+print("extra_link_args = ", extra_link_args)
 
 setup(
     name='torch_mnm',
@@ -312,15 +331,14 @@ setup(
             include_dirs=include_dirs,
             extra_compile_args=extra_compile_args,
             library_dirs=library_dirs,
-            extra_link_args=extra_link_args + \
-                [make_relative_rpath('torch_mnm/lib')],
+            extra_link_args=extra_link_args,
         ),
     ],
-    package_data={
-        'torch_mnm': [
-            'lib/*.so*',
-        ],
-    },
+    # package_data={
+    #     'torch_mnm': [
+    #         'lib/*.so*',
+    #     ],
+    # },
     data_files=[
         # 'test/cpp/build/test_ptxla',
         # 'scripts/fixup_binary.py',

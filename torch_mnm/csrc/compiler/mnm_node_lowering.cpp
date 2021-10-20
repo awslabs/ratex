@@ -128,7 +128,7 @@
 #include "mnm/binding.h"
 #include "mnm/pass.h"
 #include "meta/src/op/regs/schema2value.h"
-#include "mnm_client/mnm_computation_client.h"
+#include "meta/src/common/shape_utils.h"
 
 namespace torch_lazy_tensors {
 namespace compiler {
@@ -173,6 +173,9 @@ class MNMNodeLowering : public NodeLowering {
   Var LowerDiv(const ir::Node* node);
   Var LowerMul(const ir::Node* node);
   Var LowerDeviceData(const ir::ops::DeviceData* node);
+  // Var LowerAsStridedViewUpdate(
+  //     const ir::ops::AsStridedViewUpdate* node);
+  // Var LowerAsStrided(const ir::ops::AsStrided* node);
   Var LowerExpand(const ir::ops::Expand* node);
   Var LowerNotSupported(const ir::ops::NotSupported* node);
   template <class NllLossType>
@@ -191,9 +194,15 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP(Neg);
   DECLARE_OP2(Permute);
   DECLARE_OP2(MaxPoolNdBackward);
+  // DECLARE_OP2(ConvolutionBackwardOverrideable);
   DECLARE_OP(Mm);
+  // DECLARE_OP2(View);
   DECLARE_OP(AddMatMul);
   DECLARE_OP2(ThresholdBackward);
+  // DECLARE_OP2(NativeBatchNormForward);
+  // DECLARE_OP2(NativeBatchNormBackward);
+  // DECLARE_OP2(Mean);
+  // DECLARE_OP2(LogSoftmaxBackward);
   DECLARE_OP2(MaxPoolNd);
   DECLARE_OP2(LogSoftmax);
   DECLARE_OP2(ConvolutionOverrideable);
@@ -206,6 +215,8 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP2(LogSoftmaxBackwardUseIn);
   DECLARE_OP2(RelayExpr);
   DECLARE_OP2(RelayFunction);
+  // DECLARE_OP2(TupleGetItem);
+  // DECLARE_OP2(Tuple);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -215,6 +226,8 @@ class MNMNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferNllLossBackward(const ir::ops::NllLossBackward* node);
   lazy_tensors::Shape InferRelayExpr(const ir::ops::RelayExpr* node);
   lazy_tensors::Shape InferRelayFunction(const ir::ops::RelayFunction* node);
+  // lazy_tensors::Shape InferTupleGetItem(const ir::ops::TupleGetItem* node);
+  // lazy_tensors::Shape InferTuple(const ir::ops::Tuple* node);
   lazy_tensors::Shape InferAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node);
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
@@ -261,12 +274,20 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
     HANDLE_GENERIC_OP2(MaxPoolNdBackward,
                        at::aten::max_pool2d_with_indices_backward)
+    // HANDLE_GENERIC_OP2(ConvolutionBackwardOverrideable,
+    //                    at::aten::convolution_backward_overrideable)
     HANDLE_GENERIC_OP(Mm, at::aten::mm)
+    // HANDLE_GENERIC_OP2(View, at::aten::view)
     HANDLE_GENERIC_OP2(NllLoss, at::aten::nll_loss)
     HANDLE_GENERIC_OP2(NllLossBackward, at::aten::nll_loss_backward)
     HANDLE_GENERIC_OP2(Expand, at::aten::expand)
     HANDLE_GENERIC_OP(AddMatMul, at::aten::addmm)
     HANDLE_GENERIC_OP2(ThresholdBackward, at::aten::threshold_backward)
+    // HANDLE_GENERIC_OP2(NativeBatchNormForward, at::aten::native_batch_norm)
+    // HANDLE_GENERIC_OP2(NativeBatchNormBackward,
+    //                    at::aten::native_batch_norm_backward)
+    // HANDLE_GENERIC_OP2(Mean, at::aten::mean)
+    // HANDLE_GENERIC_OP2(LogSoftmaxBackward, at::aten::_log_softmax_backward_data)
     HANDLE_GENERIC_OP2(MaxPoolNd, at::aten::max_pool2d)
     HANDLE_GENERIC_OP2(LogSoftmax, at::aten::log_softmax)
     HANDLE_GENERIC_OP2(ConvolutionOverrideable,
@@ -317,6 +338,11 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
             ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
                 node, *ir::ops::mnm_log_softmax_backward_use_in));
       }
+      // if (node->op() == *ir::ops::ltc_as_strided_view_update) {
+      //   return LowerAsStridedViewUpdate(
+      //       ir::NodeCast<ir::ops::AsStridedViewUpdate>(
+      //           node, *ir::ops::ltc_as_strided_view_update));
+      // }
     }
   }
   LTC_LOG(FATAL) << "NotImplementedError: " << *node;
@@ -344,6 +370,8 @@ std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, co
 }
 
 ir::Output SimplifyBinaryInputs(const ir::Output& x, const ir::Output& y) {
+  // lazy_tensors::Shape shape = node->operand(0).node->shape();
+  // node->op().op
   if (x.node->op().op == at::aten::expand) {
     lazy_tensors::Shape x_shape = x.shape();
     lazy_tensors::Shape y_shape = y.shape();
@@ -408,11 +436,6 @@ Var MNMNodeLowering::LowerBitwise(const ir::Node* node) {
 
 Var MNMNodeLowering::LowerDeviceData(const ir::ops::DeviceData* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
-  // auto* data = static_cast<torch_mnm::MNMComputationClient::MNMData*>(node->data().get());
-  // if (const auto* closure = data->handle.as<ClosureValueObj>()) {
-  //   LTC_CHECK_EQ(closure->env.size(), 0U);
-  //   return BindSymbol(closure->func);
-  // }
   return loctx()->GetParameter(node->data());
 }
 
@@ -453,6 +476,18 @@ Var MNMNodeLowering::LowerMaxPoolNdBackward(
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.max_pool2d_dx"),
     {input, grad_output, kernel, stride, padding, dilation, ceil_mode, include_pad}));
 }
+
+// Var MNMNodeLowering::LowerMaxUnary(const ir::Node* node) {
+//   Var x = loctx()->GetOutputOp(node->operand(0));
+//   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.max"), {x}));
+// }
+
+// Var MNMNodeLowering::LowerMax(const ir::Node* node) {
+//   LTC_CHECK_EQ(node->num_outputs(), 1);
+//   Var input0 = loctx()->GetOutputOp(node->operand(0));
+//   Var input1 = loctx()->GetOutputOp(node->operand(1));
+//   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.maximum"), {input0, input1}));
+// }
 
 Var MNMNodeLowering::LowerRelu(const ir::Node* node) {
     LTC_CHECK_EQ(node->num_outputs(), 1);
@@ -635,6 +670,32 @@ Var MNMNodeLowering::LowerRelayFunction(const ir::ops::RelayFunction* node) {
   return BindSymbol(node->func());
 }
 
+// Var BuildTupleGetItem(const std::vector<Var>& ops, const ir::ops::TupleGetItem* node) {
+//   return BindSymbol(mnm::ir::TupleGetItem(ops[0], node->index()));
+// }
+
+// Var MNMNodeLowering::LowerTupleGetItem(const ir::ops::TupleGetItem* node) {
+//   Var tuple = loctx()->GetOutputOp(node->operand(0));
+//   return BuildTupleGetItem({tuple}, node);
+// }
+
+// Var BuildTuple(const std::vector<Var>& ops, const ir::ops::Tuple* node) {
+//   std::vector<Expr> fields;
+//   fields.reserve(ops.size());
+//   for (const auto& op : ops) {
+//     fields.emplace_back(op);
+//   }
+//   return BindSymbol(mnm::ir::Tuple({BindSymbol(mnm::ir::Tuple(fields))}));
+// }
+
+// Var MNMNodeLowering::LowerTuple(const ir::ops::Tuple* node) {
+//   std::vector<Var> ops;
+//   for (const auto& op : node->operands()) {
+//     ops.push_back(loctx()->GetOutputOp(op));
+//   }
+//   return BuildTuple(ops, node);
+// }
+
 Var MNMNodeLowering::LowerConvolutionOverrideable(
     const ir::ops::ConvolutionOverrideable* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
@@ -678,7 +739,12 @@ Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackw
   return BuildLogSoftmaxBackwardUseIn(ops, node);
 }
 
-// TODO(@hzfan): uncomment this segment when dependency of y is removed
+
+// Expr Shape(const Expr& expr) {
+//   static auto op_shape = Op::Get("mnm.op.shape");
+//   return Call(op_shape, {expr});
+// }
+
 // Var MNMNodeLowering::LowerConvolutionBackwardOverrideable(
 //     const ir::ops::ConvolutionBackwardOverrideable* node) {
 //   // TODO(@hzfan): remove dependency on y
@@ -811,7 +877,6 @@ DEFINE_COMPARISON_OP(Gt, greater)
 #undef DEFINE_COMPARISON_OP
 #undef DEFINE_UNARY_OP
 
-// TODO(@hzfan): uncomment this segment when dependency of y is removed
 // Var MNMNodeLowering::LowerAdaptiveAvgPool2dBackward(
 //     const ir::Node* node) {
 //   // TODO(@hzfan): remove dependency on shape and y
@@ -821,7 +886,6 @@ DEFINE_COMPARISON_OP(Gt, greater)
 //     {x, y, dy, shape})); 
 // }
 
-// TODO(@hzfan): uncomment this segment when dependency of x is removed
 // Var MNMNodeLowering::LowerLogSoftmaxBackward(
 //     const ir::ops::LogSoftmaxBackward* node) {
 //   // TODO(@hzfan): remove dependency on x
@@ -837,14 +901,38 @@ Var MNMNodeLowering::LowerThresholdBackward(
   LTC_LOG(FATAL) << "NotImplementedError";
   // TODO(@hzfan): support threshold_backward. Workaround: 
   // Options: 1) use torchscript so customized AutoDiff 2) implement it in meta 3) use compare operators here
+  // LTC_CHECK_EQ(node->num_outputs(), 1);
+  // Var dy = loctx()->GetOutputOp(node->operand(0));
+  // Var x = loctx()->GetOutputOp(node->operand(1));
+  // return 
 }
 
+// Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
+//   LTC_CHECK_EQ(node->num_outputs(), 1);
+//   // TODO(@hzfan): get the current device from env variables
+//   lazy_tensors::ComputationClient::DataPtr data = CreateTensorsData({node->value().value()}, {})[0];
+//   auto* mnm_data = static_cast<torch_mnm::NeuronComputationClient::NeuronData*>(data.get());
+//   return BindSymbol(MakeConstant(mnm_data->handle));
+// }
+
 Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
-  LTC_CHECK_EQ(node->num_outputs(), 1);
   // TODO(@hzfan): get the current device from env variables
-  lazy_tensors::ComputationClient::DataPtr data = CreateTensorsData({node->value().value()}, {})[0];
-  auto* mnm_data = static_cast<torch_mnm::MNMComputationClient::MNMData*>(data.get());
-  return BindSymbol(MakeConstant(mnm_data->handle));
+  // TODO(@hzfan): unify LowerConstant for meta/Sunda, meta/CPU, meta/GPU
+  // TODO(@hzfan): embed NeuronTensor into constants directly
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  mnm::Device dev(mnm::DevType::kCPU(), 0);
+  int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(
+    Downcast<TensorType>(ToMNMType(node->value().shape())).as<TensorTypeNode>());
+  auto buffer = memory_pool::Memory::Alloc(dev, nbytes);
+  DType dtype;
+  std::vector<int64_t> shape;
+  std::tie(shape, dtype) = ToMNMShape(node->value().shape());
+  // ts.populate_fn(ts, buffer_cpu->data, nbytes);
+  // lazy_tensors::ComputationClient::DataPtr data = CreateTensorsData({node->value().value()}, {})[0];
+  // auto* mnm_data = static_cast<torch_mnm::NeuronComputationClient::NeuronData*>(data.get());
+  PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes, Device("CPU"));
+  auto value = TensorValue::Assemble(dev, dtype, shape, {}, buffer->data, buffer);
+  return BindSymbol(MakeConstant(value));
 }
 
 TensorValue MakeScalar(float scalar, mnm::Device to_dev) {
@@ -940,6 +1028,16 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
             ir::NodeCast<ir::ops::RelayFunction>(
                 node, *ir::ops::mnm_relay_function));
       }
+      // if (kind == *ir::ops::mnm_tuple_get_item) {
+      //   return InferTupleGetItem(
+      //       ir::NodeCast<ir::ops::TupleGetItem>(
+      //           node, *ir::ops::mnm_tuple_get_item));
+      // }
+      // if (kind == *ir::ops::mnm_tuple) {
+      //   return InferTuple(
+      //       ir::NodeCast<ir::ops::Tuple>(
+      //           node, *ir::ops::mnm_tuple));
+      // }
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
   }
@@ -1002,7 +1100,6 @@ lazy_tensors::Shape MNMNodeLowering::InferSum(const ir::ops::Sum* node) {
 
 lazy_tensors::Shape MNMNodeLowering::InferRelayExpr(const ir::ops::RelayExpr* node) {
   return node->operand(0).shape();
-  // }
 }
 
 lazy_tensors::Shape MNMNodeLowering::InferRelayFunction(const ir::ops::RelayFunction* node) {

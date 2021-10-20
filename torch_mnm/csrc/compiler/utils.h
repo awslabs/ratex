@@ -1,7 +1,9 @@
+#pragma once
+
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
 #include "lazy_tensor_core/csrc/lowering_context.h"
 
-#include "mnm/base.h"
+#include "mnm/device.h"
 #include "mnm/ir.h"
 #include "mnm/value.h"
 #include "mnm/pass.h"

@@ -1,4 +1,4 @@
-#include "mnm_client/mnm_computation_client.h"
+#include "client/mnm_computation_client.h"
 
 #include <fstream>
 #include <iostream>
@@ -11,7 +11,7 @@
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
 #include "tvm/node/serialization.h"
-#include "mnm/base.h"
+#include "mnm/device.h"
 #include "mnm/serialization.h"
 #include "mnm/vm/vm.h"
 #include "mnm/vm/value.h"
@@ -21,45 +21,9 @@
 
 namespace torch_mnm {
 
+using namespace torch_lazy_tensors::compiler;
 using namespace torch_lazy_tensors::compiler::mnm_backend;
-
-lazy_tensors::ComputationClient* CreateClient() {
-  auto client = ComputationClient::Create();
-  return client.release();
-}
-
-}  // namespace torch_mnm
-
-namespace lazy_tensors {
-
-std::once_flag g_computation_client_once;
-std::atomic<lazy_tensors::ComputationClient*> g_computation_client(nullptr);
-
-ComputationClient* ComputationClient::Get() {
-  std::call_once(g_computation_client_once,
-                 [&]() { g_computation_client = torch_mnm::CreateClient(); });
-  return g_computation_client.load(); 
-}
-
-std::unique_ptr<ComputationClient> ComputationClient::Create() {
-  torch_mnm::MNMComputationClient::Options options;
-  // TODO(@hzfan): populate options like pytorch-ltc/xla/third_party/xla_client/computation_client.cc:
-  // XrtComputationClient::Options options;
-  // std::unique_ptr<tensorflow::tpu::TopologyProto> topology_proto;
-  // if (!ParseEnvBasedTpuClusterConfig(&options) &&
-  //     !ParseEnvDeviceCounts(&options) && !ParseEnvDevices(&options) &&
-  //     !ParseMeshConfig(&options, &topology_proto)) {
-  //   XLA_ERROR() << "Missing XLA configuration";
-  // }
-  // PopulateLocalDevices(&options);
-  return std::unique_ptr<ComputationClient>(
-      new torch_mnm::MNMComputationClient(options));
-}
-
-}  // namespace lazy_tensors
-
-
-namespace torch_mnm {
+using namespace mnm::value;
 
 void MNMComputationClient::MNMData::Assign(const Data& data) {
   const MNMData& mnm_data = dynamic_cast<const MNMData&>(data);
@@ -68,7 +32,47 @@ void MNMComputationClient::MNMData::Assign(const Data& data) {
   }
 }
 
-MNMComputationClient::MNMComputationClient(MNMComputationClient::Options options) : options_(options) { }
+MNMComputationClient::MNMComputationClient(Options options) : BaseComputationClient(options) { }
+
+std::unique_ptr<ComputationClient> MNMComputationClient::Create() {
+  Options options;
+  return std::make_unique<MNMComputationClient>(options);
+}
+
+// template <typename NativeT>
+// void PopulateRn(lazy_tensors::Literal& literal, lazy_tensors::Span<const NativeT> values) {
+//   LTC_CHECK(literal.shape().IsArray());
+//   LTC_CHECK_EQ(ShapeUtil::ElementsIn(literal.shape()), values.size());
+//   LTC_CHECK_EQ(literal.shape().element_type(),
+//                primitive_util::NativeToPrimitiveType<NativeT>());
+//   auto data_span = literal.data<NativeT>();
+//   std::copy(values.begin(), values.end(), data_span.begin());
+// }
+
+// void PopulateRn(lazy_tensors::Literal& literal, const DLTensor* dlt) {
+//   mnm::DType dtype = dlt->dtype;
+//   switch (dtype.code) {
+//     case kDLInt:
+//       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::int8>(
+//         reinterpret_cast<const lazy_tensors::int8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       break;
+//     case kDLUInt:
+//       if (dtype.bits == 1) return PopulateRn(literal, Span<const bool>(
+//         reinterpret_cast<const bool*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::uint8>(
+//         reinterpret_cast<const lazy_tensors::uint8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       break;
+//     case kDLFloat:
+//       if (dtype.bits == 16) return PopulateRn(literal, Span<const lazy_tensors::half>(
+//         reinterpret_cast<const lazy_tensors::half*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       if (dtype.bits == 32) return PopulateRn(literal, Span<const float>(
+//         reinterpret_cast<const float*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       if (dtype.bits == 64) return PopulateRn(literal, Span<const double>(
+//         reinterpret_cast<const double*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+//       break;
+//   }
+//   LTC_LOG(FATAL) << "NotImplementedError: " << dtype.c_str();
+// }
 
 template <typename NativeT>
 void PopulateRn(lazy_tensors::Literal& literal, lazy_tensors::Span<const NativeT> values) {
@@ -80,37 +84,31 @@ void PopulateRn(lazy_tensors::Literal& literal, lazy_tensors::Span<const NativeT
   std::copy(values.begin(), values.end(), data_span.begin());
 }
 
-void PopulateRn(lazy_tensors::Literal& literal, const DLTensor* dlt) {
-  DType dtype = dlt->dtype;
-  switch (dtype.code) {
-    case kDLInt:
-      if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::int8>(
-        reinterpret_cast<const lazy_tensors::int8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 32) return PopulateRn(literal, Span<const lazy_tensors::int32>(
-        reinterpret_cast<const lazy_tensors::int32*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 64) return PopulateRn(literal, Span<const lazy_tensors::int64>(
-        reinterpret_cast<const lazy_tensors::int64*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      break;
-    case kDLUInt:
-      if (dtype.bits == 1) return PopulateRn(literal, Span<const bool>(
-        reinterpret_cast<const bool*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::uint8>(
-        reinterpret_cast<const lazy_tensors::uint8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 32) return PopulateRn(literal, Span<const lazy_tensors::uint32>(
-        reinterpret_cast<const lazy_tensors::uint32*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 64) return PopulateRn(literal, Span<const lazy_tensors::uint64>(
-        reinterpret_cast<const lazy_tensors::uint64*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      break;
-    case kDLFloat:
-      if (dtype.bits == 16) return PopulateRn(literal, Span<const lazy_tensors::half>(
-        reinterpret_cast<const lazy_tensors::half*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 32) return PopulateRn(literal, Span<const float>(
-        reinterpret_cast<const float*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      if (dtype.bits == 64) return PopulateRn(literal, Span<const double>(
-        reinterpret_cast<const double*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-      break;
+void PopulateRn(lazy_tensors::Literal& literal, void* buf) {
+  using namespace lazy_tensors;
+  switch (literal.shape().element_type()) {
+    case PrimitiveType::S8: return PopulateRn(literal, Span<const int8>(
+      reinterpret_cast<const int8*>(buf), literal.value().numel()));
+    case PrimitiveType::S32: return PopulateRn(literal, Span<const int32>(
+      reinterpret_cast<const int32*>(buf), literal.value().numel()));
+    case PrimitiveType::S64: return PopulateRn(literal, Span<const int64>(
+      reinterpret_cast<const int64*>(buf), literal.value().numel()));
+    case PrimitiveType::PRED: return PopulateRn(literal, Span<const bool>(
+      reinterpret_cast<const bool*>(buf), literal.value().numel()));
+    case PrimitiveType::U8: return PopulateRn(literal, Span<const uint8>(
+      reinterpret_cast<const lazy_tensors::uint8*>(buf), literal.value().numel()));
+    case PrimitiveType::U32: return PopulateRn(literal, Span<const uint32>(
+      reinterpret_cast<const lazy_tensors::uint32*>(buf), literal.value().numel()));
+    case PrimitiveType::U64: return PopulateRn(literal, Span<const uint64>(
+      reinterpret_cast<const lazy_tensors::uint64*>(buf), literal.value().numel()));
+    case PrimitiveType::F16: return PopulateRn(literal, Span<const half>(
+      reinterpret_cast<const lazy_tensors::half*>(buf), literal.value().numel()));
+    case PrimitiveType::F32: return PopulateRn(literal, Span<const float>(
+      reinterpret_cast<const float*>(buf), literal.value().numel()));
+    case PrimitiveType::F64: return PopulateRn(literal, Span<const double>(
+      reinterpret_cast<const double*>(buf), literal.value().numel()));
   }
-  LTC_LOG(FATAL) << "NotImplementedError: " << dtype.c_str();
+  LTC_LOG(FATAL) << "NotImplementedError: " << literal.shape().element_type();
 }
 
 ComputationClient::DataPtr MNMComputationClient::CreateDataPlaceholder(std::string device,
@@ -129,9 +127,9 @@ MNMComputationClient::TransferToServerInternal(
     mnm::Device dev_cpu(mnm::DevType::kCPU(), 0);
     mnm::Device dev = ToMNMDevice(ts.device);
     std::tie(shape, dtype) = ToMNMShape(ts.shape);
-    TensorValue tv_shape = TensorValue::Assemble(dev_cpu, dtype, shape);
+    TensorValue tv_shape = mnm::value::TensorValue::Assemble(dev_cpu, dtype, shape);
     int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(*(tv_shape.operator DLTensor*()));
-    auto buffer_cpu = memory_pool::Memory::Alloc(dev_cpu, nbytes);
+    auto buffer_cpu = mnm::memory_pool::Memory::Alloc(dev_cpu, nbytes);
     auto tv_cpu = TensorValue::Assemble(dev_cpu, dtype, shape, {}, buffer_cpu->data, buffer_cpu);
     ts.populate_fn(ts, buffer_cpu->data, nbytes);
     auto tv = TensorValue::make(mnm::tensor::Tensor(tv_cpu->tensor.CopyTo(dev)));  // memory of tv is allocated by tvm
@@ -160,7 +158,7 @@ std::vector<Literal> MNMComputationClient::TransferFromServer(
       std::vector<int64_t>(val->shape, val->shape + val->ndim),
       val->dtype
     ));
-    PopulateRn(res, val);
+    PopulateRn(res, val->data);
     results.push_back(res);
   }
   return results;
@@ -188,24 +186,30 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     // for (const auto& kv : computation->alias()) {
     //   ss << "(" << kv.first << ", " << kv.second << "), ";
     // }
-    // LTC_LOG(INFO) << ss.str() << std::endl;
-
-    ir_module = mnm::pass::InferType()(ir_module);
-    ir_module = mnm::pass::LambdaLift()(ir_module);
-    ir_module = mnm::pass::InferType()(ir_module);
+    // std::cout << std::endl;
     tvm::runtime::Module exe;
     if (!IsIdentityFunction(func)) {
-      // TODO(@hzfan): difference between compilation_device and devices
-      // TODO(@hzfan): device convert string->tvm TargetsMap
-      // TODO(@hzfan): calculate target and target_host
-      // ToMNMDevice(computation->devices[0]);
-      // std::cout << "Compile: " << std::endl;
-      // std::cout << ::mnm::ir::AsText(ir_module) << std::endl;
-      tvm::Target target_host("llvm");
-      mnm::executor::vm::TargetsMap target{
-        {Integer((int)(DLDeviceType::kDLCPU)), tvm::Target("llvm")}
+      mnm::executor::vm::DeviceMap device_map{
+        {Integer((int)(DLDeviceType::kDLCPU)), mnm::Device(mnm::DevType::kCPU(), 0)}
       };
-      compiler.Lower(ir_module, target, target_host);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::LambdaLift()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::InlineClosure()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::DeadCodeElimination()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::EliminateClosure()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::InlineLet()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::DeadCodeElimination()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = mnm::pass::CanonicalizeOps()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
+      ir_module = mnm::pass::InferType()(ir_module);
+      compiler.Lower(ir_module, device_map);
       exe = compiler.GetFunction("get_executable", nullptr)();
     }
     results.emplace_back(std::make_shared<MNMComputation>(
@@ -218,18 +222,6 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
   }
   return results;
 }
-
-std::string slurp(std::ifstream& in) {
-    std::ostringstream sstr;
-    sstr << in.rdbuf();
-    return sstr.str();
-}
-
-void ExecuteCMD(std::string cmd) {
-  std::cout << "+ " << cmd << std::endl;
-  LTC_CHECK(0 == system(cmd.c_str()));
-}
-
 
 std::vector<ComputationClient::DataPtr>
 MNMComputationClient::ExecuteComputation(
@@ -313,68 +305,15 @@ MNMComputationClient::ExecuteComputation(
   return explode_tuple(ret);
 }
 
-std::string MNMComputationClient::GetResourceDomain(
-    const std::string& device) const {
-  return "";
-}
-
-std::string MNMComputationClient::GetDefaultDevice() const {
-  switch (lazy_tensors::NNCComputationClient::HardwareDeviceType()) {
-    case at::kCPU: {
-      return "CPU:0";
-    }
-    case at::kCUDA: {
-      return "GPU:0";
-    }
-    default: { LTC_LOG(FATAL) << "Invalid device type"; }
-  }
-}
-
-std::vector<std::string> MNMComputationClient::GetLocalDevices() const {
-  return {GetDefaultDevice()};
-}
-
-std::vector<std::string> MNMComputationClient::GetAllDevices() const {
-  return GetLocalDevices();
-}
-
-void MNMComputationClient::SetReplicationDevices(
-    std::shared_ptr<std::vector<std::string>> devices) {
-  LTC_CHECK_EQ(devices->size(), size_t(1)) << "Replication not supported yet";
-}
-
-std::shared_ptr<std::vector<std::string>>
-MNMComputationClient::GetReplicationDevices() {
-  return nullptr;
-}
-
-void MNMComputationClient::PrepareToExit() {}
-
-lazy_tensors::client::ShapeData MNMComputationClient::GetShapeData(
-    const Shape& shape) {
-  std::vector<int64_t> dimensions(shape.dimensions().begin(),
-                                  shape.dimensions().end());
-  lazy_tensors::PrimitiveType element_type = shape.element_type();
-  std::vector<lazy_tensors::client::ShapeData> element_shapes;
-  for (const Shape& element_shape : shape.tuple_shapes()) {
-    element_shapes.push_back(GetShapeData(element_shape));
-  }
-  auto minor_to_major = shape.layout().minor_to_major();
-  return lazy_tensors::client::ShapeData(
-      element_type, dimensions, element_shapes,
-      std::vector<int64_t>(minor_to_major.begin(), minor_to_major.end()));
-}
-
 lazy_tensors::ComputationClient* MNMGet() {
   using namespace lazy_tensors;
-  std::call_once(g_computation_client_once,
-                 [&]() { g_computation_client = CreateClient(); });
-  return g_computation_client.load();
+  static auto mnm_computation_client = MNMComputationClient::Create();
+  return mnm_computation_client.get();
 }
 
 lazy_tensors::ComputationClient* MNMGetIfInitialized() {
   using namespace lazy_tensors;
-  return g_computation_client.load();
+  return MNMGet();
 }
 
 }  // namespace torch_mnm

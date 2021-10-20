@@ -4,7 +4,7 @@ set -ex
 
 CDIR="$(cd "$(dirname "$0")" ; pwd -P)"
 XDIR=$CDIR/..
-PTDIR=$XDIR/..
+PTDIR=${PTDIR:=$XDIR/..}
 
 TORCH_PIN="$XDIR/torch_patches/.torch_pin"
 if [ -f "$TORCH_PIN" ]; then
