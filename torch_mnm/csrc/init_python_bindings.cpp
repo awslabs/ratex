@@ -22,10 +22,11 @@ using namespace ir;
 Value MarkParameter(Output out) {
   auto* device_data = ir::ops::DeviceData::Cast(out.node);
   if (device_data) {
-    const auto* data = static_cast<const torch_mnm::MNMComputationClient::MNMData*>(device_data->data().get());
+    const auto* data =
+        static_cast<const torch_mnm::MNMComputationClient::MNMData*>(device_data->data().get());
     NodePtr marked_device_data = std::make_shared<ir::ops::DeviceData>(
-      std::make_shared<torch_mnm::MNMComputationClient::MNMData>(
-        data->device(), data->shape(), data->handle, true));
+        std::make_shared<torch_mnm::MNMComputationClient::MNMData>(data->device(), data->shape(),
+                                                                   data->handle, true));
     return marked_device_data;
   }
   std::vector<Value> new_ops;
@@ -52,50 +53,65 @@ lazy_tensors::ComputationClient::DataPtr GetData(Output out) {
 }
 
 void InitMNMModuleBindings(py::module m) {
-  m.def("_mnm_invoke_relay", [](at::Tensor func, const std::vector<at::Tensor>& tensors) -> std::vector<at::Tensor> {
-    LTC_COUNTER("_mnm_invoke_relay", 1);
-    LTC_CHECK_GT(tensors.size(), 0U);
-    LazyTensor lazy_tensor_func = bridge::GetLtcTensor(func);
-    ir::Value func_value = lazy_tensor_func.GetIrValue();
-    std::vector<LazyTensor> lazy_tensors{lazy_tensor_func};
-    std::vector<ir::Value> input_values{func_value};
-    for (const auto& tensor : tensors) {
-      LazyTensor lt = bridge::GetLtcTensor(tensor);
-      lazy_tensors.push_back(lt);
-      input_values.push_back(lt.GetIrValue());
-    }
-    // func_value should be DeviceData
-    // TODO(@hzfan): use LazyTensor::Create and fix device and dtype
-    // TODO(@hzfan): handle the case where fwd result is a tuple
-    // bwd is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy data type for it.
-    Device dev(DeviceType::CPU, 0);
-    // RelayExpr returns multiple nodes
-    ir::NodePtr ret = ir::MakeNode<ir::ops::RelayExpr>(input_values);
-    if (ret->shape().IsTuple()) {
-      std::vector<at::Tensor> unpacked_ret;
-      unpacked_ret.reserve(ret->shape().tuple_shapes_size());
-      for (int i = 0; i < ret->shape().tuple_shapes_size(); ++i) {
-        const at::ScalarType tuple_type = at::ScalarType::Byte;
-        at::ScalarType scalar_type = ret->shape().tuple_shapes(i).IsTuple() ? tuple_type :
-          TensorTypeFromLtcType(ret->shape().tuple_shapes(i).element_type());
-        unpacked_ret.emplace_back(bridge::AtenFromLtcTensor(LazyTensor::Create(ir::Value(ret, i),
-          dev, scalar_type)));
-      }
-      return unpacked_ret;
-    } else {
-      return {bridge::AtenFromLtcTensor(LazyTensor::Create(ir::Value(ret, 0), dev,
-        TensorTypeFromLtcType(ret->shape().element_type())))};
-    }
-  });
+  m.def("_mnm_invoke_relay",
+        [](at::Tensor func, const std::vector<at::Tensor>& tensors,
+           const std::unordered_map<int, int>& inplace_update_out_2_arg_idxs)
+            -> std::vector<at::Tensor> {
+          LTC_COUNTER("_mnm_invoke_relay", 1);
+          LTC_CHECK_GT(tensors.size(), 0U);
+          LazyTensor lazy_tensor_func = bridge::GetLtcTensor(func);
+          ir::Value func_value = lazy_tensor_func.GetIrValue();
+          std::vector<LazyTensor> lazy_tensors{lazy_tensor_func};
+          std::vector<ir::Value> input_values{func_value};
+          for (const auto& tensor : tensors) {
+            LazyTensor lt = bridge::GetLtcTensor(tensor);
+            lazy_tensors.push_back(lt);
+            input_values.push_back(lt.GetIrValue());
+          }
 
-  m.def("_mnm_to_tensor", [](int64_t handle) ->  at::Tensor {
-    static auto handle_to_value = mnm::registry::GetPackedFunc("mnm.value.HandleToValue"); 
+          // func_value should be DeviceData
+          // TODO(@hzfan): use LazyTensor::Create and fix device and dtype
+          // TODO(@hzfan): handle the case where fwd result is a tuple
+          // bwd is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy
+          // data type for it.
+          Device dev(DeviceType::CPU, 0);
+          // RelayExpr returns multiple nodes
+          ir::NodePtr ret = ir::MakeNode<ir::ops::RelayExpr>(input_values);
+          if (ret->shape().IsTuple()) {
+            std::vector<at::Tensor> unpacked_ret;
+            unpacked_ret.reserve(ret->shape().tuple_shapes_size());
+            for (int i = 0; i < ret->shape().tuple_shapes_size(); ++i) {
+              const at::ScalarType tuple_type = at::ScalarType::Byte;
+              at::ScalarType scalar_type =
+                  ret->shape().tuple_shapes(i).IsTuple()
+                      ? tuple_type
+                      : TensorTypeFromLtcType(ret->shape().tuple_shapes(i).element_type());
+
+              if (inplace_update_out_2_arg_idxs.count(i) > 0) {
+                // lazy_tensors[inplace_update_out_2_arg_idxs.at(i) + 1].SetInPlaceIrValue(
+                //     ir::Value(ret, i));
+              } else {
+                unpacked_ret.emplace_back(bridge::AtenFromLtcTensor(
+                    LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)));
+              }
+            }
+            return unpacked_ret;
+          } else {
+            return {bridge::AtenFromLtcTensor(LazyTensor::Create(
+                ir::Value(ret, 0), dev, TensorTypeFromLtcType(ret->shape().element_type())))};
+          }
+        });
+
+  m.def("_mnm_to_tensor", [](int64_t handle) -> at::Tensor {
+    static auto handle_to_value = mnm::registry::GetPackedFunc("mnm.value.HandleToValue");
     // TODO(@hzfan): assign real data type when handle is TensorValue
     mnm::value::Value val = handle_to_value(handle);
-    lazy_tensors::Shape shape = compiler::mnm_backend::ToLTCShape(tvm::relay::TupleType({mnm::op::GetType(val)}));
+    lazy_tensors::Shape shape =
+        compiler::mnm_backend::ToLTCShape(tvm::relay::TupleType({mnm::op::GetType(val)}));
     LazyTensor ret;
     if (const auto* cvo = val.as<mnm::value::ClosureValueObj>()) {
-      // ret is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy data type for it. 
+      // ret is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy
+      // data type for it.
       LTC_CHECK_EQ(cvo->env.size(), 0U);
       Device dev(DeviceType::CPU, 0);
       ir::Value relay_function = ir::MakeNode<ir::ops::RelayFunction>(cvo->func);
@@ -106,15 +122,17 @@ void InitMNMModuleBindings(py::module m) {
     return bridge::AtenFromLtcTensor(ret);
   });
 
-  m.def("_mnm_mark_parameter", [](at::Tensor tensor) ->  at::Tensor {
+  m.def("_mnm_mark_parameter", [](at::Tensor tensor) -> at::Tensor {
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);
     ir::Value ir_value = lazy_tensor.GetIrValue();
     GetMNMModelState()->AddModelState(lazy_tensor);
     return tensor;
   });
 }
-  
-void InitMNMBindings(py::module m) { InitMNMModuleBindings(m); }
+
+void InitMNMBindings(py::module m) {
+  InitMNMModuleBindings(m);
+}
 
 }  // namespace
 

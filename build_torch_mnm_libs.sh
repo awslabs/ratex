@@ -6,6 +6,10 @@
 #
 #   RAZOR_USE_CUDA
 #     build with CUDA. Default: ON
+#
+#   RAZOR_BUILD_MAX_JOBS
+#     maximum number of jobs to build. Default: all CPU cores.
+
 
 set -ex
 
@@ -30,7 +34,7 @@ mkdir -p build
 cp cmake/config.cmake build/
 cd build
 cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DMNM_USE_CUDA=$USE_CUDA ..
-make -j
+make -j${RAZOR_BUILD_MAX_JOBS}
 popd
 rm -rf torch_mnm/lib
 mkdir -p torch_mnm/lib

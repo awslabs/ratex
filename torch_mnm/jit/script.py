@@ -5,8 +5,11 @@ import torch
 from .. import _TORCHMNMC
 from .._lib import mnm
 from ..value import ValueToHandle
-from mnm._ffi.pass_ import AutoDiff, InferType
+from mnm._ffi.pass_ import AutoDiff, InferType, DeadCodeElimination
 from mnm._core.module import IRModule
+
+InplaceUpdateAnalysis = mnm._lib._APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
+CanonicalizeParamsForRAZOR = mnm._lib._APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
 
 
 def to_torch_name(name):
@@ -59,17 +62,21 @@ class RelayFunction(torch.autograd.Function):
     def forward(ctx, func, *args):
         mod = IRModule.from_expr(func)
         mod = AutoDiff([])(InferType()(mod))
+        mod = DeadCodeElimination()(mod)
+        mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
         func = mod["main"]
+        inplace_update_map = InplaceUpdateAnalysis(mod)
         handle = ValueToHandle(mnm._core.value.ClosureValue({}, func))
         
         func = _TORCHMNMC._mnm_to_tensor(handle)
-        result = _TORCHMNMC._mnm_invoke_relay(func, args)
+        result = _TORCHMNMC._mnm_invoke_relay(func, args,
+                                              {k: v for k, v in inplace_update_map.items()})
         ctx.bwd = result[1]
         return result[0]
 
     @staticmethod
     def backward(ctx, grad_output):
-        ret = _TORCHMNMC._mnm_invoke_relay(ctx.bwd, [grad_output])
+        ret = _TORCHMNMC._mnm_invoke_relay(ctx.bwd, [grad_output], {})
         ret = tuple([None] + ret)
         return ret
 
@@ -101,10 +108,11 @@ def script(module: torch.nn.Module):
         shape_dict = {
             "input0": ((list(args[0].shape), str(args[0].dtype).split(".")[-1]))
         }
-        traced_module = copy.deepcopy(module)
-        model = mnm.frontend.from_pytorch(traced_module, shape_dict)
+        cloned_module = copy.deepcopy(module)
+
+        model = mnm.frontend.from_pytorch(cloned_module, shape_dict)
         record = model._internal(mnm.array(asnumpy(args[0])))
-        positional_args = get_positional_args(record.mod["main"], *args, **dict(module.named_parameters()))
+        positional_args = get_positional_args(record.mod["main"], *args, **module.state_dict())
         return RelayFunction.apply(record.mod["main"], *positional_args)
 
     return f

@@ -86,6 +86,10 @@ void PopulateRn(lazy_tensors::Literal& literal, const DLTensor* dlt) {
     case kDLInt:
       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::int8>(
         reinterpret_cast<const lazy_tensors::int8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 32) return PopulateRn(literal, Span<const lazy_tensors::int32>(
+        reinterpret_cast<const lazy_tensors::int32*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 64) return PopulateRn(literal, Span<const lazy_tensors::int64>(
+        reinterpret_cast<const lazy_tensors::int64*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
       break;
     case kDLUInt:
       if (dtype.bits == 1) return PopulateRn(literal, Span<const bool>(

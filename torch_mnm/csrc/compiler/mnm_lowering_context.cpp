@@ -28,6 +28,7 @@ using mnm::pass::extract_binding::ExtractBinding;
 
 lazy_tensors::StatusOr<lazy_tensors::ProgramShape>
 GenericComputationMNM::GetProgramShape() const {
+  //LOG(INFO) << mnm::ir::AsText(computation_);
   Function func = Downcast<Function>(InferType(computation_));
   FuncType ty = Downcast<FuncType>(func->checked_type());
   std::vector<Shape> parameters;
