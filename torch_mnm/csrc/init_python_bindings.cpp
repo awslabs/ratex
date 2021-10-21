@@ -88,6 +88,7 @@ void InitMNMModuleBindings(py::module m) {
                       : TensorTypeFromLtcType(ret->shape().tuple_shapes(i).element_type());
 
               if (inplace_update_out_2_arg_idxs.count(i) > 0) {
+                // TODO(comaniac): Inplace update.
                 // lazy_tensors[inplace_update_out_2_arg_idxs.at(i) + 1].SetInPlaceIrValue(
                 //     ir::Value(ret, i));
               } else {
