@@ -26,8 +26,8 @@ using namespace mnm::op;
 
 /*!
  * \brief Find the output tuple index that corresponds to the input argument. Note that this pass
- * has to be applied after CanonicalizeParamsForRAZOR as it assumes a specific output tuple
- * structure: (fwd_out, *mutations, bwd_closure).
+ * has to be applied after CanonicalizeParamsForRAZOR; otherwise the forward output tuple may be
+ * in a nested tuple (%fwd_out_tuple, %adjoint_closure), which won't be correctly analyzed.
  */
 class InplaceUpdateAnalyzer {
  public:
@@ -49,12 +49,11 @@ class InplaceUpdateAnalyzer {
     }
 
     auto out_tuple = exprs[n - 1].as<TupleNode>();
-    if (out_tuple == nullptr || out_tuple->fields.size() < 3) {
-      // Expected (fwd_out, *mutations, bwd_closure); otherwise do nothing.
+    if (out_tuple == nullptr) {
       return inplace_var_map_;
     }
 
-    for (size_t i = 1; i < out_tuple->fields.size() - 1; ++i) {
+    for (size_t i = 0; i < out_tuple->fields.size(); ++i) {
       CHECK(out_tuple->fields[i].as<VarNode>())
           << "Expected to return a Var, but got " << out_tuple->fields[i]->GetTypeKey();
       auto var = Downcast<Var>(out_tuple->fields[i]);
