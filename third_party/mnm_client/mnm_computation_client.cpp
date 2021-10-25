@@ -86,12 +86,20 @@ void PopulateRn(lazy_tensors::Literal& literal, const DLTensor* dlt) {
     case kDLInt:
       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::int8>(
         reinterpret_cast<const lazy_tensors::int8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 32) return PopulateRn(literal, Span<const lazy_tensors::int32>(
+        reinterpret_cast<const lazy_tensors::int32*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 64) return PopulateRn(literal, Span<const lazy_tensors::int64>(
+        reinterpret_cast<const lazy_tensors::int64*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
       break;
     case kDLUInt:
       if (dtype.bits == 1) return PopulateRn(literal, Span<const bool>(
         reinterpret_cast<const bool*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::uint8>(
         reinterpret_cast<const lazy_tensors::uint8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 32) return PopulateRn(literal, Span<const lazy_tensors::uint32>(
+        reinterpret_cast<const lazy_tensors::uint32*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
+      if (dtype.bits == 64) return PopulateRn(literal, Span<const lazy_tensors::uint64>(
+        reinterpret_cast<const lazy_tensors::uint64*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
       break;
     case kDLFloat:
       if (dtype.bits == 16) return PopulateRn(literal, Span<const lazy_tensors::half>(
@@ -172,13 +180,16 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
     Function func = Downcast<Function>(computation->computation());
     IRModule ir_module = IRModule::FromExpr(computation->computation());
-    // std::cout << "Compile: " << std::endl;
-    // std::cout << ::mnm::ir::AsText(ir_module) << std::endl;
-    // std::cout << "Alias: " << std::endl;
+
+    // std::stringstream ss;
+    // ss << "Compile: " << std::endl;
+    // ss << ::mnm::ir::AsText(ir_module) << std::endl;
+    // ss << "Alias: " << std::endl;
     // for (const auto& kv : computation->alias()) {
-    //   std::cout << "(" << kv.first << ", " << kv.second << "), ";
+    //   ss << "(" << kv.first << ", " << kv.second << "), ";
     // }
-    // std::cout << std::endl;
+    // LTC_LOG(INFO) << ss.str() << std::endl;
+
     ir_module = mnm::pass::InferType()(ir_module);
     ir_module = mnm::pass::LambdaLift()(ir_module);
     ir_module = mnm::pass::InferType()(ir_module);
