@@ -64,8 +64,8 @@ class RelayFunction(torch.autograd.Function):
         mod = AutoDiff([])(InferType()(mod))
         mod = DeadCodeElimination()(mod)
         mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
-        func = mod["main"]
         inplace_update_map = InplaceUpdateAnalysis(mod)
+        func = mod["main"]
         handle = ValueToHandle(mnm._core.value.ClosureValue({}, func))
         
         func = _TORCHMNMC._mnm_to_tensor(handle)
@@ -112,6 +112,9 @@ def script(module: torch.nn.Module):
 
         model = mnm.frontend.from_pytorch(cloned_module, shape_dict)
         record = model._internal(mnm.array(asnumpy(args[0])))
+        # module.state_dict() includes in-place updated parameters while model.paramters() does not,
+        # so here we use module.state_dict() to include all parameters. See also:
+        # https://discuss.pytorch.org/t/batch-norm-parameters-not-included-in-model-parameters/10265
         positional_args = get_positional_args(record.mod["main"], *args, **module.state_dict())
         return RelayFunction.apply(record.mod["main"], *positional_args)
 

@@ -12,7 +12,6 @@
 #include "mnm/binding.h"
 #include "meta/src/pass/common.h"
 #include "meta/src/pass/let_list.h"
-#include "common.h"
 
 namespace mnm {
 
@@ -25,6 +24,11 @@ namespace analyze_inplace_update {
 using namespace mnm::ir;
 using namespace mnm::op;
 
+/*!
+ * \brief Find the output tuple index that corresponds to the input argument. Note that this pass
+ * has to be applied after CanonicalizeParamsForRAZOR as it assumes a specific output tuple
+ * structure: (fwd_out, *mutations, bwd_closure).
+ */
 class InplaceUpdateAnalyzer {
  public:
   InplaceUpdateAnalyzer() {
@@ -44,22 +48,16 @@ class InplaceUpdateAnalyzer {
       arg_to_idx.Set(func->params[i], i);
     }
 
-    auto fwd_out = FindForwardOutput(vars, exprs);
-    if (!fwd_out.first.defined()) {
-      LOG(WARNING) << "Failed to analyze inplace update outputs due to unsupported IR";
+    auto out_tuple = exprs[n - 1].as<TupleNode>();
+    if (out_tuple == nullptr || out_tuple->fields.size() < 3) {
+      // Expected (fwd_out, *mutations, bwd_closure); otherwise do nothing.
       return inplace_var_map_;
     }
 
-    auto fwd_out_tuple = fwd_out.second.as<TupleNode>();
-    if (fwd_out_tuple == nullptr) {
-      // No inplace update, do nothing.
-      return inplace_var_map_;
-    }
-
-    for (size_t i = 0; i < fwd_out_tuple->fields.size(); ++i) {
-      CHECK(fwd_out_tuple->fields[i].as<VarNode>())
-          << "Expected to return a Var, but got " << fwd_out_tuple->fields[i]->GetTypeKey();
-      auto var = Downcast<Var>(fwd_out_tuple->fields[i]);
+    for (size_t i = 1; i < out_tuple->fields.size() - 1; ++i) {
+      CHECK(out_tuple->fields[i].as<VarNode>())
+          << "Expected to return a Var, but got " << out_tuple->fields[i]->GetTypeKey();
+      auto var = Downcast<Var>(out_tuple->fields[i]);
       const auto* extended_var = static_cast<const ExtendedVarNode*>(var.operator->());
       if (extended_var && extended_var->may_share.defined()) {
         auto arg_var = extended_var->may_share;

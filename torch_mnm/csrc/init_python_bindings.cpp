@@ -79,7 +79,6 @@ void InitMNMModuleBindings(py::module m) {
           ir::NodePtr ret = ir::MakeNode<ir::ops::RelayExpr>(input_values);
           if (ret->shape().IsTuple()) {
             std::vector<at::Tensor> unpacked_ret;
-            unpacked_ret.reserve(ret->shape().tuple_shapes_size());
             for (int i = 0; i < ret->shape().tuple_shapes_size(); ++i) {
               const at::ScalarType tuple_type = at::ScalarType::Byte;
               at::ScalarType scalar_type =
@@ -88,9 +87,9 @@ void InitMNMModuleBindings(py::module m) {
                       : TensorTypeFromLtcType(ret->shape().tuple_shapes(i).element_type());
 
               if (inplace_update_out_2_arg_idxs.count(i) > 0) {
-                // TODO(comaniac): Inplace update.
-                // lazy_tensors[inplace_update_out_2_arg_idxs.at(i) + 1].SetInPlaceIrValue(
-                //     ir::Value(ret, i));
+                // The output inplace updates an input, so we mark it accordingly without returning.
+                LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)
+                    .ShallowCopyTo(&lazy_tensors[inplace_update_out_2_arg_idxs.at(i)]);
               } else {
                 unpacked_ret.emplace_back(bridge::AtenFromLtcTensor(
                     LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)));
