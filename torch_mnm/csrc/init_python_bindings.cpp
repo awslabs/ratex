@@ -19,39 +19,6 @@ namespace {
 
 using namespace ir;
 
-Value MarkParameter(Output out) {
-  auto* device_data = ir::ops::DeviceData::Cast(out.node);
-  if (device_data) {
-    const auto* data =
-        static_cast<const torch_mnm::MNMComputationClient::MNMData*>(device_data->data().get());
-    NodePtr marked_device_data = std::make_shared<ir::ops::DeviceData>(
-        std::make_shared<torch_mnm::MNMComputationClient::MNMData>(data->device(), data->shape(),
-                                                                   data->handle, true));
-    return marked_device_data;
-  }
-  std::vector<Value> new_ops;
-  for (size_t i = 0; i < out.node->operands().size(); ++i) {
-    Value new_op = MarkParameter(out.node->operands()[i]);
-    new_ops.push_back(new_op);
-  }
-  NodePtr new_node = out.node->Clone(new_ops);
-  return Value(new_node, out.index);
-}
-
-lazy_tensors::ComputationClient::DataPtr GetData(Output out) {
-  auto* device_data = ir::ops::DeviceData::Cast(out.node);
-  if (device_data) {
-    return device_data->data();
-  }
-  for (size_t i = 0; i < out.node->operands().size(); ++i) {
-    auto data = GetData(out.node->operand(i));
-    if (data) {
-      return data;
-    }
-  }
-  return nullptr;
-}
-
 void InitMNMModuleBindings(py::module m) {
   m.def("_mnm_invoke_relay",
         [](at::Tensor func, const std::vector<at::Tensor>& tensors,
