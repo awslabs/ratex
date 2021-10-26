@@ -8,8 +8,9 @@ from ..value import ValueToHandle
 from mnm._ffi.pass_ import AutoDiff, InferType, DeadCodeElimination
 from mnm._core.module import IRModule
 
-InplaceUpdateAnalysis = mnm._lib._APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
-CanonicalizeParamsForRAZOR = mnm._lib._APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
+_APIS = mnm._lib._get_apis()
+InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
+CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
 
 
 def to_torch_name(name):

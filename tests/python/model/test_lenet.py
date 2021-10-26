@@ -90,6 +90,8 @@ def train(device, model, dataset, optimizer=optim.SGD, num_epochs=10):
 def verify(model, dataset, **kwargs):
     xla_results = train("xla", model, dataset)
     cpu_results = train("cpu", model, dataset)
+    # the test does not pass due to accuracy
+    # TODO(@hzfan): use a large tolerance
     print("xla_results = ", xla_results)
     print("cpu_results = ", cpu_results)
     results = [torch.testing.assert_close(xla, cpu) for xla, cpu in zip(xla_results, cpu_results)]
