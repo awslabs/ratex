@@ -64,8 +64,6 @@ def train(device, model, dataset, optimizer=optim.SGD, num_epochs=10):
     if device == "xla":
         model = torch_mnm.jit.script(model)
     for epoch in range(num_epochs):
-        # print('-' * 10)
-        # print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         running_loss = 0.0
         for inputs, labels in dataloader:
             inputs = inputs.to(device)
@@ -88,8 +86,8 @@ def train(device, model, dataset, optimizer=optim.SGD, num_epochs=10):
 
 
 def verify(model, dataset, **kwargs):
-    xla_results = train("xla", model, dataset)
-    cpu_results = train("cpu", model, dataset)
+    xla_results = train("xla", model, dataset, **kwargs)
+    cpu_results = train("cpu", model, dataset, **kwargs)
     # the test does not pass due to accuracy
     # TODO(@hzfan): use a large tolerance
     print("xla_results = ", xla_results)
