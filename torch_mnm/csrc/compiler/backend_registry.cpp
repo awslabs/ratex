@@ -23,7 +23,8 @@ BackendImplInterface* BackendImplRegistry::GetBackendImpl() {
   return backend_impl;
 }
 
-BackendImplRegistry* BackendImplRegistry::AddBackendImpl(BackendImplInterface* backend_impl, int priority) {
+BackendImplRegistry* BackendImplRegistry::AddBackendImpl(BackendImplInterface* backend_impl,
+                                                         int priority) {
   if (backend_impls_.find(backend_impl) != backend_impls_.end()) {
     LTC_LOG(FATAL) << "BackendImpl already exists!";
   }
@@ -31,7 +32,9 @@ BackendImplRegistry* BackendImplRegistry::AddBackendImpl(BackendImplInterface* b
   return this;
 }
 
-BackendImplRegistry* GetBackendImplRegistry() { return BackendImplRegistry::Get(); }
+BackendImplRegistry* GetBackendImplRegistry() {
+  return BackendImplRegistry::Get();
+}
 
 }  // namespace compiler
 }  // namespace torch_lazy_tensors

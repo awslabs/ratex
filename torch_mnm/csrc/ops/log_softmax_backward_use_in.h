@@ -5,21 +5,22 @@
 #include "lazy_tensor_core/csrc/ir.h"
 #include "lazy_tensors/types.h"
 
-
 namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
 class LogSoftmaxBackwardUseIn : public Node {
  public:
-  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output,
-                          lazy_tensors::int64 dim, const Value& self);
+  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output, lazy_tensors::int64 dim,
+                          const Value& self);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 dim() const { return dim_; }
+  lazy_tensors::int64 dim() const {
+    return dim_;
+  }
 
  private:
   // The dimension along which the result is computed.

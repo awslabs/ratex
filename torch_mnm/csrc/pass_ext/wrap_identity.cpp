@@ -33,7 +33,8 @@ using namespace mnm::op;
 
 class IdentityWrapper : ExprMutator {
  public:
-  IdentityWrapper() { }
+  IdentityWrapper() {
+  }
 
   Expr VisitExpr_(const VarNode* node) {
     const static Op copy = Op::Get("mnm.op.copy");
@@ -44,7 +45,7 @@ class IdentityWrapper : ExprMutator {
     return ExprMutator::VisitExpr_(node);
   }
 
-  Expr operator() (const Expr& e) {
+  Expr operator()(const Expr& e) {
     auto func = Downcast<Function>(e);
     if (!func->body.as<LetNode>()) {
       // Function is not in ANF

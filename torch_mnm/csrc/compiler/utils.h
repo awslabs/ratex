@@ -12,7 +12,7 @@
 namespace mnm {
 namespace pass {
 namespace extract_binding {
-  
+
 ir::Expr ExtractBinding(const ir::Var& var, const ir::Array<ir::Var>& ignore);
 
 }  // namespace extract_binding
@@ -92,26 +92,33 @@ inline Shape ToLTCShape(const Type& type) {
 
 inline DType ToMNMDType(const PrimitiveType type) {
   switch (type) {
-    case PrimitiveType::S8: return DType(DTypeCode::kInt(), 8);
-    case PrimitiveType::S64: return DType(DTypeCode::kInt(), 64);
-    case PrimitiveType::PRED: return DType(DTypeCode::kUInt(), 1);
-    case PrimitiveType::U8: return DType(DTypeCode::kUInt(), 8);
-    case PrimitiveType::F16: return DType(DTypeCode::kFloat(), 16);
-    case PrimitiveType::F32: return DType(DTypeCode::kFloat(), 32);
-    case PrimitiveType::F64: return DType(DTypeCode::kFloat(), 64);
+    case PrimitiveType::S8:
+      return DType(DTypeCode::kInt(), 8);
+    case PrimitiveType::S64:
+      return DType(DTypeCode::kInt(), 64);
+    case PrimitiveType::PRED:
+      return DType(DTypeCode::kUInt(), 1);
+    case PrimitiveType::U8:
+      return DType(DTypeCode::kUInt(), 8);
+    case PrimitiveType::F16:
+      return DType(DTypeCode::kFloat(), 16);
+    case PrimitiveType::F32:
+      return DType(DTypeCode::kFloat(), 32);
+    case PrimitiveType::F64:
+      return DType(DTypeCode::kFloat(), 64);
   }
   LTC_LOG(FATAL) << "Not implemented yet.";
 }
 
-inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(const lazy_tensors::client::ShapeData& shape) {
+inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(
+    const lazy_tensors::client::ShapeData& shape) {
   return std::make_tuple(shape.dimensions(), ToMNMDType(shape.element_type()));
 }
 
 inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(const Shape& shape) {
   lazy_tensors::Span<const int64> dimension = shape.dimensions();
-  return std::make_tuple(
-    std::vector<int64_t>(dimension.begin(), dimension.end()),
-    ToMNMDType(shape.element_type()));
+  return std::make_tuple(std::vector<int64_t>(dimension.begin(), dimension.end()),
+                         ToMNMDType(shape.element_type()));
 }
 
 inline Type ToMNMType(const Shape& shape) {
@@ -137,9 +144,11 @@ inline std::tuple<Var, Var> PromoteDType(const Var& op0, const Var& op1) {
   LTC_CHECK_EQ(tty0->dtype.lanes(), tty1->dtype.lanes());
   if (tty0->dtype.code() != tty1->dtype.code()) {
     if (tty0->dtype.is_float() && tty1->dtype.is_int()) {
-      return std::make_tuple(op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op1, op0})));
+      return std::make_tuple(op0,
+                             BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op1, op0})));
     } else if (tty1->dtype.is_float() && tty0->dtype.is_int()) {
-      return std::make_tuple(BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op0, op1})), op1);
+      return std::make_tuple(BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op0, op1})),
+                             op1);
     }
     LTC_LOG(FATAL) << "Not implemented yet.";
   }

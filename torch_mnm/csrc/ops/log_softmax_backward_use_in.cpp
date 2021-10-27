@@ -15,14 +15,12 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-LogSoftmaxBackwardUseIn::LogSoftmaxBackwardUseIn(const Value& grad_output,
-                                                 const Value& output,
-                                                 lazy_tensors::int64 dim,
-                                                 const Value& self)
-    : Node(mnm_log_softmax_backward_use_in,
-           {grad_output, output, self}, grad_output.shape(),
+LogSoftmaxBackwardUseIn::LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output,
+                                                 lazy_tensors::int64 dim, const Value& self)
+    : Node(mnm_log_softmax_backward_use_in, {grad_output, output, self}, grad_output.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
-      dim_(dim) {}
+      dim_(dim) {
+}
 
 NodePtr LogSoftmaxBackwardUseIn::Clone(OpList operands) const {
   return MakeNode<LogSoftmaxBackwardUseIn>(operands.at(0), operands.at(1), dim_, operands.at(2));

@@ -14,8 +14,7 @@ class MNMBackendImpl : public BaseBackendImpl {
     return torch_mnm::MNMGet();
   }
 
-  lazy_tensors::ComputationClient* GetComputationClientIfInitialized()
-      const override {
+  lazy_tensors::ComputationClient* GetComputationClientIfInitialized() const override {
     // TODO: confirm extended MNM ComputationClient shall be in
     // pytorch-ltc/xla/lazy_xla/csrc/compiler/nnc_computation_client.h
     // or pytorch-ltc/xla/third_party/xla_client/computation_client.cc
@@ -24,9 +23,8 @@ class MNMBackendImpl : public BaseBackendImpl {
   }
 };
 
-BackendImplRegistry* mnm_backend_impl_registry = GetBackendImplRegistry()->AddBackendImpl(
-  new MNMBackendImpl(), 10
-);
+BackendImplRegistry* mnm_backend_impl_registry =
+    GetBackendImplRegistry()->AddBackendImpl(new MNMBackendImpl(), 10);
 
 BackendRegistrar g_registrar(GetBackendImplRegistry()->GetBackendImpl());
 

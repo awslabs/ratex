@@ -35,8 +35,8 @@ lazy_tensors::Shape GetShape(const Expr& func) {
 }
 
 RelayFunction::RelayFunction(const Expr& func)
-    : Node(mnm_relay_function, GetShape(func), /*num_outputs=*/1, /*hash_seed=*/202),
-    func_(func) { }
+    : Node(mnm_relay_function, GetShape(func), /*num_outputs=*/1, /*hash_seed=*/202), func_(func) {
+}
 
 NodePtr RelayFunction::Clone(OpList operands) const {
   return MakeNode<RelayFunction>(func_);

@@ -8,10 +8,11 @@
 namespace torch_lazy_tensors {
 namespace aten_autograd_ops {
 
-torch::Tensor MaxPool2dAutogradFunction::forward(
-    torch::autograd::AutogradContext* ctx, torch::Tensor self,
-    torch::IntArrayRef kernel_size, torch::IntArrayRef stride,
-    torch::IntArrayRef padding, torch::IntArrayRef dilation, bool ceil_mode) {
+torch::Tensor MaxPool2dAutogradFunction::forward(torch::autograd::AutogradContext* ctx,
+                                                 torch::Tensor self, torch::IntArrayRef kernel_size,
+                                                 torch::IntArrayRef stride,
+                                                 torch::IntArrayRef padding,
+                                                 torch::IntArrayRef dilation, bool ceil_mode) {
   ctx->saved_data["kernel_size"] = kernel_size;
   ctx->saved_data["stride"] = stride;
   ctx->saved_data["padding"] = padding;
@@ -19,22 +20,20 @@ torch::Tensor MaxPool2dAutogradFunction::forward(
   ctx->saved_data["ceil_mode"] = ceil_mode;
   // Lowering when ceil_mode or dilation is set not supported yet.
   if (IsNonTrivialDilation(dilation)) {
-    auto results = AtenMNMTypeDefault::max_pool2d_with_indices(
-        self, kernel_size, stride, padding, dilation, ceil_mode);
+    auto results = AtenMNMTypeDefault::max_pool2d_with_indices(self, kernel_size, stride, padding,
+                                                               dilation, ceil_mode);
     ctx->save_for_backward({self, std::get<1>(results)});
     return std::get<0>(results);
   }
   ctx->save_for_backward({self});
-  auto outputs = LazyTensor::max_pool_nd(
-      bridge::GetLtcTensor(self), /*spatial_dim_count=*/2,
-      Helpers::I64List(kernel_size), Helpers::I64List(stride),
-      Helpers::I64List(padding), ceil_mode);
+  auto outputs = LazyTensor::max_pool_nd(bridge::GetLtcTensor(self), /*spatial_dim_count=*/2,
+                                         Helpers::I64List(kernel_size), Helpers::I64List(stride),
+                                         Helpers::I64List(padding), ceil_mode);
   return bridge::AtenFromLtcTensor(std::get<0>(outputs));
 }
 
 torch::autograd::variable_list MaxPool2dAutogradFunction::backward(
-    torch::autograd::AutogradContext* ctx,
-    torch::autograd::variable_list grad_output) {
+    torch::autograd::AutogradContext* ctx, torch::autograd::variable_list grad_output) {
   auto kernel_size = ctx->saved_data["kernel_size"].toIntList().vec();
   auto stride = ctx->saved_data["stride"].toIntList().vec();
   auto padding = ctx->saved_data["padding"].toIntList().vec();
@@ -47,24 +46,23 @@ torch::autograd::variable_list MaxPool2dAutogradFunction::backward(
   if (IsNonTrivialDilation(dilation)) {
     auto indices = saved[1];
     grad = AtenMNMTypeDefault::max_pool2d_with_indices_backward(
-        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode,
-        indices);
+        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode, indices);
   }
   grad = bridge::AtenFromLtcTensor(LazyTensor::max_pool_nd_backward(
       bridge::GetLtcTensor(grad_output[0]), bridge::GetLtcTensor(self),
-      /*spatial_dim_count=*/2, Helpers::I64List(kernel_size),
-      Helpers::I64List(stride), Helpers::I64List(padding), ceil_mode));
+      /*spatial_dim_count=*/2, Helpers::I64List(kernel_size), Helpers::I64List(stride),
+      Helpers::I64List(padding), ceil_mode));
 
   torch::Tensor undef;
-  torch::autograd::variable_list grad_inputs = {grad,  undef, undef,
-                                                undef, undef, undef};
+  torch::autograd::variable_list grad_inputs = {grad, undef, undef, undef, undef, undef};
   return grad_inputs;
 }
 
-torch::Tensor MaxPool3dAutogradFunction::forward(
-    torch::autograd::AutogradContext* ctx, torch::Tensor self,
-    torch::IntArrayRef kernel_size, torch::IntArrayRef stride,
-    torch::IntArrayRef padding, torch::IntArrayRef dilation, bool ceil_mode) {
+torch::Tensor MaxPool3dAutogradFunction::forward(torch::autograd::AutogradContext* ctx,
+                                                 torch::Tensor self, torch::IntArrayRef kernel_size,
+                                                 torch::IntArrayRef stride,
+                                                 torch::IntArrayRef padding,
+                                                 torch::IntArrayRef dilation, bool ceil_mode) {
   ctx->saved_data["kernel_size"] = kernel_size;
   ctx->saved_data["stride"] = stride;
   ctx->saved_data["padding"] = padding;
@@ -72,22 +70,20 @@ torch::Tensor MaxPool3dAutogradFunction::forward(
   ctx->saved_data["ceil_mode"] = ceil_mode;
   // Lowering when ceil_mode or dilation is set not supported yet.
   if (IsNonTrivialDilation(dilation)) {
-    auto results = AtenMNMTypeDefault::max_pool3d_with_indices(
-        self, kernel_size, stride, padding, dilation, ceil_mode);
+    auto results = AtenMNMTypeDefault::max_pool3d_with_indices(self, kernel_size, stride, padding,
+                                                               dilation, ceil_mode);
     ctx->save_for_backward({self, std::get<1>(results)});
     return std::get<0>(results);
   }
   ctx->save_for_backward({self});
-  auto outputs = LazyTensor::max_pool_nd(
-      bridge::GetLtcTensor(self), /*spatial_dim_count=*/3,
-      Helpers::I64List(kernel_size), Helpers::I64List(stride),
-      Helpers::I64List(padding), ceil_mode);
+  auto outputs = LazyTensor::max_pool_nd(bridge::GetLtcTensor(self), /*spatial_dim_count=*/3,
+                                         Helpers::I64List(kernel_size), Helpers::I64List(stride),
+                                         Helpers::I64List(padding), ceil_mode);
   return bridge::AtenFromLtcTensor(std::get<0>(outputs));
 }
 
 torch::autograd::variable_list MaxPool3dAutogradFunction::backward(
-    torch::autograd::AutogradContext* ctx,
-    torch::autograd::variable_list grad_output) {
+    torch::autograd::AutogradContext* ctx, torch::autograd::variable_list grad_output) {
   auto kernel_size = ctx->saved_data["kernel_size"].toIntList().vec();
   auto stride = ctx->saved_data["stride"].toIntList().vec();
   auto padding = ctx->saved_data["padding"].toIntList().vec();
@@ -100,17 +96,15 @@ torch::autograd::variable_list MaxPool3dAutogradFunction::backward(
   if (IsNonTrivialDilation(dilation)) {
     auto indices = saved[1];
     grad = AtenMNMTypeDefault::max_pool3d_with_indices_backward(
-        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode,
-        indices);
+        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode, indices);
   }
   grad = bridge::AtenFromLtcTensor(LazyTensor::max_pool_nd_backward(
       bridge::GetLtcTensor(grad_output[0]), bridge::GetLtcTensor(self),
-      /*spatial_dim_count=*/3, Helpers::I64List(kernel_size),
-      Helpers::I64List(stride), Helpers::I64List(padding), ceil_mode));
+      /*spatial_dim_count=*/3, Helpers::I64List(kernel_size), Helpers::I64List(stride),
+      Helpers::I64List(padding), ceil_mode));
 
   torch::Tensor undef;
-  torch::autograd::variable_list grad_inputs = {grad,  undef, undef,
-                                                undef, undef, undef};
+  torch::autograd::variable_list grad_inputs = {grad, undef, undef, undef, undef, undef};
   return grad_inputs;
 }
 

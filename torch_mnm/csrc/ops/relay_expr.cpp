@@ -34,8 +34,7 @@ lazy_tensors::int64 GetNumOutputs(const std::vector<Value>& inputs) {
 
 RelayExpr::RelayExpr(const std::vector<Value>& inputs)
     : Node(mnm_relay_expr, inputs, /*num_outputs=*/GetNumOutputs(inputs), 0) {
-  SetShapeDeferred(
-      [&]() { return InferRelayExpr(inputs); });
+  SetShapeDeferred([&]() { return InferRelayExpr(inputs); });
 }
 
 // NodePtr RelayExpr::Clone(OpList operands) const {

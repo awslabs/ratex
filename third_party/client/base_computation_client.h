@@ -19,17 +19,19 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
  public:
   struct BaseData : public Data {
     BaseData(std::string device, Shape shape, bool is_param = false)
-        : Data(std::move(device), GetShapeData(std::move(shape))), is_param(is_param) { }
+        : Data(std::move(device), GetShapeData(std::move(shape))), is_param(is_param) {
+    }
 
     /*! \brief Whether it is a Parameter or not */
     bool is_param{false};
   };
 
   struct BaseComputation : public Computation {
-    BaseComputation(std::shared_ptr<GenericComputation> computation,
-                   ProgramShape program_shape, std::vector<std::string> devices,
-                   const std::unordered_map<int64_t, int64_t>& alias = {})
-        : Computation(computation, program_shape, devices), alias(alias) {}
+    BaseComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
+                    std::vector<std::string> devices,
+                    const std::unordered_map<int64_t, int64_t>& alias = {})
+        : Computation(computation, program_shape, devices), alias(alias) {
+    }
 
     std::unordered_map<int64_t, int64_t> alias;
   };
@@ -43,8 +45,8 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
   };
 
   struct Worker {
-    Worker(std::string name, int task_no)
-        : name(std::move(name)), task_no(task_no) {}
+    Worker(std::string name, int task_no) : name(std::move(name)), task_no(task_no) {
+    }
 
     bool operator<(const Worker& rhs) const {
       if (task_no != rhs.task_no) {
@@ -77,11 +79,11 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
     // std::map<Worker, std::string> workers_map;
   };
 
-  BaseComputationClient(Options options): options_(options) { }
+  BaseComputationClient(Options options) : options_(options) {
+  }
 
   std::vector<std::vector<DataPtr>> ExecuteReplicated(
-      const Computation& computation,
-      const std::vector<std::vector<DataPtr>>& arguments,
+      const Computation& computation, const std::vector<std::vector<DataPtr>>& arguments,
       lazy_tensors::Span<const std::string> devices,
       const ExecuteReplicatedOptions& options) override {
     LTC_LOG(FATAL) << "Not implemented yet.";
@@ -95,9 +97,8 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
     LTC_LOG(FATAL) << "Not implemented yet.";
   }
 
-  std::vector<DataPtr> ExecuteChained(
-      lazy_tensors::Span<const ExecuteChainedOp> ops,
-      const std::string& device) override {
+  std::vector<DataPtr> ExecuteChained(lazy_tensors::Span<const ExecuteChainedOp> ops,
+                                      const std::string& device) override {
     LTC_LOG(FATAL) << "Not implemented yet.";
   }
 
@@ -110,14 +111,15 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
   std::string GetDefaultDevice() const override;
 
-  size_t GetNumDevices() const override { return 1; }
+  size_t GetNumDevices() const override {
+    return 1;
+  }
 
   std::vector<std::string> GetLocalDevices() const override;
 
   std::vector<std::string> GetAllDevices() const override;
 
-  void SetReplicationDevices(
-      std::shared_ptr<std::vector<std::string>> devices) override;
+  void SetReplicationDevices(std::shared_ptr<std::vector<std::string>> devices) override;
 
   std::shared_ptr<std::vector<std::string>> GetReplicationDevices() override;
 

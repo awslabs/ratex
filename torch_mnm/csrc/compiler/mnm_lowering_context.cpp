@@ -26,8 +26,7 @@ using namespace mnm::pass;
 using namespace mnm::binding;
 using mnm::pass::extract_binding::ExtractBinding;
 
-lazy_tensors::StatusOr<lazy_tensors::ProgramShape>
-GenericComputationMNM::GetProgramShape() const {
+lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GenericComputationMNM::GetProgramShape() const {
   Function func = Downcast<Function>(InferType(computation_));
   FuncType ty = Downcast<FuncType>(func->checked_type());
   std::vector<Shape> parameters;
@@ -67,7 +66,7 @@ MNMLoweringContext::Build() {
   Array<Var> free_vars = FreeVars(func);
   LTC_CHECK(free_vars.size() == 0U);
   return std::shared_ptr<lazy_tensors::GenericComputation>(
-    new GenericComputationMNM(func, model_states_, alias_));
+      new GenericComputationMNM(func, model_states_, alias_));
 }
 
 std::vector<Var> MNMLoweringContext::GetParams() const {
@@ -78,7 +77,6 @@ std::vector<Var> MNMLoweringContext::GetParams() const {
   }
   return params;
 }
-
 
 void MNMLoweringContext::LowerNodeToResult(const ir::Node* node) {
   AddResult(LowerNode(node));
@@ -95,8 +93,7 @@ Var MNMLoweringContext::GetOutputOp(const ir::Output& output) {
     // At this point the outpout better be present, otherwise there is an issue
     // with the lowering code.
     it = emitted_outputs_.find(output);
-    LTC_CHECK(it != emitted_outputs_.end())
-        << "No MNM operation emitted for output: " << output;
+    LTC_CHECK(it != emitted_outputs_.end()) << "No MNM operation emitted for output: " << output;
   }
   return it->second;
 }
@@ -123,8 +120,7 @@ void MNMLoweringContext::AssignOutputOp(const ir::Output& output, const mnm::ir:
   emitted_outputs_[output] = op;
 }
 
-Var MNMLoweringContext::GetParameter(
-    const std::shared_ptr<lazy_tensors::client::Data>& data) {
+Var MNMLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client::Data>& data) {
   lazy_tensors::client::Data::OpaqueHandle handle = data->GetOpaqueHandle();
   auto it = parameters_map_.find(handle);
   if (it == parameters_map_.end()) {
@@ -148,8 +144,8 @@ Var MNMLoweringContext::GetParameter(
 }
 
 void MNMLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
-                  lazy_tensors::int64 param_number,
-                  const lazy_tensors::ShapeIndex& param_index) {
+                                    lazy_tensors::int64 param_number,
+                                    const lazy_tensors::ShapeIndex& param_index) {
   // std::cout << "SetUpAlias" << std::endl;
   // std::cout << "output_index = " << std::endl;
   // for (size_t i = 0; i < output_index.size(); ++i) {
@@ -174,17 +170,14 @@ void MNMLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index
 namespace ir {
 
 std::unique_ptr<LoweringContext> LoweringContext::Create(
-    const std::string& name, Device device,
-    lazy_tensors::Span<const Node* const> post_order,
+    const std::string& name, Device device, lazy_tensors::Span<const Node* const> post_order,
     Util::EmissionMap emit_status) {
-  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(
-      name, device, post_order, emit_status);
+  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(name, device, post_order,
+                                                                     emit_status);
 }
 
-std::unique_ptr<LoweringContext> LoweringContext::Create(
-    const std::string& name, Device device) {
-  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(name,
-                                                                     device);
+std::unique_ptr<LoweringContext> LoweringContext::Create(const std::string& name, Device device) {
+  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(name, device);
 }
 
 }  // namespace ir

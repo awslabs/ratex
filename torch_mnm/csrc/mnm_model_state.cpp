@@ -15,6 +15,8 @@ void MNMModelState::AddModelState(const LazyTensor& tensor) {
   model_state_.insert(tensor.GetUniqueId());
 }
 
-MNMModelState* GetMNMModelState() { return MNMModelState::Get(); }
+MNMModelState* GetMNMModelState() {
+  return MNMModelState::Get();
+}
 
 }  // namespace torch_lazy_tensors

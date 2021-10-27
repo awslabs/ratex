@@ -141,19 +141,19 @@ using namespace mnm::ir;
 using namespace mnm::value;
 using namespace mnm::binding;
 using namespace mnm::pass;
-using mnm::pass::extract_binding::ExtractBinding;
-using mnm::op::regs::schema2value::TupleInt;
-using mnm::op::regs::schema2value::Int;
 using mnm::op::regs::schema2value::Bool;
+using mnm::op::regs::schema2value::Int;
 using mnm::op::regs::schema2value::String;
+using mnm::op::regs::schema2value::TupleInt;
+using mnm::pass::extract_binding::ExtractBinding;
 
 #define DECLARE_OP(name) Var Lower##name(const ir::Node* node)
-#define DECLARE_OP2(name) \
-  Var Lower##name(const ir::ops::name* node)
+#define DECLARE_OP2(name) Var Lower##name(const ir::ops::name* node)
 
 class MNMNodeLowering : public NodeLowering {
  public:
-  MNMNodeLowering(ir::LoweringContext* loctx) : NodeLowering(loctx) {}
+  MNMNodeLowering(ir::LoweringContext* loctx) : NodeLowering(loctx) {
+  }
 
   bool Lower(const ir::Node* node) override;
 
@@ -265,8 +265,7 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
     HANDLE_GENERIC_OP(Gt, at::aten::gt)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
-    HANDLE_GENERIC_OP2(MaxPoolNdBackward,
-                       at::aten::max_pool2d_with_indices_backward)
+    HANDLE_GENERIC_OP2(MaxPoolNdBackward, at::aten::max_pool2d_with_indices_backward)
     HANDLE_GENERIC_OP(Mm, at::aten::mm)
     HANDLE_GENERIC_OP2(NllLoss, at::aten::nll_loss)
     HANDLE_GENERIC_OP2(NllLossBackward, at::aten::nll_loss_backward)
@@ -275,8 +274,7 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
     HANDLE_GENERIC_OP2(ThresholdBackward, at::aten::threshold_backward)
     HANDLE_GENERIC_OP2(MaxPoolNd, at::aten::max_pool2d)
     HANDLE_GENERIC_OP2(LogSoftmax, at::aten::log_softmax)
-    HANDLE_GENERIC_OP2(ConvolutionOverrideable,
-                       at::aten::convolution_overrideable)
+    HANDLE_GENERIC_OP2(ConvolutionOverrideable, at::aten::convolution_overrideable)
     HANDLE_GENERIC_OP2(View, at::aten::view)
     HANDLE_GENERIC_OP2(AsStrided, at::aten::as_strided)
     HANDLE_GENERIC_OP2(Sum, at::aten::sum)
@@ -296,32 +294,26 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
         return LowerCast(ir::NodeCast<ir::ops::Cast>(node, *ir::ops::ltc_cast));
       }
       if (node->op() == *ir::ops::ltc_device_data) {
-        return LowerDeviceData(
-            ir::NodeCast<ir::ops::DeviceData>(node, *ir::ops::ltc_device_data));
+        return LowerDeviceData(ir::NodeCast<ir::ops::DeviceData>(node, *ir::ops::ltc_device_data));
       }
       if (node->op() == *ir::ops::ltc_generic_slice) {
-        return LowerGenericSlice(ir::NodeCast<ir::ops::GenericSlice>(
-            node, *ir::ops::ltc_generic_slice));
+        return LowerGenericSlice(
+            ir::NodeCast<ir::ops::GenericSlice>(node, *ir::ops::ltc_generic_slice));
       }
       if (node->op() == *ir::ops::ltc_as_strided_view_update) {
         return LowerAsStridedViewUpdate(
-            ir::NodeCast<ir::ops::AsStridedViewUpdate>(
-                node, *ir::ops::ltc_as_strided_view_update));
+            ir::NodeCast<ir::ops::AsStridedViewUpdate>(node, *ir::ops::ltc_as_strided_view_update));
       }
       if (node->op() == *ir::ops::mnm_relay_expr) {
-        return LowerRelayExpr(
-            ir::NodeCast<ir::ops::RelayExpr>(
-                node, *ir::ops::mnm_relay_expr));
+        return LowerRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::mnm_relay_expr));
       }
       if (node->op() == *ir::ops::mnm_relay_function) {
         return LowerRelayFunction(
-            ir::NodeCast<ir::ops::RelayFunction>(
-                node, *ir::ops::mnm_relay_function));
+            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::mnm_relay_function));
       }
       if (node->op() == *ir::ops::mnm_log_softmax_backward_use_in) {
-        return LowerLogSoftmaxBackwardUseIn(
-            ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
-                node, *ir::ops::mnm_log_softmax_backward_use_in));
+        return LowerLogSoftmaxBackwardUseIn(ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
+            node, *ir::ops::mnm_log_softmax_backward_use_in));
       }
     }
   }
@@ -335,15 +327,19 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
 std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, const ir::Output& b) {
   using tvm::runtime::DLDataType2String;
   Var op0 = loctx()->GetOutputOp(a), op1 = loctx()->GetOutputOp(b);
-  DType dtype_a = ToMNMDType(a.shape().element_type()), dtype_b = ToMNMDType(b.shape().element_type());
+  DType dtype_a = ToMNMDType(a.shape().element_type()),
+        dtype_b = ToMNMDType(b.shape().element_type());
   LTC_CHECK_EQ(dtype_a.code, dtype_b.code);
   LTC_CHECK_EQ(dtype_a.lanes, dtype_b.lanes);
   if (dtype_a.bits < dtype_b.bits) {
-    return std::make_tuple(BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"), {op0,
-    MakeConstant(String(DLDataType2String(dtype_b)))})), op1);
+    return std::make_tuple(
+        BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
+                                 {op0, MakeConstant(String(DLDataType2String(dtype_b)))})),
+        op1);
   } else if (dtype_a.bits > dtype_b.bits) {
-    return std::make_tuple(op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"), {op1,
-    MakeConstant(String(DLDataType2String(dtype_a)))})));
+    return std::make_tuple(
+        op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
+                                      {op1, MakeConstant(String(DLDataType2String(dtype_a)))})));
   } else {
     return std::make_tuple(op0, op1);
   }
@@ -436,14 +432,14 @@ Var MNMNodeLowering::LowerMaxPoolNd(const ir::ops::MaxPoolNd* node) {
   Expr ceil_mode = MakeConstant(Bool(node->ceil_mode()));
   Expr include_pad = MakeConstant(Bool(true));
   Expr layout = MakeConstant(String("NCHW"));
-  Var result = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.max_pool2d"),
-    {input, kernel, stride, padding, dilation, ceil_mode, include_pad, layout}));
+  Var result = BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.max_pool2d"),
+                    {input, kernel, stride, padding, dilation, ceil_mode, include_pad, layout}));
   Var ret = BindSymbol(mnm::ir::Tuple(Array<Expr>({result, mnm::ir::Tuple(Array<Expr>({}))})));
   return ret;
 }
 
-Var MNMNodeLowering::LowerMaxPoolNdBackward(
-    const ir::ops::MaxPoolNdBackward* node) {
+Var MNMNodeLowering::LowerMaxPoolNdBackward(const ir::ops::MaxPoolNdBackward* node) {
   // TODO(@hzfan): max_pool2d_dx needs y
   Var grad_output = loctx()->GetOutputOp(node->operand(0));
   Var input = loctx()->GetOutputOp(node->operand(1));
@@ -453,41 +449,42 @@ Var MNMNodeLowering::LowerMaxPoolNdBackward(
   Expr dilation = MakeConstant(TupleInt({1}));
   Expr ceil_mode = MakeConstant(Bool(node->ceil_mode()));
   Expr include_pad = MakeConstant(Bool(true));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.max_pool2d_dx"),
-    {input, grad_output, kernel, stride, padding, dilation, ceil_mode, include_pad}));
+  return BindSymbol(mnm::ir::Call(
+      Op::Get("mnm.op.max_pool2d_dx"),
+      {input, grad_output, kernel, stride, padding, dilation, ceil_mode, include_pad}));
 }
 
 Var MNMNodeLowering::LowerRelu(const ir::Node* node) {
-    LTC_CHECK_EQ(node->num_outputs(), 1);
-    Var x = loctx()->GetOutputOp(node->operand(0));
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.relu"), {x}));
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.relu"), {x}));
 }
 
 Var MNMNodeLowering::LowerWhere(const ir::Node* node) {
-    LTC_CHECK_EQ(node->num_outputs(), 1);
-    Var cond = loctx()->GetOutputOp(node->operand(0));
-    Var t_value = loctx()->GetOutputOp(node->operand(1));
-    Var f_value = loctx()->GetOutputOp(node->operand(2));
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.where"), {cond, t_value, f_value}));
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var cond = loctx()->GetOutputOp(node->operand(0));
+  Var t_value = loctx()->GetOutputOp(node->operand(1));
+  Var f_value = loctx()->GetOutputOp(node->operand(2));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.where"), {cond, t_value, f_value}));
 }
 
 Var MNMNodeLowering::LowerSqrt(const ir::Node* node) {
-    LTC_CHECK_EQ(node->num_outputs(), 1);
-    Var x = loctx()->GetOutputOp(node->operand(0));
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.sqrt"), {x}));
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.sqrt"), {x}));
 }
 
 Var BuildSum(const std::vector<Var>& ops, const ir::ops::Sum* node) {
   LTC_CHECK_EQ(ops.size(), 1U);
   Var x = ops[0];
   std::vector<int64_t> dimension_0 = node->dimensions();
-  std::vector<int64_t> keep_reduced_dimension_0(dimension_0.size(),
-    static_cast<int64_t>(node->keep_reduced_dimensions()));
+  std::vector<int64_t> keep_reduced_dimension_0(
+      dimension_0.size(), static_cast<int64_t>(node->keep_reduced_dimensions()));
   Expr dimension = MakeConstant(TupleInt(dimension_0));
   Expr keep_reduced_dimension = MakeConstant(TupleInt(keep_reduced_dimension_0));
   Expr exclude = MakeConstant(Bool(false));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.sum"),
-    {x, dimension, keep_reduced_dimension, exclude}));
+  return BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.sum"), {x, dimension, keep_reduced_dimension, exclude}));
 }
 
 Var MNMNodeLowering::LowerSum(const ir::ops::Sum* node) {
@@ -502,10 +499,8 @@ Var BuildNllLoss(const std::vector<Var>& ops, const NllLossType* node) {
   LTC_CHECK_EQ(ops.size(), 2U);
   Var logits = ops[0];
   Var labels = ops[1];
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.nll_loss"),
-    {labels, logits}));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.nll_loss"), {labels, logits}));
 }
-
 
 template <class NllLossType>
 Var MNMNodeLowering::LowerNllLoss(const NllLossType* node) {
@@ -521,15 +516,15 @@ Var BuildNllLossBackward(const std::vector<Var>& ops, const NllLossBackwardType*
   Var grad_output = ops[0];
   Var logits = ops[1];
   Var labels = ops[2];
-  Var normalized_dy = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.reshape"),
-    {grad_output, MakeConstant(TupleInt({})), MakeConstant(Bool(false))}));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.nll_loss_dpred"),
-    {normalized_dy, labels, logits}));
+  Var normalized_dy =
+      BindSymbol(mnm::ir::Call(Op::Get("mnm.op.reshape"), {grad_output, MakeConstant(TupleInt({})),
+                                                           MakeConstant(Bool(false))}));
+  return BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.nll_loss_dpred"), {normalized_dy, labels, logits}));
 }
 
 template <class NllLossBackwardType>
-Var MNMNodeLowering::LowerNllLossBackward(
-    const NllLossBackwardType* node) {
+Var MNMNodeLowering::LowerNllLossBackward(const NllLossBackwardType* node) {
   // TODO(@hzfan): handle weight, reduction and ignore_index
   Var grad_output = loctx()->GetOutputOp(node->operand(0));
   Var logits = loctx()->GetOutputOp(node->operand(1));
@@ -549,8 +544,7 @@ Var BuildExpand(const std::vector<Var>& ops, const ir::ops::Expand* node) {
       LTC_CHECK(shape.dimensions(i - offset) == 1 || size[i] == shape.dimensions(i - offset));
     }
   }
-  x =  BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"),
-    {x, MakeConstant(TupleInt(size))}));
+  x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"), {x, MakeConstant(TupleInt(size))}));
   return x;
 }
 
@@ -560,7 +554,8 @@ Var MNMNodeLowering::LowerExpand(const ir::ops::Expand* node) {
   return BuildExpand({x}, node);
 }
 
-Var BuildAsStridedViewUpdate(const std::vector<Var>& ops, const ir::ops::AsStridedViewUpdate* node) {
+Var BuildAsStridedViewUpdate(const std::vector<Var>& ops,
+                             const ir::ops::AsStridedViewUpdate* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   LTC_CHECK_EQ(ops.size(), node->operands().size());
   for (size_t i = 0; i < ops.size(); ++i) {
@@ -590,8 +585,7 @@ Var BuildAsStridedViewUpdate(const std::vector<Var>& ops, const ir::ops::AsStrid
   return ops[1];
 }
 
-Var MNMNodeLowering::LowerAsStridedViewUpdate(
-    const ir::ops::AsStridedViewUpdate* node) {
+Var MNMNodeLowering::LowerAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var target = loctx()->GetOutputOp(node->operand(0));
   Var update = loctx()->GetOutputOp(node->operand(1));
@@ -641,8 +635,7 @@ Var MNMNodeLowering::LowerRelayFunction(const ir::ops::RelayFunction* node) {
   return BindSymbol(node->func());
 }
 
-Var MNMNodeLowering::LowerConvolutionOverrideable(
-    const ir::ops::ConvolutionOverrideable* node) {
+Var MNMNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var w = loctx()->GetOutputOp(node->operand(1));
   Expr stride = MakeConstant(TupleInt(node->stride()));
@@ -658,22 +651,22 @@ Var MNMNodeLowering::LowerConvolutionOverrideable(
   for (const auto& i : output_padding) {
     LTC_CHECK_EQ(i, 0);
   }
-  x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.conv2d"),
-    {x, w, stride, padding, dilation, groups, layout, kernel_layout, out_layout}));
+  x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.conv2d"), {x, w, stride, padding, dilation, groups,
+                                                          layout, kernel_layout, out_layout}));
   if (node->operands().size() == 3) {
     Var bias = loctx()->GetOutputOp(node->operand(2));
     Expr axis = MakeConstant(Int(1));
-    x =  BindSymbol(mnm::ir::Call(Op::Get("mnm.op.bias_add"),
-      {x, bias, axis}));
+    x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.bias_add"), {x, bias, axis}));
   }
   return x;
 }
 
-Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops, const ir::ops::LogSoftmaxBackwardUseIn* node) {
+Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
+                                 const ir::ops::LogSoftmaxBackwardUseIn* node) {
   LTC_CHECK_EQ(ops.size(), 3U);
   Var dy = ops[0], y = ops[1], x = ops[2];
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.log_softmax_dx"),
-    {x, y, dy, MakeConstant(Int(node->dim()))}));
+  return BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.log_softmax_dx"), {x, y, dy, MakeConstant(Int(node->dim()))}));
 }
 
 Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackwardUseIn* node) {
@@ -687,7 +680,7 @@ Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackw
 Var MNMNodeLowering::LowerPermute(const ir::ops::Permute* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  Expr axes = MakeConstant(TupleInt(node->dims())); 
+  Expr axes = MakeConstant(TupleInt(node->dims()));
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.transpose"), {x, axes}));
 }
 
@@ -706,26 +699,26 @@ Var MNMNodeLowering::LowerAddMatMul(const ir::Node* node) {
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.add"), {mm, bias}));
 }
 
-Var MNMNodeLowering::LowerAdaptiveAvgPool2d(
-    const ir::ops::AdaptiveAvgPool2d* node) {
+Var MNMNodeLowering::LowerAdaptiveAvgPool2d(const ir::ops::AdaptiveAvgPool2d* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Expr shape = MakeConstant(TupleInt(node->output_size()));
   Expr layout = MakeConstant(String("NCHW"));
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.adaptive_avg_pool2d"), {x, shape, layout}));
 }
 
-Var MNMNodeLowering::LowerGenericSlice(
-    const ir::ops::GenericSlice* node) {
+Var MNMNodeLowering::LowerGenericSlice(const ir::ops::GenericSlice* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  std::vector<lazy_tensors::int64> limit_indices(node->base_indices().begin(), node->base_indices().end());
+  std::vector<lazy_tensors::int64> limit_indices(node->base_indices().begin(),
+                                                 node->base_indices().end());
   std::transform(limit_indices.begin(), limit_indices.end(), node->sizes().begin(),
                  limit_indices.begin(), std::plus<lazy_tensors::int64>());
   Expr begin = MakeConstant(TupleInt(node->base_indices()));
   Expr end = MakeConstant(TupleInt(limit_indices));
   Expr strides = MakeConstant(TupleInt(std::vector<lazy_tensors::int64>(limit_indices.size(), 1)));
   Expr slice_mode = MakeConstant(String("end"));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.strided_slice"), {x, begin, end, strides, slice_mode}));
+  return BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.strided_slice"), {x, begin, end, strides, slice_mode}));
 }
 
 Var MNMNodeLowering::LowerView(const ir::ops::View* node) {
@@ -739,8 +732,9 @@ Var MNMNodeLowering::LowerView(const ir::ops::View* node) {
 Var BuildCast(const std::vector<Var>& ops, const ir::ops::Cast* node) {
   // TODO(@hzfan): handle node->stype() and node->dtype()
   using tvm::runtime::DLDataType2String;
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"), {ops[0],
-    MakeConstant(String(DLDataType2String(ToMNMDType(node->type()))))}));
+  return BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.cast"),
+                    {ops[0], MakeConstant(String(DLDataType2String(ToMNMDType(node->type()))))}));
 }
 
 Var MNMNodeLowering::LowerCast(const ir::ops::Cast* node) {
@@ -749,32 +743,31 @@ Var MNMNodeLowering::LowerCast(const ir::ops::Cast* node) {
   return BuildCast({x}, node);
 }
 
-#define DEFINE_COMPARISON_OP(name, op) \
-  Var Build##name(const std::vector<Var>& ops, const ir::Node* node) { \
-    LTC_CHECK_EQ(node->num_outputs(), 1); \
-    ops[0]->checked_type_ = ToMNMType(node->operand(0).shape()); \
-    ops[1]->checked_type_ = ToMNMType(node->operand(1).shape()); \
-    Var op0, op1; \
-    std::tie(op0, op1) = PromoteDType(ops[0], ops[1]); \
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op."#op), {op0, op1})); \
-  } \
-  Var MNMNodeLowering::Lower##name(const ir::Node* node) { \
-    LTC_CHECK_EQ(node->num_outputs(), 1); \
-    Var op0 = loctx()->GetOutputOp(node->operand(0)); \
-    Var op1 = loctx()->GetOutputOp(node->operand(1)); \
-    return Build##name({op0, op1}, node); \
+#define DEFINE_COMPARISON_OP(name, op)                                    \
+  Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
+    LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
+    ops[0]->checked_type_ = ToMNMType(node->operand(0).shape());          \
+    ops[1]->checked_type_ = ToMNMType(node->operand(1).shape());          \
+    Var op0, op1;                                                         \
+    std::tie(op0, op1) = PromoteDType(ops[0], ops[1]);                    \
+    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op." #op), {op0, op1})); \
+  }                                                                       \
+  Var MNMNodeLowering::Lower##name(const ir::Node* node) {                \
+    LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
+    Var op0 = loctx()->GetOutputOp(node->operand(0));                     \
+    Var op1 = loctx()->GetOutputOp(node->operand(1));                     \
+    return Build##name({op0, op1}, node);                                 \
   }
 
-#define DEFINE_UNARY_OP(name, op)                              \
-  Var Build##name(const std::vector<Var>& ops, const ir::Node* node) { \
-    LTC_CHECK_EQ(node->num_outputs(), 1); \
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op."#op), {ops[0]})); \
-  } \
-  Var MNMNodeLowering::Lower##name(const ir::Node* node) { \
-    Var x = loctx()->GetOutputOp(node->operand(0)); \
-    return Build##name({x}, node); \
+#define DEFINE_UNARY_OP(name, op)                                       \
+  Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {  \
+    LTC_CHECK_EQ(node->num_outputs(), 1);                               \
+    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op." #op), {ops[0]})); \
+  }                                                                     \
+  Var MNMNodeLowering::Lower##name(const ir::Node* node) {              \
+    Var x = loctx()->GetOutputOp(node->operand(0));                     \
+    return Build##name({x}, node);                                      \
   }
-
 
 DEFINE_UNARY_OP(Ceil, ceil)
 DEFINE_UNARY_OP(Abs, abs);
@@ -786,8 +779,7 @@ DEFINE_COMPARISON_OP(Gt, greater)
 #undef DEFINE_COMPARISON_OP
 #undef DEFINE_UNARY_OP
 
-Var MNMNodeLowering::LowerThresholdBackward(
-    const ir::ops::ThresholdBackward* node) {
+Var MNMNodeLowering::LowerThresholdBackward(const ir::ops::ThresholdBackward* node) {
   LTC_LOG(FATAL) << "NotImplementedError";
 }
 
@@ -798,12 +790,13 @@ Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   mnm::Device dev(mnm::DevType::kCPU(), 0);
   int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(
-    Downcast<TensorType>(ToMNMType(node->value().shape())).as<TensorTypeNode>());
+      Downcast<TensorType>(ToMNMType(node->value().shape())).as<TensorTypeNode>());
   auto buffer = memory_pool::Memory::Alloc(dev, nbytes);
   DType dtype;
   std::vector<int64_t> shape;
   std::tie(shape, dtype) = ToMNMShape(node->value().shape());
-  PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes, Device("CPU"));
+  PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes,
+                       Device("CPU"));
   auto value = TensorValue::Assemble(dev, dtype, shape, {}, buffer->data, buffer);
   return BindSymbol(MakeConstant(value));
 }
@@ -838,22 +831,27 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
       tv = MakeScalar(static_cast<float>(node->value().toLong()), mnm::Device(DevType::kCPU(), 0));
       break;
     case lazy_tensors::PrimitiveType::F32:
-      tv = MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
+      tv =
+          MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
       break;
     case lazy_tensors::PrimitiveType::F64:
-      tv = MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
+      tv =
+          MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
       break;
     default:
-      LTC_LOG(FATAL) << "Unable to lower scalar " << node->value() << " of shape "
-                     << node->shape();
+      LTC_LOG(FATAL) << "Unable to lower scalar " << node->value() << " of shape " << node->shape();
   }
   Expr untyped_scalar = MakeConstant(tv);
-  Var scalar = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"), 
-    {untyped_scalar, MakeConstant(String(DLDataType2String(ToMNMDType(node->shape().element_type()))))}));
+  Var scalar = BindSymbol(mnm::ir::Call(
+      Op::Get("mnm.op.cast"),
+      {untyped_scalar,
+       MakeConstant(String(DLDataType2String(ToMNMDType(node->shape().element_type()))))}));
   Span<const int64> dimensions = node->shape().dimensions();
-  return node->shape().rank() == 0 ? scalar : BindSymbol(
-    mnm::ir::Call(Op::Get("mnm.op.broadcast_to"),
-    {scalar, MakeConstant(TupleInt(std::vector<int64_t>(dimensions.begin(), dimensions.end())))}));
+  return node->shape().rank() == 0
+             ? scalar
+             : BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"),
+                                        {scalar, MakeConstant(TupleInt(std::vector<int64_t>(
+                                                     dimensions.begin(), dimensions.end())))}));
 }
 
 lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
@@ -873,20 +871,17 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
       return InferGt(node);
     }
     case at::aten::expand: {
-      return InferExpand(
-          ir::NodeCast<ir::ops::Expand>(node, ir::OpKind(at::aten::expand)));
+      return InferExpand(ir::NodeCast<ir::ops::Expand>(node, ir::OpKind(at::aten::expand)));
     }
     case at::aten::nll_loss: {
-      return InferNllLoss(
-          ir::NodeCast<ir::ops::NllLoss>(node, ir::OpKind(at::aten::nll_loss)));
+      return InferNllLoss(ir::NodeCast<ir::ops::NllLoss>(node, ir::OpKind(at::aten::nll_loss)));
     }
     case at::aten::nll_loss_backward: {
-      return InferNllLossBackward(ir::NodeCast<ir::ops::NllLossBackward>(
-          node, ir::OpKind(at::aten::nll_loss_backward)));
+      return InferNllLossBackward(
+          ir::NodeCast<ir::ops::NllLossBackward>(node, ir::OpKind(at::aten::nll_loss_backward)));
     }
     case at::aten::sum: {
-      return InferSum(
-          ir::NodeCast<ir::ops::Sum>(node, ir::OpKind(at::aten::sum)));
+      return InferSum(ir::NodeCast<ir::ops::Sum>(node, ir::OpKind(at::aten::sum)));
     }
     case at::aten::__and__:
     case at::aten::__or__:
@@ -895,18 +890,15 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
     }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
-        return InferGenericSlice(ir::NodeCast<ir::ops::GenericSlice>(
-            node, *ir::ops::ltc_generic_slice));
+        return InferGenericSlice(
+            ir::NodeCast<ir::ops::GenericSlice>(node, *ir::ops::ltc_generic_slice));
       }
       if (kind == *ir::ops::mnm_relay_expr) {
-        return InferRelayExpr(
-            ir::NodeCast<ir::ops::RelayExpr>(
-                node, *ir::ops::mnm_relay_expr));
+        return InferRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::mnm_relay_expr));
       }
       if (kind == *ir::ops::mnm_relay_function) {
         return InferRelayFunction(
-            ir::NodeCast<ir::ops::RelayFunction>(
-                node, *ir::ops::mnm_relay_function));
+            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::mnm_relay_function));
       }
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
@@ -976,17 +968,17 @@ lazy_tensors::Shape MNMNodeLowering::InferRelayFunction(const ir::ops::RelayFunc
   LTC_LOG(FATAL) << "Should not reach here";
 }
 
-#define DEFINE_INFER_COMPARISON_OP(name) \
-lazy_tensors::Shape MNMNodeLowering::Infer##name(const ir::Node* node) { \
-  std::vector<Var> ops; \
-  for (const auto& x : node->operands()) { \
-    Var var = MakeVar("operand", ToMNMType(x.shape())); \
-    ops.push_back(var); \
-  } \
-  Var out = Build##name(ops, node); \
-  Expr body = InferType(ExtractBinding(out, ops)); \
-  return ToLTCShape(body->checked_type()); \
-}
+#define DEFINE_INFER_COMPARISON_OP(name)                                   \
+  lazy_tensors::Shape MNMNodeLowering::Infer##name(const ir::Node* node) { \
+    std::vector<Var> ops;                                                  \
+    for (const auto& x : node->operands()) {                               \
+      Var var = MakeVar("operand", ToMNMType(x.shape()));                  \
+      ops.push_back(var);                                                  \
+    }                                                                      \
+    Var out = Build##name(ops, node);                                      \
+    Expr body = InferType(ExtractBinding(out, ops));                       \
+    return ToLTCShape(body->checked_type());                               \
+  }
 
 DEFINE_INFER_COMPARISON_OP(Ne)
 DEFINE_INFER_COMPARISON_OP(Eq)
@@ -1009,17 +1001,17 @@ namespace mnm_backend {
 
 Var LowerNodeToMNM(const ir::Node* node, MNMLoweringContext* loctx) {
   auto node_lowering = NodeLowering::Create(loctx);
-  MNMNodeLowering* mnm_node_lowering =
-      static_cast<MNMNodeLowering*>(node_lowering.get());
+  MNMNodeLowering* mnm_node_lowering = static_cast<MNMNodeLowering*>(node_lowering.get());
   return mnm_node_lowering->LowerToMNM(node);
 }
 
 }  // namespace mnm_backend
 
-NodeLowering* GetMNMNodeLowering() { return NodeLowering::Get(); }
+NodeLowering* GetMNMNodeLowering() {
+  return NodeLowering::Get();
+}
 
-std::unique_ptr<NodeLowering> CreateMNMNodeLowering(
-    ir::LoweringContext* loctx) {
+std::unique_ptr<NodeLowering> CreateMNMNodeLowering(ir::LoweringContext* loctx) {
   return NodeLowering::Create(loctx);
 }
 

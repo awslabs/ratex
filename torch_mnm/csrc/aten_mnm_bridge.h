@@ -13,8 +13,7 @@ c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor);
 LazyTensor GetLtcTensor(const at::Tensor& tensor);
 
 // Same as above, applied to a list of tensors.
-std::vector<LazyTensor> GetLtcTensors(
-    lazy_tensors::Span<const at::Tensor> tensors);
+std::vector<LazyTensor> GetLtcTensors(lazy_tensors::Span<const at::Tensor> tensors);
 
 }  // namespace mnm_backend
 }  // namespace bridge

@@ -8,6 +8,13 @@ __pycache__/
 # C extensions
 *.so
 
+# Auto-generated
+torch_mnm/version.py
+torch_mnm/csrc/aten_mnm_type.h
+torch_mnm/csrc/aten_mnm_type_default.cpp
+torch_mnm/csrc/aten_mnm_type_default.h
+torch_mnm/csrc/version.cpp
+
 # Distribution / packaging
 .Python
 env/

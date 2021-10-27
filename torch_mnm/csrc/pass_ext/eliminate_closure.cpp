@@ -34,7 +34,8 @@ using namespace mnm::op;
 
 class ClosureEliminator {
  public:
-  ClosureEliminator() { }
+  ClosureEliminator() {
+  }
 
   Expr EliminateClosure(Var x, Type ty = Type()) {
     if (!ty.defined()) {
@@ -51,16 +52,14 @@ class ClosureEliminator {
       return x;
     } else if (ty.as<FuncTypeNode>()) {
       const static auto& ones = Op::Get("mnm.op.ones");
-      return  ll_->Push(Call(ones, {
-        MakeConstant(mnm::value::TupleValue::make({})),
-        MakeConstant(mnm::value::StringValue::make("float32")),
-        MakeConstant(mnm::value::StringValue::make("cpu"))
-      }));
+      return ll_->Push(Call(ones, {MakeConstant(mnm::value::TupleValue::make({})),
+                                   MakeConstant(mnm::value::StringValue::make("float32")),
+                                   MakeConstant(mnm::value::StringValue::make("cpu"))}));
     }
-    LOG(FATAL) << "Unsupported type: " << ty; 
+    LOG(FATAL) << "Unsupported type: " << ty;
   }
 
-  Expr operator() (const Expr& e) {
+  Expr operator()(const Expr& e) {
     auto func = Downcast<Function>(e);
     if (!func->body.as<LetNode>()) {
       // Function is not in ANF
@@ -81,7 +80,6 @@ class ClosureEliminator {
     });
     return Function(func->params, body, {}, func->type_params);
   }
-    
 
  private:
   LetList* ll_;

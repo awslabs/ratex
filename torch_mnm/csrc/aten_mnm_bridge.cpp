@@ -28,7 +28,7 @@ lazy_tensors::ComputationClient::DataPtr GetData(Output out) {
 c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor) {
   c10::optional<LazyTensor> lazy_tensor = ::torch_lazy_tensors::bridge::TryGetLtcTensor(tensor);
   if (lazy_tensor && GetMNMModelState()->IsModelState(*lazy_tensor)) {
-    Value value = lazy_tensor->GetIrValue();   
+    Value value = lazy_tensor->GetIrValue();
     lazy_tensors::ComputationClient::DataPtr data = GetData(value);
     static_cast<torch_mnm::BaseComputationClient::BaseData*>(data.get())->is_param = true;
   }
@@ -38,15 +38,14 @@ c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor) {
 LazyTensor GetLtcTensor(const at::Tensor& tensor) {
   LazyTensor lazy_tensor = ::torch_lazy_tensors::bridge::GetLtcTensor(tensor);
   if (GetMNMModelState()->IsModelState(lazy_tensor)) {
-    Value value = lazy_tensor.GetIrValue();   
+    Value value = lazy_tensor.GetIrValue();
     lazy_tensors::ComputationClient::DataPtr data = GetData(value);
     static_cast<torch_mnm::BaseComputationClient::BaseData*>(data.get())->is_param = true;
   }
-  return lazy_tensor; 
+  return lazy_tensor;
 }
 
-std::vector<LazyTensor> GetLtcTensors(
-    lazy_tensors::Span<const at::Tensor> tensors) {
+std::vector<LazyTensor> GetLtcTensors(lazy_tensors::Span<const at::Tensor> tensors) {
   std::vector<LazyTensor> ltc_tensors;
   ltc_tensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {

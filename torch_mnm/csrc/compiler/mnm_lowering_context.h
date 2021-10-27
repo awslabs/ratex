@@ -14,19 +14,27 @@ namespace mnm_backend {
 
 class GenericComputationMNM : public lazy_tensors::GenericComputation {
  public:
-  GenericComputationMNM(mnm::ir::Expr computation,
-                        const std::unordered_set<mnm::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states,
-                        const std::unordered_map<int64_t, int64_t>& alias)
-      : computation_(computation), model_states_(model_states), alias_(alias) {}
+  GenericComputationMNM(
+      mnm::ir::Expr computation,
+      const std::unordered_set<mnm::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states,
+      const std::unordered_map<int64_t, int64_t>& alias)
+      : computation_(computation), model_states_(model_states), alias_(alias) {
+  }
 
-  lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GetProgramShape()
-      const override;
+  lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GetProgramShape() const override;
 
-  const mnm::ir::Expr& computation() const { return computation_; }
+  const mnm::ir::Expr& computation() const {
+    return computation_;
+  }
 
-  const std::unordered_set<mnm::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states() const { return model_states_; }
+  const std::unordered_set<mnm::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states()
+      const {
+    return model_states_;
+  }
 
-  const std::unordered_map<int64_t, int64_t>& alias() const { return alias_; }
+  const std::unordered_map<int64_t, int64_t>& alias() const {
+    return alias_;
+  }
 
  private:
   /*! \brief the mnm function to be compiled */
@@ -39,8 +47,8 @@ class GenericComputationMNM : public lazy_tensors::GenericComputation {
 
 class MNMLoweringContext : public ir::LoweringContext {
  public:
-  MNMLoweringContext(const std::string& name, Device device)
-      : ir::LoweringContext(name, device) { }
+  MNMLoweringContext(const std::string& name, Device device) : ir::LoweringContext(name, device) {
+  }
 
   MNMLoweringContext(const std::string& name, Device device,
                      absl::Span<const ir::Node* const> post_order,
@@ -57,8 +65,7 @@ class MNMLoweringContext : public ir::LoweringContext {
 
   size_t AddResult(const ir::Output& output) override;
 
-  lazy_tensors::StatusOr<std::shared_ptr<lazy_tensors::GenericComputation>>
-  Build() override;
+  lazy_tensors::StatusOr<std::shared_ptr<lazy_tensors::GenericComputation>> Build() override;
 
   void LowerNodeToResult(const ir::Node* node) override;
 
@@ -66,8 +73,7 @@ class MNMLoweringContext : public ir::LoweringContext {
   //                   const lazy_tensors::Shape& shape,
   //                   const std::string& name) override;
 
-  void SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
-                  lazy_tensors::int64 param_number,
+  void SetUpAlias(const lazy_tensors::ShapeIndex& output_index, lazy_tensors::int64 param_number,
                   const lazy_tensors::ShapeIndex& param_index) override;
 
   // Retrieves the lowered operation for a output. If the requested output is
@@ -83,8 +89,7 @@ class MNMLoweringContext : public ir::LoweringContext {
   // If a parameter associated with data has already been declared, it will be
   // returned. Otherwise a new one will be created, associated with the tensor
   // held in data.
-  mnm::ir::Var GetParameter(
-      const std::shared_ptr<lazy_tensors::client::Data>& data);
+  mnm::ir::Var GetParameter(const std::shared_ptr<lazy_tensors::client::Data>& data);
 
  private:
   struct Parameter {
@@ -105,8 +110,7 @@ class MNMLoweringContext : public ir::LoweringContext {
   // Get parameters
   std::vector<mnm::ir::Var> GetParams() const;
 
-  std::unordered_map<lazy_tensors::client::Data::OpaqueHandle, Parameter>
-      parameters_map_;
+  std::unordered_map<lazy_tensors::client::Data::OpaqueHandle, Parameter> parameters_map_;
   std::vector<mnm::ir::Var> root_tuple_;
   ir::OutputMap<mnm::ir::Var> emitted_outputs_;
   /*! \brief the parameters of computation_ that represent model states */

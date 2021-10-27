@@ -4,7 +4,6 @@
 #include "mnm/ir.h"
 #include "mnm/value.h"
 
-
 namespace mnm {
 namespace value {
 

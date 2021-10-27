@@ -1,10 +1,7 @@
-from . import _lib
-
-import torch
+"""RAZOR: RAf via pytorch LaZy tensOR"""
 import _LAZYC
 import _TORCHMNMC
 import lazy_tensor_core
+import torch
 
-from . import jit
-from . import torch_parameter
-from . import optimizer
+from . import _lib, jit, optimizer, torch_parameter
