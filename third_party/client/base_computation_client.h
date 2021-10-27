@@ -143,7 +143,6 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
  private:
   Options options_;
-  // int compilation_cnt_{0};
 };
 
 }  // namespace torch_mnm

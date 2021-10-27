@@ -3,14 +3,6 @@
 #include "lazy_tensor_core/csrc/compiler/backend_impl_interface.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
-// namespace torch_mnm {
-
-// lazy_tensors::ComputationClient* CreateClient() {
-//   auto client = ComputationClient::Create();
-//   return client.release();
-// }
-
-// }  // namespace torch_mnm
 
 namespace lazy_tensors {
 
@@ -20,11 +12,6 @@ std::once_flag g_computation_client_once;
 std::atomic<lazy_tensors::ComputationClient*> g_computation_client(nullptr);
 
 ComputationClient* ComputationClient::Get() {
-  // Method 1: Use ComputationClient::Create
-  // std::call_once(g_computation_client_once,
-  //                [&]() { g_computation_client = Create().release(); });
-  // return g_computation_client.load(); 
-  // Method 2: Use BackendImplInterface
   return getBackendRegistrar()->GetComputationClient();
 }
 

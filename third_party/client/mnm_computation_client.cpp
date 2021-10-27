@@ -12,6 +12,7 @@
 
 #include "tvm/node/serialization.h"
 #include "mnm/device.h"
+#include "mnm/pass_manager.h"
 #include "mnm/serialization.h"
 #include "mnm/vm/vm.h"
 #include "mnm/vm/value.h"
@@ -38,41 +39,6 @@ std::unique_ptr<ComputationClient> MNMComputationClient::Create() {
   Options options;
   return std::make_unique<MNMComputationClient>(options);
 }
-
-// template <typename NativeT>
-// void PopulateRn(lazy_tensors::Literal& literal, lazy_tensors::Span<const NativeT> values) {
-//   LTC_CHECK(literal.shape().IsArray());
-//   LTC_CHECK_EQ(ShapeUtil::ElementsIn(literal.shape()), values.size());
-//   LTC_CHECK_EQ(literal.shape().element_type(),
-//                primitive_util::NativeToPrimitiveType<NativeT>());
-//   auto data_span = literal.data<NativeT>();
-//   std::copy(values.begin(), values.end(), data_span.begin());
-// }
-
-// void PopulateRn(lazy_tensors::Literal& literal, const DLTensor* dlt) {
-//   mnm::DType dtype = dlt->dtype;
-//   switch (dtype.code) {
-//     case kDLInt:
-//       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::int8>(
-//         reinterpret_cast<const lazy_tensors::int8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       break;
-//     case kDLUInt:
-//       if (dtype.bits == 1) return PopulateRn(literal, Span<const bool>(
-//         reinterpret_cast<const bool*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       if (dtype.bits == 8) return PopulateRn(literal, Span<const lazy_tensors::uint8>(
-//         reinterpret_cast<const lazy_tensors::uint8*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       break;
-//     case kDLFloat:
-//       if (dtype.bits == 16) return PopulateRn(literal, Span<const lazy_tensors::half>(
-//         reinterpret_cast<const lazy_tensors::half*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       if (dtype.bits == 32) return PopulateRn(literal, Span<const float>(
-//         reinterpret_cast<const float*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       if (dtype.bits == 64) return PopulateRn(literal, Span<const double>(
-//         reinterpret_cast<const double*>(dlt->data), mnm::common::shape_utils::GetNumel(*dlt)));
-//       break;
-//   }
-//   LTC_LOG(FATAL) << "NotImplementedError: " << dtype.c_str();
-// }
 
 template <typename NativeT>
 void PopulateRn(lazy_tensors::Literal& literal, lazy_tensors::Span<const NativeT> values) {
@@ -178,7 +144,23 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
     Function func = Downcast<Function>(computation->computation());
     IRModule ir_module = IRModule::FromExpr(computation->computation());
-
+    mnm::pass::MNMSequential seq({
+      mnm::pass::InferType(),
+      mnm::pass::LambdaLift(),
+      mnm::pass::InferType(),
+      mnm::pass::InlineClosure(),
+      mnm::pass::InferType(),
+      mnm::pass::DeadCodeElimination(),
+      mnm::pass::InferType(),
+      mnm::pass::EliminateClosure(),
+      mnm::pass::InferType(),
+      mnm::pass::InlineLet(),
+      mnm::pass::InferType(),
+      mnm::pass::DeadCodeElimination(),
+      mnm::pass::InferType(),
+      mnm::pass::CanonicalizeOps(),
+      mnm::pass::InferType(),
+    });
     // std::stringstream ss;
     // ss << "Compile: " << std::endl;
     // ss << ::mnm::ir::AsText(ir_module) << std::endl;
@@ -192,21 +174,7 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
       mnm::executor::vm::DeviceMap device_map{
         {Integer((int)(DLDeviceType::kDLCPU)), mnm::Device(mnm::DevType::kCPU(), 0)}
       };
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::LambdaLift()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::InlineClosure()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::DeadCodeElimination()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::EliminateClosure()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::InlineLet()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::DeadCodeElimination()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
-      ir_module = mnm::pass::CanonicalizeOps()(ir_module);
-      ir_module = mnm::pass::InferType()(ir_module);
+      ir_module = seq(ir_module);
       ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
       ir_module = mnm::pass::InferType()(ir_module);
       compiler.Lower(ir_module, device_map);

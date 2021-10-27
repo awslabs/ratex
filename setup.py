@@ -232,8 +232,6 @@ if build_mode not in ['clean']:
   apply_patches()
   # Generate the code before globbing!
   generate_mnm_aten_code(base_dir)
-  # Build the support libraries
-  # build_extra_libraries(base_dir, build_mode=build_mode)
 
 # Fetch the sources to be built.
 torch_mnm_sources = (
@@ -266,7 +264,6 @@ include_dirs = [
 tvm_library_dir = os.path.dirname(tvm._ffi.libinfo.find_lib_path()[0])
 mnm_library_dir = os.path.dirname(mnm._lib.find_lib_path()[0])
 library_dirs = [
-    # lib_path,
     os.path.dirname(imp.find_module("_LAZYC")[1]),
     tvm_library_dir,
     mnm_library_dir,
@@ -307,17 +304,12 @@ extra_link_args = [
     '-l:_LAZYC.cpython-36m-x86_64-linux-gnu.so',
     '-lmnm',
     '-ltvm',
-    # make_relative_rpath('torch_mnm/lib'),
     make_relative_rpath(''),
     '-Wl,-rpath,{}'.format(site.getsitepackages()[0]),
 ] + ([
     '-O0',
     '-g'
 ] if DEBUG else [])
-
-# extra_link_args += glob.glob(os.path.join(lazy_core_dir, '*.so'))
-print("library_dirs = ", library_dirs)
-print("extra_link_args = ", extra_link_args)
 
 setup(
     name='torch_mnm',
@@ -334,14 +326,7 @@ setup(
             extra_link_args=extra_link_args,
         ),
     ],
-    # package_data={
-    #     'torch_mnm': [
-    #         'lib/*.so*',
-    #     ],
-    # },
     data_files=[
-        # 'test/cpp/build/test_ptxla',
-        # 'scripts/fixup_binary.py',
     ],
     cmdclass={
         'build_ext': Build,
