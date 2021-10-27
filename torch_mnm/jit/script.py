@@ -68,7 +68,6 @@ class RelayFunction(torch.autograd.Function):
         inplace_update_map = InplaceUpdateAnalysis(mod)
         func = mod["main"]
         handle = ValueToHandle(mnm._core.value.ClosureValue({}, func))
-        
         func = _TORCHMNMC._mnm_to_tensor(handle)
         result = _TORCHMNMC._mnm_invoke_relay(func, args,
                                               {k: v for k, v in inplace_update_map.items()})
@@ -110,13 +109,21 @@ def script(module: torch.nn.Module):
             "input0": ((list(args[0].shape), str(args[0].dtype).split(".")[-1]))
         }
         cloned_module = copy.deepcopy(module)
-
         model = mnm.frontend.from_pytorch(cloned_module, shape_dict)
         record = model._internal(mnm.array(asnumpy(args[0])))
-        # module.state_dict() includes in-place updated parameters while model.paramters() does not,
-        # so here we use module.state_dict() to include all parameters. See also:
+        # Difference between state_dict() and named_parameters():
+        # module.state_dict() sets the requires_grad of all parameters to false
+        # module.state_dict() includes in-place updated parameters while model.paramters() does not
+        # so here we use them in combination
+        # See also:
+        # https://discuss.pytorch.org/t/difference-between-state-dict-and-parameters/37531/8
         # https://discuss.pytorch.org/t/batch-norm-parameters-not-included-in-model-parameters/10265
-        positional_args = get_positional_args(record.mod["main"], *args, **module.state_dict())
+        named_parameters = dict(module.named_parameters())
+        params = {
+            k: named_parameters[k] if k in named_parameters else v
+            for k, v in module.state_dict().items()
+        }
+        positional_args = get_positional_args(record.mod["main"], *args, **params)
         return RelayFunction.apply(record.mod["main"], *positional_args)
 
     return f
