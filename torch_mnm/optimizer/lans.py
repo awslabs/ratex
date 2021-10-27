@@ -10,8 +10,6 @@ class LANS(torch.optim.Optimizer):
                         grad_averaging=grad_averaging,
                         normalize_grad=normalize_grad)
         super(LANS, self).__init__(params, defaults)
-        self._dummy_overflow_buf = torch.tensor([0], dtype=torch.int,
-                                                device=self.param_groups[0]["params"][0].device)
         self.adam_w_mode = 1 if adam_w_mode else 0
         self.set_grad_none = set_grad_none
         if not self.adam_w_mode:
@@ -57,7 +55,6 @@ class LANS(torch.optim.Optimizer):
                     continue
                 if p.grad.data.is_sparse:
                     raise RuntimeError('FusedLANS does not support sparse gradients, please consider SparseAdam instead')
-
                 state = self.state[p]
                 # State initialization
                 if len(state) == 0:
@@ -118,11 +115,14 @@ class LANS(torch.optim.Optimizer):
             self._lans(p, g, m, v, lr, beta1, beta2, epsilon, step, bias_correction,
                        weight_decay, grad_averaging, mode, normalize_grad)
 
+    def _norm(self, x):
+        return torch.sqrt(torch.sum(x * x))
+
     def _lans(self, p, g, m, v, lr, beta1, beta2, epsilon, step, bias_correction,
               weight_decay, grad_averaging, mode, normalize_grad):
-        p_norm = torch.linalg.norm(p)
+        p_norm = self._norm(p)
         scaled_p = p * weight_decay
-        g_norm = torch.linalg.norm(g)
+        g_norm = self._norm(g)
         scaled_g = g
         if normalize_grad:
             scaled_g = torch.where(
@@ -142,24 +142,24 @@ class LANS(torch.optim.Optimizer):
             scaled_g * scaled_g * beta4
         )
         # bias correction
-        m_unbiased = m / bias_correction1
-        v_unbiased = v / bias_correction2
+        m_unbiased = m / torch.tensor(bias_correction1, dtype=m.dtype, device=m.device)
+        v_unbiased = v / torch.tensor(bias_correction2, dtype=v.dtype, device=v.device)
         # calculate updates
         denom = torch.sqrt(v_unbiased) + epsilon
         ratios1 = m_unbiased / denom
         tmp1 = ratios1 + scaled_p
-        tmp1_norm = torch.linalg.norm(tmp1)
+        tmp1_norm = self._norm(tmp1)
         ratio1 = torch.where(
-            torch.logical_and(p_norm > 0, tmp1_norm > 0),
+            torch.bitwise_and(p_norm > 0, tmp1_norm > 0),
             p_norm / tmp1_norm,
             torch.tensor(1.0, dtype=p_norm.dtype, device=p_norm.device),
         )
         p.subtract_(lr * beta1 * ratio1 * tmp1)
         ratios2 = scaled_g / denom
         tmp2 = ratios2 + scaled_p
-        tmp2_norm = torch.linalg.norm(tmp2)
+        tmp2_norm = self._norm(tmp2)
         ratio2 = torch.where(
-            torch.logical_and(p_norm > 0, tmp2_norm > 0),
+            torch.bitwise_and(p_norm > 0, tmp2_norm > 0),
             p_norm / tmp2_norm,
             torch.tensor(1.0, dtype=p_norm.dtype, device=p_norm.device),
         )

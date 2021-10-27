@@ -170,6 +170,7 @@ class MNMNodeLowering : public NodeLowering {
 
   Var LowerBitwise(const ir::Node* node);
   Var LowerAdd(const ir::Node* node);
+  Var LowerSub(const ir::Node* node);
   Var LowerDiv(const ir::Node* node);
   Var LowerMul(const ir::Node* node);
   Var LowerDeviceData(const ir::ops::DeviceData* node);
@@ -188,7 +189,9 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP2(Sum);
   DECLARE_OP2(Scalar);
   DECLARE_OP(Relu);
+  DECLARE_OP(Sqrt);
   DECLARE_OP(Neg);
+  DECLARE_OP(Where);
   DECLARE_OP2(Permute);
   DECLARE_OP2(MaxPoolNdBackward);
   DECLARE_OP(Mm);
@@ -248,10 +251,13 @@ bool MNMNodeLowering::Lower(const ir::Node* node) {
 Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
   switch (node->op().op) {
     HANDLE_GENERIC_OP(Add, at::aten::add)
+    HANDLE_GENERIC_OP(Sub, at::aten::sub)
     HANDLE_GENERIC_OP(Div, at::aten::div)
     HANDLE_GENERIC_OP(Mul, at::aten::mul)
     HANDLE_GENERIC_OP(Bitwise, at::aten::__and__)
     HANDLE_GENERIC_OP(Relu, at::aten::relu)
+    HANDLE_GENERIC_OP(Where, at::aten::where)
+    HANDLE_GENERIC_OP(Sqrt, at::aten::sqrt)
     HANDLE_GENERIC_OP(Ceil, at::aten::ceil)
     HANDLE_GENERIC_OP(Neg, at::aten::neg)
     HANDLE_GENERIC_OP(Ne, at::aten::ne)
@@ -366,6 +372,15 @@ Var MNMNodeLowering::LowerAdd(const ir::Node* node) {
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.add"), {op0, op1, MakeNull(), MakeNull()}));
 }
 
+Var MNMNodeLowering::LowerSub(const ir::Node* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var op0, op1;
+  ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
+  ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
+  std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.subtract"), {op0, op1, MakeNull(), MakeNull()}));
+}
+
 Var MNMNodeLowering::LowerDiv(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var op0, op1;
@@ -448,6 +463,20 @@ Var MNMNodeLowering::LowerRelu(const ir::Node* node) {
     return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.relu"), {x}));
 }
 
+Var MNMNodeLowering::LowerWhere(const ir::Node* node) {
+    LTC_CHECK_EQ(node->num_outputs(), 1);
+    Var cond = loctx()->GetOutputOp(node->operand(0));
+    Var t_value = loctx()->GetOutputOp(node->operand(1));
+    Var f_value = loctx()->GetOutputOp(node->operand(2));
+    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.where"), {cond, t_value, f_value}));
+}
+
+Var MNMNodeLowering::LowerSqrt(const ir::Node* node) {
+    LTC_CHECK_EQ(node->num_outputs(), 1);
+    Var x = loctx()->GetOutputOp(node->operand(0));
+    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.sqrt"), {x}));
+}
+
 Var BuildSum(const std::vector<Var>& ops, const ir::ops::Sum* node) {
   LTC_CHECK_EQ(ops.size(), 1U);
   Var x = ops[0];
@@ -515,23 +544,13 @@ Var BuildExpand(const std::vector<Var>& ops, const ir::ops::Expand* node) {
   lazy_tensors::Shape shape = node->operand(0).node->shape();
   int offset = size.size() - shape.dimensions_size();
   LTC_CHECK_GE(size.size(), shape.dimensions_size());
-  if (offset > 0) {
-    x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.expand_dims"),
-      {x, MakeConstant(Int(0)), MakeConstant(Int(offset))}));
-  }
   for (int i = 0; i < size.size(); ++i) {
-    int64_t repeats = -1;
-    if (i - offset < 0) {
-      repeats = size[i];
-    } else {
-      repeats = size[i] / shape.dimensions(i - offset);
-      LTC_CHECK_EQ(size[i] % shape.dimensions(i - offset), 0);
-    }
-    if (repeats != 1) {
-      x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.repeat"),
-        {x, MakeConstant(Int(repeats)), MakeConstant(Int(i))}));
+    if (i - offset >= 0) {
+      LTC_CHECK(shape.dimensions(i - offset) == 1 || size[i] == shape.dimensions(i - offset));
     }
   }
+  x =  BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"),
+    {x, MakeConstant(TupleInt(size))}));
   return x;
 }
 
@@ -812,10 +831,16 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;
   switch (node->shape().element_type()) {
+    case lazy_tensors::PrimitiveType::PRED:
+      tv = MakeScalar(static_cast<float>(node->value().toBool()), mnm::Device(DevType::kCPU(), 0));
+      break;
     case lazy_tensors::PrimitiveType::S64:
       tv = MakeScalar(static_cast<float>(node->value().toLong()), mnm::Device(DevType::kCPU(), 0));
       break;
     case lazy_tensors::PrimitiveType::F32:
+      tv = MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
+      break;
+    case lazy_tensors::PrimitiveType::F64:
       tv = MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
       break;
     default:
@@ -834,8 +859,9 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
 lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
   const ir::OpKind& kind = node->op();
   switch (kind.op) {
-    case at::aten::relu: {
-      return InferRelu(node);
+    case at::aten::relu:
+    case at::aten::sqrt: {
+      return InferUnary(node);
     }
     case at::aten::ne: {
       return InferNe(node);

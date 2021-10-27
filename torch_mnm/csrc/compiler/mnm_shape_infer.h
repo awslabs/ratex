@@ -114,7 +114,7 @@
 namespace torch_lazy_tensors {
 namespace compiler {
 
-inline lazy_tensors::Shape InferRelu(const ir::Node* node) {
+inline lazy_tensors::Shape InferUnary(const ir::Node* node) {
   const ir::Output& input = node->operand(0);
   return input.shape();
 }
