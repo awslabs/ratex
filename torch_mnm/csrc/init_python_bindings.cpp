@@ -41,7 +41,7 @@ void InitMNMModuleBindings(py::module m) {
           // TODO(@hzfan): handle the case where fwd result is a tuple
           // bwd is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy
           // data type for it.
-          Device dev(DeviceType::CPU, 0);
+          Device dev(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
           // RelayExpr returns multiple nodes
           ir::NodePtr ret = ir::MakeNode<ir::ops::RelayExpr>(input_values);
           if (ret->shape().IsTuple()) {
@@ -80,7 +80,7 @@ void InitMNMModuleBindings(py::module m) {
       // ret is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy
       // data type for it.
       LTC_CHECK_EQ(cvo->env.size(), 0U);
-      Device dev(DeviceType::CPU, 0);
+      Device dev(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
       ir::Value relay_function = ir::MakeNode<ir::ops::RelayFunction>(cvo->func);
       ret = LazyTensor::Create(relay_function, dev, at::ScalarType::Byte);
     } else {

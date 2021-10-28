@@ -40,8 +40,9 @@ inline DType::operator PrimitiveType() const {
       if (bits == 16) return PrimitiveType::F16;
       if (bits == 32) return PrimitiveType::F32;
       if (bits == 64) return PrimitiveType::F64;
+    default:
+      LTC_LOG(FATAL) << "Not implemented yet: " << c_str();
   }
-  LTC_LOG(FATAL) << "Not implemented yet: " << c_str();
 }
 
 }  // namespace mnm
@@ -106,8 +107,9 @@ inline DType ToMNMDType(const PrimitiveType type) {
       return DType(DTypeCode::kFloat(), 32);
     case PrimitiveType::F64:
       return DType(DTypeCode::kFloat(), 64);
+    default:
+      LTC_LOG(FATAL) << "Not implemented yet.";
   }
-  LTC_LOG(FATAL) << "Not implemented yet.";
 }
 
 inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(
@@ -133,8 +135,18 @@ inline Type ToMNMType(const Shape& shape) {
 }
 
 inline mnm::Device ToMNMDevice(const std::string& device) {
-  // TODO(@hzfan): map LTC device to meta device
-  return mnm::Device(DevType::kCPU(), 0);
+  LTC_CHECK(device != "") << "device is empty";
+  auto sep = device.find(":");
+  std::string dev_type = device.substr(0, sep);
+  std::transform(dev_type.begin(), dev_type.end(), dev_type.begin(), ::tolower);
+  int dev_id = (sep == std::string::npos) ? 0 : std::stoi(device.substr(sep + 1));
+
+  if (dev_type == "cpu") {
+    return mnm::Device(DevType::kCPU(), dev_id);
+  } else if (dev_type == "gpu" || dev_type == "cuda") {
+    return mnm::Device(DevType::kCUDA(), dev_id);
+  }
+  LTC_LOG(FATAL) << "Not supported device: " << device;
 }
 
 inline std::tuple<Var, Var> PromoteDType(const Var& op0, const Var& op1) {

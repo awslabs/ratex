@@ -204,7 +204,7 @@ cd $HOME
 python3 -c "import torch_mnm"
 ```
 
-### 7. Run LeNet on CPU
+### 7. Run LeNet Example
 
 ```
 cd torch_mnm
@@ -236,5 +236,11 @@ train Loss: 0.0647
 Epoch 4/9
 ----------
 ...
+```
+
+In addition, you can also run models on GPU as follows:
+
+```
+RAZOR_DEVICE=GPU python3 lenet.py
 ```
 

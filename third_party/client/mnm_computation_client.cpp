@@ -7,8 +7,10 @@
 #include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
 #include "torch_mnm/csrc/value_ext/value.h"
 #include "torch_mnm/csrc/pass_ext/pass.h"
+#include "env_vars.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
+#include "lazy_tensor_core/csrc/device.h"
 
 #include "tvm/node/serialization.h"
 #include "mnm/device.h"
@@ -36,8 +38,29 @@ void MNMComputationClient::MNMData::Assign(const Data& data) {
 MNMComputationClient::MNMComputationClient(Options options) : BaseComputationClient(options) {
 }
 
+void PopulateLocalDevices(torch_mnm::MNMComputationClient::Options* options) {
+  auto dev_kind = sys_util::GetEnvString(torch_mnm::env::kEnvDefaultDevice, "CPU");
+  int dev_id = 0;  // TODO: Determine the device ID using local rank.
+  bool ignore = true;
+
+  // Iterate candidate devices in the preferred order, and include all devices the
+  // lower or equal ordinal of the user specified default device.
+  for (auto kind : {"GPU", "CPU"}) {
+    std::string ltc_device = dev_kind + ":" + std::to_string(dev_id);
+    if (kind == dev_kind) {
+      options->default_device = ltc_device;
+      ignore = false;
+    }
+    if (!ignore) {
+      options->devices.insert(ltc_device);
+      options->global_device_map[ltc_device] = torch_mnm::ToMNMDevice(ltc_device).c_str();
+    }
+  }
+}
+
 std::unique_ptr<ComputationClient> MNMComputationClient::Create() {
   Options options;
+  PopulateLocalDevices(&options);
   return std::make_unique<MNMComputationClient>(options);
 }
 
@@ -86,8 +109,9 @@ void PopulateRn(lazy_tensors::Literal& literal, void* buf) {
     case PrimitiveType::F64:
       return PopulateRn(literal, Span<const double>(reinterpret_cast<const double*>(buf),
                                                     literal.value().numel()));
+    default:
+      LTC_LOG(FATAL) << "NotImplementedError: " << literal.shape().element_type();
   }
-  LTC_LOG(FATAL) << "NotImplementedError: " << literal.shape().element_type();
 }
 
 ComputationClient::DataPtr MNMComputationClient::CreateDataPlaceholder(std::string device,
@@ -130,8 +154,23 @@ std::vector<Literal> MNMComputationClient::TransferFromServer(
   for (const auto& handle : handles) {
     auto* ptr = static_cast<MNMData*>(handle.get());
     DLTensor* val = ptr->handle;
-    Literal res(ToLTCShape(std::vector<int64_t>(val->shape, val->shape + val->ndim), val->dtype));
-    PopulateRn(res, val->data);
+    auto shape = std::vector<int64_t>(val->shape, val->shape + val->ndim);
+    Literal res(ToLTCShape(shape, val->dtype));
+
+    // Transfer to CPU if it is on the other device.
+    if (val->device.device_type != DevType::kCPU()) {
+      mnm::Device dev_cpu(mnm::DevType::kCPU(), 0);
+      TensorValue tv_shape = TensorValue::Assemble(dev_cpu, val->dtype, shape);
+      int64_t nbytes =
+          mnm::common::shape_utils::BytesCompactTensor(*(tv_shape.operator DLTensor*()));
+      auto buffer_cpu = memory_pool::Memory::Alloc(dev_cpu, nbytes);
+      auto tv_cpu =
+          TensorValue::Assemble(dev_cpu, val->dtype, shape, {}, buffer_cpu->data, buffer_cpu);
+      tv_cpu->tensor.CopyFrom(val);
+      PopulateRn(res, (tv_cpu.operator DLTensor*())->data);
+    } else {
+      PopulateRn(res, val->data);
+    }
     results.push_back(res);
   }
   return results;
@@ -151,7 +190,13 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
     Function func = Downcast<Function>(computation->computation());
     IRModule ir_module = IRModule::FromExpr(computation->computation());
+
+    auto device = GetDefaultDevice();
+    auto mnm_device = ToMNMDevice(device);
+
     mnm::pass::MNMSequential seq({
+        mnm::pass::InferType(),
+        mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
         mnm::pass::InferType(),
         mnm::pass::LambdaLift(),
         mnm::pass::InferType(),
@@ -179,7 +224,7 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     tvm::runtime::Module exe;
     if (!IsIdentityFunction(func)) {
       mnm::executor::vm::DeviceMap device_map{
-          {Integer((int)(DLDeviceType::kDLCPU)), mnm::Device(mnm::DevType::kCPU(), 0)}};
+          {Integer((int)(mnm_device.device_type())), mnm_device}};
       ir_module = seq(ir_module);
       ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
       ir_module = mnm::pass::InferType()(ir_module);
@@ -261,8 +306,7 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
                                          ? vm_constructor(mnm_computation.executable, false)
                                          : tvm::runtime::Module();
     auto* vm = dynamic_cast<mnm::executor::vm::VirtualMachine*>(vm_module.operator->());
-    // TODO(@hzfan): feed set_devices with user-configured LTC device
-    vm_module->GetFunction("set_devices")(ToMNMDevice(""));
+    vm_module->GetFunction("set_devices")(ToMNMDevice(GetDefaultDevice()));
     mnm::executor::vm::VMContext vm_ctx = vm->PrepareVMContext("main", values);
     // TODO(@hzfan): sync the execution
     ret = vm->Run(vm_ctx);

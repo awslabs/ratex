@@ -66,10 +66,7 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
   struct Options {
     std::string default_device;
     // Maps a PyTorch device ID (example, "GPU:0", "TPU:0") to the full
-    // coordinates in TF device format
-    // (ie, /job:tpu_worker/replica:0/task:0/device:TPU:0), of the worker
-    // exposing that device. These devices are all the devices present within
-    // the TPU mesh.
+    // coordinates in self device format.
     std::map<std::string, std::string> global_device_map;
     // These are the devices that this instance of PyTorch is handling. These
     // devices are in the form of "CPU:0", "TPU:3", ... For each of these

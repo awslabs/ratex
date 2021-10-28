@@ -784,11 +784,11 @@ Var MNMNodeLowering::LowerThresholdBackward(const ir::ops::ThresholdBackward* no
 }
 
 Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
-  // TODO(@hzfan): get the current device from env variables
   // TODO(@hzfan): unify LowerConstant for meta/Sunda, meta/CPU, meta/GPU
   // TODO(@hzfan): embed NeuronTensor into constants directly
   LTC_CHECK_EQ(node->num_outputs(), 1);
-  mnm::Device dev(mnm::DevType::kCPU(), 0);
+  auto device = lazy_tensors::ComputationClient::Get()->GetDefaultDevice();
+  mnm::Device dev = ToMNMDevice(device);
   int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(
       Downcast<TensorType>(ToMNMType(node->value().shape())).as<TensorTypeNode>());
   auto buffer = memory_pool::Memory::Alloc(dev, nbytes);
@@ -796,7 +796,7 @@ Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   std::vector<int64_t> shape;
   std::tie(shape, dtype) = ToMNMShape(node->value().shape());
   PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes,
-                       Device("CPU"));
+                       Device(device));
   auto value = TensorValue::Assemble(dev, dtype, shape, {}, buffer->data, buffer);
   return BindSymbol(MakeConstant(value));
 }
@@ -823,20 +823,20 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   using tvm::runtime::DLDataType2String;
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;
+  mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+
   switch (node->shape().element_type()) {
     case lazy_tensors::PrimitiveType::PRED:
-      tv = MakeScalar(static_cast<float>(node->value().toBool()), mnm::Device(DevType::kCPU(), 0));
+      tv = MakeScalar(static_cast<float>(node->value().toBool()), dev);
       break;
     case lazy_tensors::PrimitiveType::S64:
-      tv = MakeScalar(static_cast<float>(node->value().toLong()), mnm::Device(DevType::kCPU(), 0));
+      tv = MakeScalar(static_cast<float>(node->value().toLong()), dev);
       break;
     case lazy_tensors::PrimitiveType::F32:
-      tv =
-          MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
+      tv = MakeScalar(static_cast<float>(node->value().toDouble()), dev);
       break;
     case lazy_tensors::PrimitiveType::F64:
-      tv =
-          MakeScalar(static_cast<float>(node->value().toDouble()), mnm::Device(DevType::kCPU(), 0));
+      tv = MakeScalar(static_cast<float>(node->value().toDouble()), dev);
       break;
     default:
       LTC_LOG(FATAL) << "Unable to lower scalar " << node->value() << " of shape " << node->shape();

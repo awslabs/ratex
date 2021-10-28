@@ -54,25 +54,21 @@ std::string BaseComputationClient::GetResourceDomain(const std::string& device) 
 }
 
 std::string BaseComputationClient::GetDefaultDevice() const {
-  switch (lazy_tensors::NNCComputationClient::HardwareDeviceType()) {
-    case at::kCPU: {
-      return "CPU:0";
-    }
-    case at::kCUDA: {
-      return "GPU:0";
-    }
-    default: {
-      LTC_LOG(FATAL) << "Invalid device type";
-    }
-  }
+  // TODO(@hzfan): Investigate whether we should use the LTC API to get the default device.
+  // i.e., lazy_tensors::NNCComputationClient::HardwareDeviceType()
+  return options_.default_device;
 }
 
 std::vector<std::string> BaseComputationClient::GetLocalDevices() const {
-  return {GetDefaultDevice()};
+  return std::vector<std::string>(options_.devices.begin(), options_.devices.end());
 }
 
 std::vector<std::string> BaseComputationClient::GetAllDevices() const {
-  return GetLocalDevices();
+  std::vector<std::string> devices;
+  for (const auto& dev_target : options_.global_device_map) {
+    devices.push_back(dev_target.first);
+  }
+  return devices;
 }
 
 void BaseComputationClient::SetReplicationDevices(

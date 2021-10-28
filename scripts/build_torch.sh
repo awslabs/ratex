@@ -30,7 +30,7 @@ export USE_CUDA=0
 # Build PyTorch
 echo "Building PyTorch wheel..."
 python3 setup.py bdist_wheel -d build/pip/public/pytorch
-pip3 install build/pip/public/pytorch/*.whl --force-reinstall
+pip3 install build/pip/public/pytorch/*.whl --upgrade --force-reinstall
 
 # Build LTC
 echo "Building LazyTensorCore wheel..."
@@ -38,7 +38,7 @@ cd lazy_tensor_core
 scripts/apply_patches.sh
 export BUILD_CPP_TESTS=1
 python3 setup.py bdist_wheel -d ../build/pip/public/lazy_tensor_core
-pip3 install ../build/pip/public/lazy_tensor_core/*.whl --force-reinstall
+pip3 install ../build/pip/public/lazy_tensor_core/*.whl --upgrade --force-reinstall
 
 echo "Testing..."
 pushd .
