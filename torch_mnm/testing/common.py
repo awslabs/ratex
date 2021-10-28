@@ -47,8 +47,8 @@ def train(device, model, dataset, optimizer=optim.SGD, num_epochs=10):
 def verify(model, dataset, **kwargs):
     """Run the training and verify the result (loss)."""
     # pylint: disable=unused-argument
-    xla_results = train("xla", model, dataset)
-    cpu_results = train("cpu", model, dataset)
+    xla_results = train("xla", model, dataset, **kwargs)
+    cpu_results = train("cpu", model, dataset, **kwargs)
     print("xla_results = ", xla_results)
     print("cpu_results = ", cpu_results)
     results = [torch.testing.assert_close(xla, cpu) for xla, cpu in zip(xla_results, cpu_results)]

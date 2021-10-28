@@ -211,7 +211,7 @@ class LANS(torch.optim.Optimizer):
         ratio1 = torch.where(
             torch.bitwise_and(p_norm > 0, tmp1_norm > 0),
             p_norm / tmp1_norm,
-            torch.tensor(1.0, dtype=p_norm.dtype, device=p_norm.device),
+            torch.ones_like(p_norm),
         )
         param.subtract_(lr * beta1 * ratio1 * tmp1)
         ratios2 = scaled_g / denom
@@ -220,6 +220,6 @@ class LANS(torch.optim.Optimizer):
         ratio2 = torch.where(
             torch.bitwise_and(p_norm > 0, tmp2_norm > 0),
             p_norm / tmp2_norm,
-            torch.tensor(1.0, dtype=p_norm.dtype, device=p_norm.device),
+            torch.ones_like(p_norm),
         )
         param.subtract_(lr * beta3 * ratio2 * tmp2)
