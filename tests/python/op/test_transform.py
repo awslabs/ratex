@@ -1,18 +1,12 @@
 import copy
-import time
-import os
 
 import pytest
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim import lr_scheduler
 
 import torch_mnm
 import lazy_tensor_core
-import lazy_tensor_core.debug.metrics as metrics
 import lazy_tensor_core.core.lazy_model as lm
 
 

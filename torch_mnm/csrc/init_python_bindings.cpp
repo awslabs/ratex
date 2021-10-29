@@ -55,8 +55,10 @@ void InitMNMModuleBindings(py::module m) {
 
               if (inplace_update_out_2_arg_idxs.count(i) > 0) {
                 // The output inplace updates an input, so we mark it accordingly without returning.
-                LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)
-                    .ShallowCopyTo(&lazy_tensors[inplace_update_out_2_arg_idxs.at(i)]);
+                // FIXME(@comaniac): This inplace update is incorrect and will result in crashing
+                // for ResNet-50 at the 3rd epoch.
+                // LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)
+                //     .ShallowCopyTo(&lazy_tensors[inplace_update_out_2_arg_idxs.at(i)]);
               } else {
                 unpacked_ret.emplace_back(bridge::AtenFromLtcTensor(
                     LazyTensor::Create(ir::Value(ret, i), dev, scalar_type)));
