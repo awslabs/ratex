@@ -46,11 +46,15 @@ class MNMComputationClient : public BaseComputationClient {
 
     MNMComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
                    std::vector<std::string> devices, tvm::runtime::Module executable,
+                   tvm::runtime::Module vm_module,
                    const std::unordered_map<int64_t, int64_t>& alias = {})
-        : BaseComputation(computation, program_shape, devices, alias), executable(executable) {
+        : BaseComputation(computation, program_shape, devices, alias),
+          executable(executable),
+          vm_module(vm_module) {
     }
 
     tvm::runtime::Module executable;
+    tvm::runtime::Module vm_module;
   };
 
   MNMComputationClient(Options options);

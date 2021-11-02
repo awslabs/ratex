@@ -184,45 +184,43 @@ bool IsIdentityFunction(Function func) {
 
 std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     std::vector<ComputationClient::CompileInstance> instances) {
+  LTC_TIMED("MNMCompile");
   std::vector<ComputationPtr> results;
   for (const auto& ins : instances) {
-    mnm::executor::vm::VMCompiler compiler;
     auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
     Function func = Downcast<Function>(computation->computation());
     IRModule ir_module = IRModule::FromExpr(computation->computation());
 
-    auto device = GetDefaultDevice();
-    auto mnm_device = ToMNMDevice(device);
-
-    mnm::pass::MNMSequential seq({
-        mnm::pass::InferType(),
-        mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
-        mnm::pass::InferType(),
-        mnm::pass::LambdaLift(),
-        mnm::pass::InferType(),
-        mnm::pass::InlineClosure(),
-        mnm::pass::InferType(),
-        mnm::pass::DeadCodeElimination(),
-        mnm::pass::InferType(),
-        mnm::pass::EliminateClosure(),
-        mnm::pass::InferType(),
-        mnm::pass::InlineLet(),
-        mnm::pass::InferType(),
-        mnm::pass::DeadCodeElimination(),
-        mnm::pass::InferType(),
-        mnm::pass::CanonicalizeOps(),
-        mnm::pass::InferType(),
-    });
-    // std::stringstream ss;
-    // ss << "Compile: " << std::endl;
-    // ss << ::mnm::ir::AsText(ir_module) << std::endl;
-    // ss << "Alias: " << std::endl;
-    // for (const auto& kv : computation->alias()) {
-    //   ss << "(" << kv.first << ", " << kv.second << "), ";
-    // }
-    // std::cout << std::endl;
-    tvm::runtime::Module exe;
+    tvm::runtime::Module exe, vm_module;
     if (!IsIdentityFunction(func)) {
+      // For uncached function:, we perform the VM compilation and cache the VM.
+      // Note that ops in the VM are not JITed until the first execution, but
+      // we still need to cache the VM to reuse the JITed ops.
+      mnm::executor::vm::VMCompiler compiler;
+
+      auto device = GetDefaultDevice();
+      auto mnm_device = ToMNMDevice(device);
+
+      mnm::pass::MNMSequential seq({
+          mnm::pass::InferType(),
+          mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
+          mnm::pass::InferType(),
+          mnm::pass::LambdaLift(),
+          mnm::pass::InferType(),
+          mnm::pass::InlineClosure(),
+          mnm::pass::InferType(),
+          mnm::pass::DeadCodeElimination(),
+          mnm::pass::InferType(),
+          mnm::pass::EliminateClosure(),
+          mnm::pass::InferType(),
+          mnm::pass::InlineLet(),
+          mnm::pass::InferType(),
+          mnm::pass::DeadCodeElimination(),
+          mnm::pass::InferType(),
+          mnm::pass::CanonicalizeOps(),
+          mnm::pass::InferType(),
+      });
+
       mnm::executor::vm::DeviceMap device_map{
           {Integer((int)(mnm_device.device_type())), mnm_device}};
       ir_module = seq(ir_module);
@@ -230,9 +228,15 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
       ir_module = mnm::pass::InferType()(ir_module);
       compiler.Lower(ir_module, device_map);
       exe = compiler.GetFunction("get_executable", nullptr)();
+
+      static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
+      vm_module = vm_constructor(exe, false);
+      vm_module->GetFunction("set_devices")(ToMNMDevice(GetDefaultDevice()));
     }
+
     results.emplace_back(std::make_shared<MNMComputation>(
-        ins.computation, ConsumeValue(ins.computation->GetProgramShape()), ins.devices, exe));
+        ins.computation, ConsumeValue(ins.computation->GetProgramShape()), ins.devices, exe,
+        vm_module));
     lifted_computation_[results.back().get()] = ir_module;
   }
   return results;
@@ -241,6 +245,7 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
 std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation(
     const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
     const std::string& device, const ExecuteComputationOptions& options) {
+  LTC_TIMED("MNMExecute");
   std::function<std::vector<ComputationClient::DataPtr>(Value)> explode_tuple =
       [&](Value val) -> std::vector<ComputationClient::DataPtr> {
     if (const auto* tup = val.as<TupleValueObj>()) {
@@ -301,15 +306,11 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
     values.push_back(static_cast<MNMData*>(argument.get())->handle);
   }
   if (!is_identity_function) {
-    // TODO(@hzfan): cache the VM
-    tvm::runtime::Module vm_module = mnm_computation.executable.defined()
-                                         ? vm_constructor(mnm_computation.executable, false)
-                                         : tvm::runtime::Module();
+    // TODO(@comaniac): Setup TVM auto-scheduler dispatch context with schedules.
+    auto vm_module = mnm_computation.vm_module;
     auto* vm = dynamic_cast<mnm::executor::vm::VirtualMachine*>(vm_module.operator->());
-    vm_module->GetFunction("set_devices")(ToMNMDevice(GetDefaultDevice()));
     mnm::executor::vm::VMContext vm_ctx = vm->PrepareVMContext("main", values);
-    // TODO(@hzfan): sync the execution
-    ret = vm->Run(vm_ctx);
+    ret = vm->Run(vm_ctx);  // TODO(@hzfan): sync the execution
   } else {
     LTC_CHECK_EQ(values.size(), 1U);
     ret = values[0];

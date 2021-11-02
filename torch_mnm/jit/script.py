@@ -4,7 +4,7 @@ import copy
 
 import torch
 import mnm
-from mnm._core.module import IRModule
+import tvm
 from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 
 from .. import _TORCHMNMC
@@ -30,12 +30,13 @@ def to_mnm_name(name):
     return "model_" + name.replace(".", "_")
 
 
-def get_positional_args(func, *args, **kwargs):
+def get_positional_args(param_names, *args, **kwargs):
     """convert a mixture of positional args and keyword args to positional args only
 
     Parameters
     ----------
-    func : relay.Function
+    param_names : List[str]
+        A list of parameter names.
 
     args:
         positional args
@@ -51,9 +52,9 @@ def get_positional_args(func, *args, **kwargs):
     ret = []
     i = 0
     mnm_kwargs = {to_mnm_name(k): v for k, v in kwargs.items()}
-    for var in func.params:
-        if var.name_hint in mnm_kwargs:
-            param = mnm_kwargs[var.name_hint]
+    for name in param_names:
+        if name in mnm_kwargs:
+            param = mnm_kwargs[name]
         else:
             param = args[i]
             i = i + 1
@@ -63,30 +64,32 @@ def get_positional_args(func, *args, **kwargs):
     return ret
 
 
+def clone_func(func):
+    """Clone a Relay function."""
+    return tvm.relay.ExprMutator().visit(func)
+
+
 class RelayFunction(torch.autograd.Function):
     """A wrapper of torch.autograd.Function to run on Meta."""
 
     # pylint: disable=no-self-use, unused-argument, missing-docstring, arguments-differ
 
     @staticmethod
-    def forward(ctx, func, *args):
-        mod = IRModule.from_expr(func)
-        mod = AutoDiff([])(InferType()(mod))
-        mod = DeadCodeElimination()(mod)
-        mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
-        inplace_update_map = InplaceUpdateAnalysis(mod)
-        func = mod["main"]
+    def forward(ctx, func, inplace_update_map, *args):
         handle = ValueToHandle(mnm._core.value.ClosureValue({}, func))
-        func = _TORCHMNMC._mnm_to_tensor(handle)
-        result = _TORCHMNMC._mnm_invoke_relay(func, args, dict(inplace_update_map.items()))
+        t_func = _TORCHMNMC._mnm_to_tensor(handle)
+        result = _TORCHMNMC._mnm_invoke_relay(t_func, args, inplace_update_map)
         ctx.bwd = result[1]
         return result[0]
 
     @staticmethod
     def backward(ctx, grad_output):
         ret = _TORCHMNMC._mnm_invoke_relay(ctx.bwd, [grad_output], {})
-        ret = tuple([None] + ret)
-        return ret
+
+        # Each value in the return tuple is a gradient corresponding to the forward input,
+        # so the first 2 must be None, because the forward func and inplace_update_map don't
+        # have gradients.
+        return tuple([None, None] + ret)
 
 
 def asnumpy(x):
@@ -107,32 +110,50 @@ def script(module: torch.nn.Module):
     func: Callable
         A function to run on Meta.
     """
+    # Module based cache that maps the input shape/dtype to a tuple of
+    # (processed Relay function, function parameter names, inplace update map).
+    cache = {}
+
+    # Difference between state_dict() and named_parameters():
+    # module.state_dict() sets the requires_grad of all parameters to false
+    # module.state_dict() includes in-place updated parameters while model.paramters() does not
+    # so here we use them in combination
+    # See also:
+    # https://discuss.pytorch.org/t/difference-between-state-dict-and-parameters/37531/8
+    # https://discuss.pytorch.org/t/batch-norm-parameters-not-included-in-model-parameters/10265
+    named_parameters = dict(module.named_parameters())
+    params = {
+        k: named_parameters[k] if k in named_parameters else v
+        for k, v in module.state_dict().items()
+    }
 
     def func(*args, **kwargs):
-        # TODO: cache the result
         # TODO: eliminate shape_dict
         # TODO: use torch.jit.script
-        assert len(args) == 1
-        assert not kwargs
-        shape_dict = {
-            "input0": ((list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1]))
-        }
-        cloned_module = copy.deepcopy(module)
-        model = mnm.frontend.from_pytorch(cloned_module, shape_dict)
-        record = model._internal(mnm.array(asnumpy(args[0])))
-        # Difference between state_dict() and named_parameters():
-        # module.state_dict() sets the requires_grad of all parameters to false
-        # module.state_dict() includes in-place updated parameters while model.paramters() does not
-        # so here we use them in combination
-        # See also:
-        # https://discuss.pytorch.org/t/difference-between-state-dict-and-parameters/37531/8
-        # https://discuss.pytorch.org/t/batch-norm-parameters-not-included-in-model-parameters/10265
-        named_parameters = dict(module.named_parameters())
-        params = {
-            k: named_parameters[k] if k in named_parameters else v
-            for k, v in module.state_dict().items()
-        }
-        positional_args = get_positional_args(record.mod["main"], *args, **params)
-        return RelayFunction.apply(record.mod["main"], *positional_args)
+        assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
+        assert not kwargs, "Do not support kwargs yet"
+        shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
+        cache_key = str(shape_n_dtype)
+        if cache_key in cache:
+            # Cache hit. Note that the function will be wrapped to a lazy tensor and processed
+            # by LTC, so we clone a new function to avoid unexpected behaviors.
+            func, param_names, inplace_update_map = cache[cache_key]
+            func = clone_func(func)
+        else:
+            # Cache miss. Generate a Meta function and apply a series of transformations.
+            cloned_module = copy.deepcopy(module)
+            model = mnm.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
+            record = model._internal(mnm.array(asnumpy(args[0])))
+            mod = record.mod
+            mod = AutoDiff([])(InferType()(mod))
+            mod = DeadCodeElimination()(mod)
+            mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
+            inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
+            func = mod["main"]
+            param_names = [var.name_hint for var in func.params]
+            cache[cache_key] = (func, param_names, inplace_update_map)
+
+        positional_args = get_positional_args(param_names, *args, **params)
+        return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
     return func
