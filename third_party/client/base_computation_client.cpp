@@ -4,6 +4,11 @@
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
+#include "torch_mnm/csrc/compiler/utils.h"
+
+#include "env_vars.h"
+
+
 namespace lazy_tensors {
 
 using namespace torch_lazy_tensors::compiler;
@@ -16,18 +21,6 @@ ComputationClient* ComputationClient::Get() {
 }
 
 std::unique_ptr<ComputationClient> ComputationClient::Create() {
-  // TODO(@hzfan): populate options like
-  // pytorch-ltc/xla/third_party/xla_client/computation_client.cc: XrtComputationClient::Options
-  // options; std::unique_ptr<tensorflow::tpu::TopologyProto> topology_proto; if
-  // (!ParseEnvBasedTpuClusterConfig(&options) &&
-  //     !ParseEnvDeviceCounts(&options) && !ParseEnvDevices(&options) &&
-  //     !ParseMeshConfig(&options, &topology_proto)) {
-  //   XLA_ERROR() << "Missing XLA configuration";
-  // }
-  // PopulateLocalDevices(&options);
-  // Method 1: get the computation client without creating it.
-  // Problem: it has already been owned, so we cannot own it with another unique_ptr
-  // return getBackendRegistrar()->GetComputationClient();
   LOG(FATAL) << "NotImplemented Error";
 }
 
@@ -36,6 +29,26 @@ std::unique_ptr<ComputationClient> ComputationClient::Create() {
 namespace torch_mnm {
 
 using namespace lazy_tensors;
+
+void PopulateLocalDevices(BaseComputationClient::Options* options) {
+  auto dev_kind = sys_util::GetEnvString(torch_mnm::env::kEnvDefaultDevice, "CPU");
+  int dev_id = 0;  // TODO: Determine the device ID using local rank.
+  bool ignore = true;
+
+  // Iterate candidate devices in the preferred order, and include all devices the
+  // lower or equal ordinal of the user specified default device.
+  for (auto kind : {"GPU", "CPU"}) {
+    std::string ltc_device = dev_kind + ":" + std::to_string(dev_id);
+    if (kind == dev_kind) {
+      options->default_device = ltc_device;
+      ignore = false;
+    }
+    if (!ignore) {
+      options->devices.insert(ltc_device);
+      options->global_device_map[ltc_device] = torch_lazy_tensors::compiler::mnm_backend::ToMNMDevice(ltc_device).c_str();
+    }
+  }
+}
 
 client::ShapeData BaseComputationClient::GetShapeData(const Shape& shape) {
   std::vector<int64_t> dimensions(shape.dimensions().begin(), shape.dimensions().end());

@@ -144,4 +144,6 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
   Options options_;
 };
 
+void PopulateLocalDevices(BaseComputationClient::Options* options);
+
 }  // namespace torch_mnm

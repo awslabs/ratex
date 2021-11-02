@@ -158,7 +158,6 @@ def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=
         running_loss = 0.0
         for inputs, labels in dataloader:
             inputs = inputs.to(device)
-            inputs.requires_grad = True
             labels = labels.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)

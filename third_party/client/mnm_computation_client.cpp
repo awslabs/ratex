@@ -38,26 +38,6 @@ void MNMComputationClient::MNMData::Assign(const Data& data) {
 MNMComputationClient::MNMComputationClient(Options options) : BaseComputationClient(options) {
 }
 
-void PopulateLocalDevices(torch_mnm::MNMComputationClient::Options* options) {
-  auto dev_kind = sys_util::GetEnvString(torch_mnm::env::kEnvDefaultDevice, "CPU");
-  int dev_id = 0;  // TODO: Determine the device ID using local rank.
-  bool ignore = true;
-
-  // Iterate candidate devices in the preferred order, and include all devices the
-  // lower or equal ordinal of the user specified default device.
-  for (auto kind : {"GPU", "CPU"}) {
-    std::string ltc_device = dev_kind + ":" + std::to_string(dev_id);
-    if (kind == dev_kind) {
-      options->default_device = ltc_device;
-      ignore = false;
-    }
-    if (!ignore) {
-      options->devices.insert(ltc_device);
-      options->global_device_map[ltc_device] = torch_mnm::ToMNMDevice(ltc_device).c_str();
-    }
-  }
-}
-
 std::unique_ptr<ComputationClient> MNMComputationClient::Create() {
   Options options;
   PopulateLocalDevices(&options);
