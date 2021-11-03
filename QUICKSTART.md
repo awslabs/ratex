@@ -75,16 +75,17 @@ export TORCH_HOME="$(pwd)"
 export USE_CUDA=0 # We will use our own CUDA backend so we turn off the one in PyTorch.
 ```
 
-#### 4.2. Install required Python packages
+#### 4.2. Install required Python packages (under `pytorch/`)
 ```
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 #### 4.3. Build PyTorch and install wheel (under `pytorch/`)
 
 ```
+python3 -m pip install wheel
 python3 setup.py bdist_wheel -d build/pip/public/pytorch
-pip3 install build/pip/public/pytorch/*.whl --force-reinstall
+python3 -m pip install build/pip/public/pytorch/*.whl --force-reinstall
 ```
 
 #### 4.4. Build Lazy Tensor Core and install wheel (under `pytorch/lazy_tensor_core`)
@@ -93,8 +94,9 @@ pip3 install build/pip/public/pytorch/*.whl --force-reinstall
 scripts/apply_patches.sh
 # override BUILD_CPP_TESTS, since ltc does not work when it is 0. This is a workaround.
 export BUILD_CPP_TESTS=1
+python3 -m pip install glob2
 python3 setup.py bdist_wheel -d ../build/pip/public/lazy_tensor_core
-pip3 install ../build/pip/public/lazy_tensor_core/*.whl --force-reinstall
+python3 -m pip install ../build/pip/public/lazy_tensor_core/*.whl --force-reinstall
 ```
 
 Troubleshootings:
@@ -142,23 +144,30 @@ cp cmake/config.cmake build/
 cd build
 cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ -D CMAKE_BUILD_TYPE=Debug \
       -D MNM_USE_CUDA=ON -D MNM_USE_CUBLAS=ON -D MNM_USE_CUDNN=ON ..
-make -j
+make -j$(nproc)
 ```
 
-#### 5.2 Build/Install Meta/TVM wheels
+Troubleshootings:
+
+* If you encounter the following error, try link /usr/local/cuda to /usr/local/cuda-10.2 instead of /usr/local/cuda-10.0 .
+```
+pytorch/torch_mnm/third_party/meta/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
+```
+
+#### 5.2 Build/Install Meta/TVM wheels (under `pytorch/`)
 
 ```
 export TORCH_DIR=`pwd`
 cd torch_mnm/third_party/meta/3rdparty/tvm/python
 rm -rf ../build/pip/public/tvm_latest
 TVM_LIBRARY_PATH=${TORCH_DIR}/torch_mnm/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
-pip3 install ../build/pip/public/tvm_latest/*.whl --force-reinstall --no-deps
+python3 -m pip install ../build/pip/public/tvm_latest/*.whl --force-reinstall --no-deps
 
-cd -
 cd ${TORCH_DIR}/torch_mnm/third_party/meta/python
 rm -rf ../build/pip/public/mnm
+python3 -m pip install decorator attrs scipy cloudpickle synr==0.5.0 tornado
 python3 setup.py bdist_wheel -d ../build/pip/public/mnm
-pip3 install ../build/pip/public/mnm/*.whl --force-reinstall --no-deps
+python3 -m pip install ../build/pip/public/mnm/*.whl --force-reinstall --no-deps
 ```
 
 #### 5.3 Test Build
@@ -194,7 +203,7 @@ export LTC_SOURCE_PATH=${PYTORCH_SOURCE_PATH}/lazy_tensor_core
 cd ${PYTORCH_SOURCE_PATH}/torch_mnm
 rm -rf ./build/pip/public/torch_mnm
 python3 setup.py bdist_wheel -d ./build/pip/public/torch_mnm
-pip3 install ./build/pip/public/torch_mnm/*.whl --force-reinstall --no-deps
+python3 -m pip install ./build/pip/public/torch_mnm/*.whl --force-reinstall --no-deps
 ```
 
 #### 6.2 Test Build
@@ -208,7 +217,8 @@ python3 -c "import torch_mnm"
 
 ```
 cd torch_mnm
-pip3 install torchvision --no-deps # otherwise it will install PyTorch from wheel...
+python3 -m pip install torchvision --no-deps # otherwise it will install PyTorch from wheel...
+python3 -m pip install Pillow
 python3 lenet.py
 ```
 

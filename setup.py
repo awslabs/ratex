@@ -300,8 +300,9 @@ if DEBUG:
 else:
   extra_compile_args += ['-DNDEBUG']
 
+PY_VERSION = ''.join(sys.version[:3].split("."))
 extra_link_args = [
-    '-l:_LAZYC.cpython-36m-x86_64-linux-gnu.so',
+    f"-l:_LAZYC.cpython-{PY_VERSION}m-x86_64-linux-gnu.so",
     '-lmnm',
     '-ltvm',
     make_relative_rpath(''),
