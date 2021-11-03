@@ -147,9 +147,12 @@ class LANS(torch.optim.Optimizer):
         mode,
         normalize_grad,
     ):
-        for args in zip(*tensor_lists):
+        for grad, param, momentum, variant in zip(*tensor_lists):
             self._lans(
-                *args,
+                param,
+                grad,
+                momentum,
+                variant,
                 lr,
                 beta1,
                 beta2,

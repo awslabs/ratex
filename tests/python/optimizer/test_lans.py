@@ -148,6 +148,4 @@ def test_traced_lans(config):
 
 
 if __name__ == "__main__":
-    # test_traced_lans_simple()
-    test_traced_lans((4, 28, 10))
-    # pytest.main([__file__])
+    pytest.main([__file__])
