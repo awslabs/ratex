@@ -334,14 +334,14 @@ std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, co
   // 1. One of the operands is float, and the other is int. In this case int is casted to float
   // 2. The two operands are of the same type, but of different bits. In this case the
   //    low precision one will be casted to high precision.
-  if (dtype_a.code == DTypeCode::kInt() && dtype_b.code == DTypeCode::kFloat()
-      || dtype_a.code == dtype_b.code && dtype_a.bits < dtype_b.bits) {
+  if ((dtype_a.code == DTypeCode::kInt() && dtype_b.code == DTypeCode::kFloat()) ||
+      (dtype_a.code == dtype_b.code && dtype_a.bits < dtype_b.bits)) {
     return std::make_tuple(
         BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
                                  {op0, MakeConstant(String(DLDataType2String(dtype_b)))})),
         op1);
-  } else if (dtype_a.code == DTypeCode::kFloat() && dtype_b.code == DTypeCode::kInt()
-      || dtype_a.code == dtype_b.code && dtype_a.bits > dtype_b.bits) {
+  } else if ((dtype_a.code == DTypeCode::kFloat() && dtype_b.code == DTypeCode::kInt()) ||
+             (dtype_a.code == dtype_b.code && dtype_a.bits > dtype_b.bits)) {
     return std::make_tuple(
         op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
                                       {op1, MakeConstant(String(DLDataType2String(dtype_a)))})));

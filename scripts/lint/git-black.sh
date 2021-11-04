@@ -60,10 +60,10 @@ echo "Files: $FILES"
 
 if [[ ${INPLACE_FORMAT} -eq 1 ]]; then
     echo "Running black on Python files against revision" $1:
-    CMD=( "black" "${FILES[@]}" )
+    CMD=( "black" "-l 100" "${FILES[@]}" )
     echo "${CMD[@]}"
     "${CMD[@]}"
 else
     echo "Running black in checking mode"
-    python3 -m black --diff --check ${FILES[@]}
+    python3 -m black -l 100 --diff --check ${FILES[@]}
 fi

@@ -125,7 +125,7 @@ def with_seed(seed=None):
 
 def fake_image_dataset(batch, channel, image_size, num_classes):
     """Fake an image dataset."""
-    from torchvision import datasets, transforms # pylint: disable=import-outside-toplevel
+    from torchvision import datasets, transforms  # pylint: disable=import-outside-toplevel
 
     return datasets.FakeData(
         size=batch,

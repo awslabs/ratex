@@ -8,7 +8,6 @@
 
 #include "env_vars.h"
 
-
 namespace lazy_tensors {
 
 using namespace torch_lazy_tensors::compiler;
@@ -45,7 +44,8 @@ void PopulateLocalDevices(BaseComputationClient::Options* options) {
     }
     if (!ignore) {
       options->devices.insert(ltc_device);
-      options->global_device_map[ltc_device] = torch_lazy_tensors::compiler::mnm_backend::ToMNMDevice(ltc_device).c_str();
+      options->global_device_map[ltc_device] =
+          torch_lazy_tensors::compiler::mnm_backend::ToMNMDevice(ltc_device).c_str();
     }
   }
 }

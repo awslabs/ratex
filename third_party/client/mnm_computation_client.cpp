@@ -173,7 +173,7 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
 
     tvm::runtime::Module exe, vm_module;
     if (!IsIdentityFunction(func)) {
-      // For uncached function:, we perform the VM compilation and cache the VM.
+      // For uncached function, we perform the VM compilation and cache the VM.
       // Note that ops in the VM are not JITed until the first execution, but
       // we still need to cache the VM to reuse the JITed ops.
       mnm::executor::vm::VMCompiler compiler;
@@ -203,15 +203,21 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
 
       mnm::executor::vm::DeviceMap device_map{
           {Integer((int)(mnm_device.device_type())), mnm_device}};
-      ir_module = seq(ir_module);
-      ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
-      ir_module = mnm::pass::InferType()(ir_module);
-      compiler.Lower(ir_module, device_map);
+
+      auto pass_ctx = pass::PassContext::Create();
+      pass_ctx->opt_level = 3;
+      {
+        tvm::With<pass::PassContext> ctx_scope(pass_ctx);
+        ir_module = seq(ir_module);
+        ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
+        ir_module = mnm::pass::InferType()(ir_module);
+        compiler.Lower(ir_module, device_map);
+      }
       exe = compiler.GetFunction("get_executable", nullptr)();
 
       static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
       vm_module = vm_constructor(exe, false);
-      vm_module->GetFunction("set_devices")(ToMNMDevice(GetDefaultDevice()));
+      vm_module->GetFunction("set_devices")(mnm_device);
     }
 
     results.emplace_back(std::make_shared<MNMComputation>(
