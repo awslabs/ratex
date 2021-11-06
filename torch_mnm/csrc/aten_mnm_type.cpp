@@ -467,15 +467,12 @@ at::Tensor AtenMNMType::_log_softmax_backward_data(const at::Tensor& grad_output
   return bridge::AtenFromLtcTensor(log_softmax_backward(
       bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output),
       dim, bridge::mnm_backend::GetLtcTensor(self)));
-  // return bridge::AtenFromLtcTensor(LazyTensor::log_softmax_backward(
-  //     bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output),
-  //     dim));
 }
 
 std::tuple<at::Tensor, at::Tensor> AtenMNMType::_pack_padded_sequence(const at::Tensor& input,
                                                                       const at::Tensor& lengths,
                                                                       bool batch_first) {
-  LTC_FN_COUNTER("mnm::");
+  LTC_FN_COUNTER("aten::");
   std::vector<at::Tensor> xla_tensors = {lengths};
   auto cpu_tensors = bridge::LtcCreateTensorList(xla_tensors);
   return at::native::_pack_padded_sequence(input, cpu_tensors[0], batch_first);
@@ -725,13 +722,13 @@ at::Tensor AtenMNMType::argmin(const at::Tensor& self, c10::optional<int64_t> di
 
 at::Tensor AtenMNMType::as_strided(const at::Tensor& self, at::IntArrayRef size,
                                    at::IntArrayRef stride, c10::optional<int64_t> storage_offset) {
+  LTC_FN_COUNTER("mnm::");
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
   const auto device_data = ir::ops::DeviceData::Cast(self_tensor.GetIrValue().node.get());
   if (!UseNNCViews(self_tensor) && (device_data || self_tensor.CurrentTensorData())) {
     auto result = AtenMNMTypeDefault::as_strided(self, size, stride, storage_offset);
     return result;
   }
-  LTC_FN_COUNTER("mnm::");
   auto xsize = Helpers::I64List(size);
   auto xstride = Helpers::I64List(stride);
   if (!ir::ops::AsStrided::StrideIsSupported(self_tensor.shape(), xsize, xstride,
@@ -3785,13 +3782,14 @@ at::Tensor AtenMNMType::view(const at::Tensor& self, at::IntArrayRef size) {
 }
 
 at::Tensor& AtenMNMType::zero_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
-    LTC_FN_COUNTER("mnm::");
-    LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-    LazyTensor::zero_(self_tensor);
-    return self;
-  }
-  return AtenMNMTypeDefault::zero_(self);
+  LTC_FN_COUNTER("mnm::");
+  LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
+  LazyTensor::zero_(self_tensor);
+  return self;
+}
+
+at::Scalar AtenMNMType::_local_scalar_dense(const at::Tensor& self) {
+  return AtenMNMTypeDefault::_local_scalar_dense(self);
 }
 
 void AtenMNMType::InitializeAtenBindings() {

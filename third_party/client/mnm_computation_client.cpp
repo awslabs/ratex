@@ -292,7 +292,6 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
     values.push_back(static_cast<MNMData*>(argument.get())->handle);
   }
   if (!is_identity_function) {
-    // TODO(@comaniac): Setup TVM auto-scheduler dispatch context with schedules.
     auto vm_module = mnm_computation.vm_module;
     auto* vm = dynamic_cast<mnm::executor::vm::VirtualMachine*>(vm_module.operator->());
     mnm::executor::vm::VMContext vm_ctx = vm->PrepareVMContext("main", values);
