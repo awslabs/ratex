@@ -10,6 +10,7 @@ from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 from .. import _TORCHMNMC
 from .._lib import mnm
 from ..value import ValueToHandle
+from ..utils.utils import ltc_timed
 
 _APIS = mnm._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
@@ -64,11 +65,6 @@ def get_positional_args(param_names, *args, **kwargs):
     return ret
 
 
-def clone_func(func):
-    """Clone a Relay function."""
-    return tvm.relay.ExprMutator().visit(func)
-
-
 class RelayFunction(torch.autograd.Function):
     """A wrapper of torch.autograd.Function to run on Meta."""
 
@@ -96,6 +92,36 @@ def asnumpy(x):
     """Helper function to convert x to numpy"""
     assert isinstance(x, torch.Tensor), f"{type(x)} is not supported"
     return x.cpu().detach().numpy()
+
+
+@ltc_timed("MNMTraceConvertModuleToMeta")
+def convert_module_to_meta(module, shape_n_dtype, args):
+    """Convert the PyTorch module to Meta and apply necessary transformations.
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The PyTorch module to be converted.
+    shape_n_dtype : List[Tuple[int, torch.dtype]]
+        The shape and dtype of the input tensor.
+    args : List[torch.Tensor]
+        The input tensors.
+
+    Returns
+    -------
+    ret: Tuple[relay.Function, Dict[str, str], Dict[int, int]]
+        A tuple of converted function, parameter names, and inplace update map.
+    """
+    cloned_module = copy.deepcopy(module)
+    model = mnm.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
+    record = model._internal(mnm.array(asnumpy(args[0])))
+    mod = record.mod
+    mod = AutoDiff([])(InferType()(mod))
+    mod = DeadCodeElimination()(mod)
+    mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
+    inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
+    func = mod["main"]
+    param_names = [var.name_hint for var in func.params]
+    return func, param_names, inplace_update_map
 
 
 def script(module: torch.nn.Module):
@@ -127,6 +153,7 @@ def script(module: torch.nn.Module):
         for k, v in module.state_dict().items()
     }
 
+    @ltc_timed("MNMTrace")
     def func(*args, **kwargs):
         # TODO: eliminate shape_dict
         # TODO: use torch.jit.script
@@ -138,19 +165,11 @@ def script(module: torch.nn.Module):
             # Cache hit. Note that the function will be wrapped to a lazy tensor and processed
             # by LTC, so we clone a new function to avoid unexpected behaviors.
             func, param_names, inplace_update_map = cache[cache_key]
-            func = clone_func(func)
         else:
             # Cache miss. Generate a Meta function and apply a series of transformations.
-            cloned_module = copy.deepcopy(module)
-            model = mnm.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
-            record = model._internal(mnm.array(asnumpy(args[0])))
-            mod = record.mod
-            mod = AutoDiff([])(InferType()(mod))
-            mod = DeadCodeElimination()(mod)
-            mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
-            inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
-            func = mod["main"]
-            param_names = [var.name_hint for var in func.params]
+            func, param_names, inplace_update_map = convert_module_to_meta(
+                module, shape_n_dtype, args
+            )
             cache[cache_key] = (func, param_names, inplace_update_map)
 
         positional_args = get_positional_args(param_names, *args, **params)

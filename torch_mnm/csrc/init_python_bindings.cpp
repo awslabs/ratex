@@ -105,6 +105,14 @@ void InitMNMModuleBindings(py::module m) {
   m.def("_mnm_is_amp_enabled", []() {
     return GetMNMModelState()->IsAMPEnabled();
   });
+
+  m.def("_mnm_ltc_timed_metric", [](const std::string& name, float value) {
+    lazy_tensors::metrics::Metric(name, lazy_tensors::metrics::MetricFnTime).AddSample(value);
+  });
+
+  m.def("_mnm_ltc_counter_metric", [](const std::string& name, int value) {
+    lazy_tensors::metrics::Counter(name).AddValue(value);
+  });
 }
 
 void InitMNMBindings(py::module m) {
