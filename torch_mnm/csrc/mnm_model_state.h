@@ -14,7 +14,11 @@ class MNMModelState {
   bool IsModelState(const LazyTensor& tensor);
   void AddModelState(const LazyTensor& tensor);
 
+  bool IsAMPEnabled();
+  void SetAMPEnabled(bool enabled);
+
  private:
+  bool enable_amp_ = false;
   std::unordered_set<lazy_tensors::int64> model_state_;
 };
 

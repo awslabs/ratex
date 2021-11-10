@@ -10,6 +10,7 @@ import _LAZYC
 import _TORCHMNMC
 import lazy_tensor_core
 
+from . import amp
 from . import jit
 from . import torch_parameter
 from . import optimizer

@@ -97,6 +97,14 @@ void InitMNMModuleBindings(py::module m) {
     GetMNMModelState()->AddModelState(lazy_tensor);
     return tensor;
   });
+
+  m.def("_mnm_set_amp_enabled", [](bool enable) {
+    GetMNMModelState()->SetAMPEnabled(enable);
+  });
+
+  m.def("_mnm_is_amp_enabled", []() {
+    return GetMNMModelState()->IsAMPEnabled();
+  });
 }
 
 void InitMNMBindings(py::module m) {

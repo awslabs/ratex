@@ -1,4 +1,6 @@
 """Test torchvision models."""
+import os
+
 import pytest
 import torchvision
 
@@ -19,12 +21,18 @@ def test_lenet(optimizer):
     verify(xla_results, cpu_results, tol=1e-3)
 
 
+@pytest.mark.parametrize("amp", [False, True])
 @with_seed(0)
-def test_resnet18():
+def test_resnet18(amp):
+    if amp and os.environ.get("RAZOR_DEVICE", None) != "GPU":
+        pytest.skip("AMP requires GPU")
+    if not os.environ.get("FORCE_NNC", False):
+        print("WARNING: FORCE_NNC is not enabled. This may result in long execution time")
+
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 3, 224, 100)
     model = torchvision.models.resnet18()
-    xla_results = train("xla", model, dataset, batch_size=batch_size)
+    xla_results = train("xla", model, dataset, batch_size=batch_size, amp=amp)
     cpu_results = train("cpu", model, dataset, batch_size=batch_size)
     verify(xla_results, cpu_results, tol=1e-3)
 

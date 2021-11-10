@@ -5,6 +5,7 @@
 
 #include "torch_mnm/csrc/compiler/utils.h"
 #include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
+#include "torch_mnm/csrc/mnm_model_state.h"
 #include "torch_mnm/csrc/value_ext/value.h"
 #include "torch_mnm/csrc/pass_ext/pass.h"
 #include "env_vars.h"
@@ -165,6 +166,7 @@ bool IsIdentityFunction(Function func) {
 std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
     std::vector<ComputationClient::CompileInstance> instances) {
   LTC_TIMED("MNMCompile");
+  bool is_amp_enabled = torch_lazy_tensors::GetMNMModelState()->IsAMPEnabled();
   std::vector<ComputationPtr> results;
   for (const auto& ins : instances) {
     auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
@@ -206,11 +208,15 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
 
       auto pass_ctx = pass::PassContext::Create();
       pass_ctx->opt_level = 3;
+      pass_ctx->config.Set("mnm.amp.out_dtype", String("float32"));
       {
         tvm::With<pass::PassContext> ctx_scope(pass_ctx);
         ir_module = seq(ir_module);
         ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
         ir_module = mnm::pass::InferType()(ir_module);
+        if (is_amp_enabled) {
+          ir_module = mnm::pass::AutoCast()(ir_module);
+        }
         compiler.Lower(ir_module, device_map);
       }
       exe = compiler.GetFunction("get_executable", nullptr)();

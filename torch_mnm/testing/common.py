@@ -135,7 +135,7 @@ def fake_image_dataset(batch, channel, image_size, num_classes):
     )
 
 
-def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10):
+def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False):
     """Run training."""
     results = []
     model = copy.deepcopy(model)
@@ -155,19 +155,20 @@ def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=
         model = torch_mnm.jit.script(model)
 
     for epoch in range(num_epochs):
-        running_loss = 0.0
+        running_loss = []
         for inputs, labels in dataloader:
             inputs = inputs.to(device)
             labels = labels.to(device)
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            lm.mark_step()
-            running_loss += loss.item() * inputs.size(0)
+            with torch_mnm.amp.autocast(amp):
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                lm.mark_step()
+            running_loss.append((loss, inputs.size(0)))
 
-        epoch_loss = running_loss / dataset_size
+        epoch_loss = sum([l.item() * w for l, w in running_loss]) / dataset_size
         print(f"Epoch {epoch:2d}, Loss {epoch_loss:.4f}", flush=True)
         results.append(epoch_loss)
     return results

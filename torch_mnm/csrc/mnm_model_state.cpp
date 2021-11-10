@@ -15,6 +15,14 @@ void MNMModelState::AddModelState(const LazyTensor& tensor) {
   model_state_.insert(tensor.GetUniqueId());
 }
 
+bool MNMModelState::IsAMPEnabled() {
+  return enable_amp_;
+}
+
+void MNMModelState::SetAMPEnabled(bool enabled) {
+  enable_amp_ = enabled;
+}
+
 MNMModelState* GetMNMModelState() {
   return MNMModelState::Get();
 }
