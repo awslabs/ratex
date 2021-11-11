@@ -45,16 +45,18 @@ pushd .
 cd ${TORCH_DIR}/torch_mnm/third_party/meta/3rdparty/tvm/python
 rm -rf ../build/pip/public/tvm_latest
 TVM_LIBRARY_PATH=${TORCH_DIR}/torch_mnm/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
-pip3 install ../build/pip/public/tvm_latest/*.whl --upgrade --force-reinstall --no-deps
+python3 -m pip install ../build/pip/public/tvm_latest/*.whl --upgrade --force-reinstall --no-deps
 popd
 pushd .
 cd ${TORCH_DIR}/torch_mnm/third_party/meta/python
 rm -rf ../build/pip/public/mnm
 python3 setup.py bdist_wheel -d ../build/pip/public/mnm
-pip3 install ../build/pip/public/mnm/*.whl --upgrade --force-reinstall --no-deps
+python3 -m pip install ../build/pip/public/mnm/*.whl --upgrade --force-reinstall --no-deps
 popd
 
 echo "Testing..."
+pushd .
+cd $HOME
 python3 -c "import tvm"
 python3 -c "import mnm"
-
+popd
