@@ -26,8 +26,6 @@ def test_lenet(optimizer):
 def test_resnet18(amp):
     if amp and os.environ.get("RAZOR_DEVICE", None) != "GPU":
         pytest.skip("AMP requires GPU")
-    if not os.environ.get("FORCE_NNC", False):
-        print("WARNING: FORCE_NNC is not enabled. This may result in long execution time")
 
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 3, 224, 100)

@@ -90,9 +90,13 @@ void CheckSubOperandTypes(at::ScalarType type1, at::ScalarType type2) {
 
 c10::optional<at::ScalarType> PromoteIntegralType(at::ScalarType src_dtype,
                                                   const c10::optional<at::ScalarType>& opt_dtype) {
-  return opt_dtype.has_value()
-             ? opt_dtype.value()
-             : at::isIntegralType(src_dtype, /*includeBool=*/true) ? at::kLong : opt_dtype;
+  if (opt_dtype.has_value()) {
+    return opt_dtype.value();
+  }
+  if (at::isIntegralType(src_dtype, /*includeBool=*/true)) {
+    return at::kLong;
+  }
+  return opt_dtype;
 }
 
 bool IsTypeWithLargerRangeThanLong(at::ScalarType dtype) {
@@ -200,46 +204,6 @@ void AtenInitialize() {
   LTCTensorImpl::AtenInitialize();
 }
 
-void MarkAsInteropView(at::Tensor& t) {
-  dynamic_cast<LTCTensorImpl*>(t.unsafeGetTensorImpl())->MarkAsInteropView();
-}
-
-bool ForceNNC() {
-  static bool force_nnc = lazy_tensors::sys_util::GetEnvBool("FORCE_NNC", false);
-  return force_nnc;
-}
-
-bool UseNNC(const at::Tensor& self) {
-  static int threshold = lazy_tensors::sys_util::GetEnvInt("NNC_NUMEL_THRESHOLD", 500000);
-  return ForceNNC() || (self.numel() > threshold && GetPythonFrameTop());
-}
-
-enum ExecutionKind { NNC, Interop };
-
-ExecutionKind InPlaceMustUseNNC(const at::Tensor& self) {
-  const LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  const bool must_use_interop = bridge::IsInteropView(self);
-  const bool must_use_nnc = self_tensor.GetViewAliasId();
-  LTC_CHECK(!must_use_nnc || !must_use_interop);
-  return must_use_nnc ? ExecutionKind::NNC : ExecutionKind::Interop;
-}
-
-ExecutionKind InPlaceUseNNC(const at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
-    return ExecutionKind::NNC;
-  }
-  const bool must_use_interop = bridge::IsInteropView(self);
-  if (must_use_interop) {
-    return ExecutionKind::Interop;
-  }
-  return UseNNC(self) ? ExecutionKind::NNC : ExecutionKind::Interop;
-}
-
-bool UseNNCViews(const LazyTensor& self_tensor) {
-  static bool force_nnc_views = lazy_tensors::sys_util::GetEnvBool("FORCE_NNC_VIEWS", false);
-  const auto device_data = ir::ops::DeviceData::Cast(self_tensor.GetIrValue().node.get());
-  return !device_data || force_nnc_views;
-}
 }  // namespace
 
 at::Tensor& AtenMNMType::__ilshift__(at::Tensor& self, const at::Scalar& other) {
@@ -480,13 +444,10 @@ std::tuple<at::Tensor, at::Tensor> AtenMNMType::_pack_padded_sequence(const at::
 
 at::Tensor AtenMNMType::_s_where(const at::Tensor& condition, const at::Tensor& self,
                                  const at::Tensor& other) {
-  if (ForceNNC()) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::where(bridge::mnm_backend::GetLtcTensor(condition),
-                                                       bridge::mnm_backend::GetLtcTensor(self),
-                                                       bridge::mnm_backend::GetLtcTensor(other)));
-  }
-  return AtenMNMTypeDefault::_s_where(condition, self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::where(bridge::mnm_backend::GetLtcTensor(condition),
+                                                     bridge::mnm_backend::GetLtcTensor(self),
+                                                     bridge::mnm_backend::GetLtcTensor(other)));
 }
 
 at::Tensor AtenMNMType::_softmax(const at::Tensor& self, int64_t dim, bool /* half_to_float */) {
@@ -513,31 +474,20 @@ at::Tensor AtenMNMType::_trilinear(const at::Tensor& i1, const at::Tensor& i2, c
 
 at::Tensor AtenMNMType::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    LTC_FN_COUNTER("mnm::");
-    return view(self, size);
-  }
-  auto result = AtenMNMTypeDefault::_unsafe_view(self, size);
-  MarkAsInteropView(result);
-  return result;
+  LTC_FN_COUNTER("mnm::");
+  return view(self, size);
 }
 
 at::Tensor AtenMNMType::abs(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::abs(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::abs(self);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::abs(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::abs_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
-    LTC_FN_COUNTER("mnm::");
-    LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-    LazyTensor::abs_(self_tensor);
-    return self;
-  }
-  return AtenMNMTypeDefault::abs_(self);
+  LTC_FN_COUNTER("mnm::");
+  LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
+  LazyTensor::abs_(self_tensor);
+  return self;
 }
 
 at::Tensor AtenMNMType::acos(const at::Tensor& self) {
@@ -546,13 +496,10 @@ at::Tensor AtenMNMType::acos(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::acos_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
-    LTC_FN_COUNTER("mnm::");
-    LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-    LazyTensor::acos_(self_tensor);
-    return self;
-  }
-  return AtenMNMTypeDefault::acos_(self);
+  LTC_FN_COUNTER("mnm::");
+  LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
+  LazyTensor::acos_(self_tensor);
+  return self;
 }
 
 at::Tensor AtenMNMType::acosh(const at::Tensor& self) {
@@ -561,44 +508,35 @@ at::Tensor AtenMNMType::acosh(const at::Tensor& self) {
 
 at::Tensor AtenMNMType::add(const at::Tensor& self, const at::Tensor& other,
                             const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    at::native::alpha_check(at::result_type(self, other), alpha);
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
-                        return LazyTensor::add(xself, xother, alpha, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::add(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  at::native::alpha_check(at::result_type(self, other), alpha);
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
+                      return LazyTensor::add(xself, xother, alpha, dtype);
+                    });
 }
 
 at::Tensor AtenMNMType::add(const at::Tensor& self, const at::Scalar& other,
                             const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
-                        return LazyTensor::add(xself, other, alpha, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::add(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
+                      return LazyTensor::add(xself, other, alpha, dtype);
+                    });
 }
 
 at::Tensor& AtenMNMType::add_(at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
-    LTC_FN_COUNTER("mnm::");
-    at::native::alpha_check(at::result_type(self, other), alpha);
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-    LazyTensor::add_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()),
-                     alpha);
-    return self;
-  }
-  return AtenMNMTypeDefault::add_(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  at::native::alpha_check(at::result_type(self, other), alpha);
+  CheckBinaryOpTypePromotion(self, self, other);
+  LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
+  LazyTensor::add_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()),
+                   alpha);
+  return self;
 }
 
 at::Tensor& AtenMNMType::add_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -618,7 +556,7 @@ at::Tensor AtenMNMType::addcdiv(const at::Tensor& self, const at::Tensor& tensor
 
 at::Tensor& AtenMNMType::addcdiv_(at::Tensor& self, const at::Tensor& tensor1,
                                   const at::Tensor& tensor2, const at::Scalar& value) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::addcdiv_(self_tensor, value, bridge::mnm_backend::GetLtcTensor(tensor1),
@@ -638,7 +576,7 @@ at::Tensor AtenMNMType::addcmul(const at::Tensor& self, const at::Tensor& tensor
 
 at::Tensor& AtenMNMType::addcmul_(at::Tensor& self, const at::Tensor& tensor1,
                                   const at::Tensor& tensor2, const at::Scalar& value) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::addcmul_(self_tensor, value, bridge::mnm_backend::GetLtcTensor(tensor1),
@@ -724,11 +662,6 @@ at::Tensor AtenMNMType::as_strided(const at::Tensor& self, at::IntArrayRef size,
                                    at::IntArrayRef stride, c10::optional<int64_t> storage_offset) {
   LTC_FN_COUNTER("mnm::");
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  const auto device_data = ir::ops::DeviceData::Cast(self_tensor.GetIrValue().node.get());
-  if (!UseNNCViews(self_tensor) && (device_data || self_tensor.CurrentTensorData())) {
-    auto result = AtenMNMTypeDefault::as_strided(self, size, stride, storage_offset);
-    return result;
-  }
   auto xsize = Helpers::I64List(size);
   auto xstride = Helpers::I64List(stride);
   if (!ir::ops::AsStrided::StrideIsSupported(self_tensor.shape(), xsize, xstride,
@@ -745,8 +678,7 @@ const at::Tensor& AtenMNMType::as_strided_(const at::Tensor& self, at::IntArrayR
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
   auto xsize = Helpers::I64List(size);
   auto xstride = Helpers::I64List(stride);
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC &&
-      ir::ops::AsStrided::StrideIsSupported(self_tensor.shape(), xsize, xstride,
+  if (ir::ops::AsStrided::StrideIsSupported(self_tensor.shape(), xsize, xstride,
                                             storage_offset.value_or(0))) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor::as_strided_(self_tensor, std::move(xsize), std::move(xstride),
@@ -769,7 +701,7 @@ at::Tensor AtenMNMType::asin(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::asin_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::asin_(self_tensor);
@@ -813,8 +745,7 @@ at::Tensor AtenMNMType::atan2(const at::Tensor& self, const at::Tensor& other) {
 at::Tensor& AtenMNMType::atan2_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_COUNTER("mnm::");
   // xla::Atan2 doesn't support integer types.
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC && self.is_floating_point() &&
-      other.is_floating_point()) {
+  if (!bridge::IsInteropView(self) && self.is_floating_point() && other.is_floating_point()) {
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::atan2_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -824,7 +755,7 @@ at::Tensor& AtenMNMType::atan2_(at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::atan_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::atan_(self_tensor);
@@ -994,27 +925,21 @@ at::Tensor AtenMNMType::binary_cross_entropy_with_logits(
 
 at::Tensor& AtenMNMType::bitwise_and_out(const at::Tensor& self, const at::Scalar& other,
                                          at::Tensor& out) {
-  if (UseNNC(out)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckBinaryOpTypePromotion(out, self, other);
-    LazyTensor out_tensor = bridge::mnm_backend::GetLtcTensor(out);
-    LazyTensor::bitwise_and_out(out_tensor, bridge::mnm_backend::GetLtcTensor(self), other);
-    return out;
-  }
-  return AtenMNMTypeDefault::bitwise_and_out(self, other, out);
+  LTC_FN_COUNTER("mnm::");
+  CheckBinaryOpTypePromotion(out, self, other);
+  LazyTensor out_tensor = bridge::mnm_backend::GetLtcTensor(out);
+  LazyTensor::bitwise_and_out(out_tensor, bridge::mnm_backend::GetLtcTensor(self), other);
+  return out;
 }
 
 at::Tensor& AtenMNMType::bitwise_and_out(const at::Tensor& self, const at::Tensor& other,
                                          at::Tensor& out) {
-  if (UseNNC(out)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckBinaryOpTypePromotion(out, self, other);
-    LazyTensor out_tensor = bridge::mnm_backend::GetLtcTensor(out);
-    LazyTensor::bitwise_and_out(out_tensor, bridge::mnm_backend::GetLtcTensor(self),
-                                bridge::mnm_backend::GetLtcTensor(other));
-    return out;
-  }
-  return AtenMNMTypeDefault::bitwise_and_out(self, other, out);
+  LTC_FN_COUNTER("mnm::");
+  CheckBinaryOpTypePromotion(out, self, other);
+  LazyTensor out_tensor = bridge::mnm_backend::GetLtcTensor(out);
+  LazyTensor::bitwise_and_out(out_tensor, bridge::mnm_backend::GetLtcTensor(self),
+                              bridge::mnm_backend::GetLtcTensor(other));
+  return out;
 }
 
 at::Tensor& AtenMNMType::bitwise_not_out(const at::Tensor& self, at::Tensor& out) {
@@ -1085,7 +1010,7 @@ at::Tensor AtenMNMType::ceil(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::ceil_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::ceil_(self_tensor);
@@ -1116,7 +1041,7 @@ at::Tensor AtenMNMType::clamp(const at::Tensor& self, const c10::optional<at::Te
 
 at::Tensor& AtenMNMType::clamp_(at::Tensor& self, const c10::optional<at::Scalar>& min,
                                 const c10::optional<at::Scalar>& max) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::clamp_(self_tensor, min, max);
@@ -1132,7 +1057,7 @@ at::Tensor AtenMNMType::clamp_max(const at::Tensor& self, const at::Scalar& max)
 }
 
 at::Tensor& AtenMNMType::clamp_max_(at::Tensor& self, const at::Scalar& max) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::clamp_(self_tensor, c10::nullopt, max);
@@ -1156,7 +1081,7 @@ at::Tensor AtenMNMType::clamp_min(const at::Tensor& self, const at::Scalar& min)
 }
 
 at::Tensor& AtenMNMType::clamp_min_(at::Tensor& self, const at::Scalar& min) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::clamp_(self_tensor, min, c10::nullopt);
@@ -1177,16 +1102,7 @@ at::Tensor AtenMNMType::clone(const at::Tensor& self,
                               c10::optional<at::MemoryFormat> memory_format) {
   LTC_FN_COUNTER("mnm::");
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (ForceNNC()) {
-    return bridge::AtenFromLtcTensor(LazyTensor::clone(self_tensor));
-  }
-  if (self_tensor.CurrentTensorData()) {
-    return AtenMNMTypeDefault::clone(self, memory_format);
-  }
-  const auto device_type = lazy_tensors::NNCComputationClient::HardwareDeviceType();
-  return bridge::CreateLtcTensor(
-      bridge::AtenFromLtcTensor(LazyTensor::clone(self_tensor)).to(device_type),
-      bridge::GetLtcDevice(self));
+  return bridge::AtenFromLtcTensor(LazyTensor::clone(self_tensor));
 }
 
 at::Tensor AtenMNMType::constant_pad_nd(const at::Tensor& self, at::IntArrayRef pad,
@@ -1240,7 +1156,7 @@ at::Tensor AtenMNMType::cos(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::cos_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::cos_(self_tensor);
@@ -1255,7 +1171,7 @@ at::Tensor AtenMNMType::cosh(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::cosh_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::cosh_(self_tensor);
@@ -1314,23 +1230,16 @@ at::Tensor AtenMNMType::div(const at::Tensor& self, const at::Tensor& other) {
 
 at::Tensor AtenMNMType::div(const at::Tensor& self, const at::Tensor& other,
                             c10::optional<std::string> rounding_mode) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    at::ScalarType dtype = at::result_type(self, other);
-    auto operands = GetBinaryOperands(self, other);
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::div(operands.first, operands.second, rounding_mode, dtype));
-  }
-  return AtenMNMTypeDefault::div(self, other, rounding_mode);
+  LTC_FN_COUNTER("mnm::");
+  at::ScalarType dtype = at::result_type(self, other);
+  auto operands = GetBinaryOperands(self, other);
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::div(operands.first, operands.second, rounding_mode, dtype));
 }
 
 at::Tensor AtenMNMType::div(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::div(bridge::mnm_backend::GetLtcTensor(self), other));
-  }
-  return AtenMNMTypeDefault::div(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::div(bridge::mnm_backend::GetLtcTensor(self), other));
 }
 
 at::Tensor& AtenMNMType::div_(at::Tensor& self, const at::Tensor& other) {
@@ -1339,7 +1248,7 @@ at::Tensor& AtenMNMType::div_(at::Tensor& self, const at::Tensor& other) {
 
 at::Tensor& AtenMNMType::div_(at::Tensor& self, const at::Tensor& other,
                               c10::optional<std::string> rounding_mode) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -1351,7 +1260,7 @@ at::Tensor& AtenMNMType::div_(at::Tensor& self, const at::Tensor& other,
 }
 
 at::Tensor& AtenMNMType::div_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -1383,7 +1292,7 @@ at::Tensor AtenMNMType::elu(const at::Tensor& self, const at::Scalar& alpha,
 
 at::Tensor& AtenMNMType::elu_(at::Tensor& self, const at::Scalar& alpha, const at::Scalar& scale,
                               const at::Scalar& input_scale) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::elu_(self_tensor, alpha, scale, input_scale);
@@ -1425,24 +1334,14 @@ at::Tensor AtenMNMType::empty(at::IntArrayRef size, c10::optional<at::ScalarType
                               c10::optional<at::Layout> layout, c10::optional<at::Device> device,
                               c10::optional<bool> pin_memory,
                               c10::optional<at::MemoryFormat> memory_format) {
-  if (ForceNNC()) {
-    LTC_FN_COUNTER("mnm::");
-    // PT empty*() are optimizations to avoid initializing the data when it is
-    // known it will be completely rewritten. But since for us doing a zero*()
-    // does not actually end up doing any memory initialization, we use that and
-    // avoid going to CPU for it. A common PT pattern is indeed doing empty()
-    // plus s_copy_().
-    return bridge::AtenFromLtcTensor(LazyTensor::full(
-        Helpers::I64List(size), 0, GetLtcDeviceOrCurrent(device), GetScalarTypeOrFloat(dtype)));
-  }
-  const auto device_type = lazy_tensors::NNCComputationClient::HardwareDeviceType();
-  at::TensorOptions options = at::TensorOptions()
-                                  .device(c10::Device(device_type))
-                                  .layout(layout)
-                                  .pinned_memory(pin_memory)
-                                  .dtype(dtype);
-  auto x_result = at::empty(size, options, memory_format);
-  return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(device));
+  LTC_FN_COUNTER("mnm::");
+  // PT empty*() are optimizations to avoid initializing the data when it is
+  // known it will be completely rewritten. But since for us doing a zero*()
+  // does not actually end up doing any memory initialization, we use that and
+  // avoid going to CPU for it. A common PT pattern is indeed doing empty()
+  // plus s_copy_().
+  return bridge::AtenFromLtcTensor(LazyTensor::full(
+      Helpers::I64List(size), 0, GetLtcDeviceOrCurrent(device), GetScalarTypeOrFloat(dtype)));
 }
 
 at::Tensor AtenMNMType::empty_strided(at::IntArrayRef size, at::IntArrayRef stride,
@@ -1456,25 +1355,18 @@ at::Tensor AtenMNMType::empty_strided(at::IntArrayRef size, at::IntArrayRef stri
 }
 
 at::Tensor AtenMNMType::eq(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::eq(bridge::mnm_backend::GetLtcTensor(self), other));
-  }
-  return AtenMNMTypeDefault::eq(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::eq(bridge::mnm_backend::GetLtcTensor(self), other));
 }
 
 at::Tensor AtenMNMType::eq(const at::Tensor& self, const at::Tensor& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::eq(bridge::mnm_backend::GetLtcTensor(self),
-                                                    bridge::mnm_backend::GetLtcTensor(other)));
-  }
-  return AtenMNMTypeDefault::eq(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::eq(bridge::mnm_backend::GetLtcTensor(self),
+                                                  bridge::mnm_backend::GetLtcTensor(other)));
 }
 
 at::Tensor& AtenMNMType::eq_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::eq_(self_tensor, other);
@@ -1484,7 +1376,7 @@ at::Tensor& AtenMNMType::eq_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::eq_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::eq_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -1499,7 +1391,7 @@ at::Tensor AtenMNMType::erf(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::erf_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::erf_(self_tensor);
@@ -1514,7 +1406,7 @@ at::Tensor AtenMNMType::erfc(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::erfc_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::erfc_(self_tensor);
@@ -1541,7 +1433,7 @@ at::Tensor AtenMNMType::exp(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::exp_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::exp_(self_tensor);
@@ -1551,13 +1443,10 @@ at::Tensor& AtenMNMType::exp_(at::Tensor& self) {
 }
 
 at::Tensor AtenMNMType::expand(const at::Tensor& self, at::IntArrayRef size, bool implicit) {
-  if (ForceNNC()) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::expand(bridge::mnm_backend::GetLtcTensor(self),
-                           lazy_tensors::util::ToVector<lazy_tensors::int64>(size)));
-  }
-  return AtenMNMTypeDefault::expand(self, size, implicit);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::expand(bridge::mnm_backend::GetLtcTensor(self),
+                         lazy_tensors::util::ToVector<lazy_tensors::int64>(size)));
 }
 
 at::Tensor AtenMNMType::expm1(const at::Tensor& self) {
@@ -1566,7 +1455,7 @@ at::Tensor AtenMNMType::expm1(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::expm1_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::expm1_(self_tensor);
@@ -1602,7 +1491,7 @@ at::Tensor& AtenMNMType::eye_out(int64_t n, int64_t m, at::Tensor& out) {
 }
 
 at::Tensor& AtenMNMType::fill_(at::Tensor& self, const at::Scalar& value) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::fill_(self_tensor, value);
@@ -1612,7 +1501,7 @@ at::Tensor& AtenMNMType::fill_(at::Tensor& self, const at::Scalar& value) {
 }
 
 at::Tensor& AtenMNMType::fill_(at::Tensor& self, const at::Tensor& value) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LTC_CHECK_EQ(value.dim(), 0) << "fill_ only supports a 0-dimensional "
                                  << "value tensor, but got tensor "
@@ -1634,7 +1523,7 @@ at::Tensor AtenMNMType::floor(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::floor_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::floor_(self_tensor);
@@ -1660,7 +1549,7 @@ at::Tensor AtenMNMType::fmod(const at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::fmod_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -1671,7 +1560,7 @@ at::Tensor& AtenMNMType::fmod_(at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::fmod_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -1687,7 +1576,7 @@ at::Tensor AtenMNMType::frac(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::frac_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::frac_(self_tensor);
@@ -1715,7 +1604,7 @@ at::Tensor AtenMNMType::ge(const at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::ge_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::ge_(self_tensor, other);
@@ -1725,7 +1614,7 @@ at::Tensor& AtenMNMType::ge_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::ge_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::ge_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -1752,25 +1641,18 @@ at::Tensor AtenMNMType::ger(const at::Tensor& self, const at::Tensor& vec2) {
 }
 
 at::Tensor AtenMNMType::gt(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::gt(bridge::mnm_backend::GetLtcTensor(self), other));
-  }
-  return AtenMNMTypeDefault::gt(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::gt(bridge::mnm_backend::GetLtcTensor(self), other));
 }
 
 at::Tensor AtenMNMType::gt(const at::Tensor& self, const at::Tensor& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::gt(bridge::mnm_backend::GetLtcTensor(self),
-                                                    bridge::mnm_backend::GetLtcTensor(other)));
-  }
-  return AtenMNMTypeDefault::gt(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::gt(bridge::mnm_backend::GetLtcTensor(self),
+                                                  bridge::mnm_backend::GetLtcTensor(other)));
 }
 
 at::Tensor& AtenMNMType::gt_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::gt_(self_tensor, other);
@@ -1780,7 +1662,7 @@ at::Tensor& AtenMNMType::gt_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::gt_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::gt_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -1832,7 +1714,7 @@ at::Tensor AtenMNMType::hardtanh(const at::Tensor& self, const at::Scalar& min_v
 
 at::Tensor& AtenMNMType::hardtanh_(at::Tensor& self, const at::Scalar& min_val,
                                    const at::Scalar& max_val) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::clamp_(self_tensor, min_val, max_val);
@@ -1970,7 +1852,7 @@ at::Tensor AtenMNMType::le(const at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::le_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::le_(self_tensor, other);
@@ -1980,7 +1862,7 @@ at::Tensor& AtenMNMType::le_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::le_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::le_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -1996,7 +1878,7 @@ at::Tensor AtenMNMType::leaky_relu(const at::Tensor& self, const at::Scalar& neg
 }
 
 at::Tensor& AtenMNMType::leaky_relu_(at::Tensor& self, const at::Scalar& negative_slope) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::leaky_relu_(self_tensor, negative_slope.to<double>());
@@ -2007,14 +1889,11 @@ at::Tensor& AtenMNMType::leaky_relu_(at::Tensor& self, const at::Scalar& negativ
 
 at::Tensor AtenMNMType::leaky_relu_backward(const at::Tensor& grad_output, const at::Tensor& self,
                                             const at::Scalar& negative_slope, bool self_is_result) {
-  if (UseNNC(grad_output)) {
-    LTC_FN_COUNTER("mnm::");
-    LTC_CHECK(!self_is_result || negative_slope.to<double>() > 0.0);
-    return bridge::AtenFromLtcTensor(LazyTensor::leaky_relu_backward(
-        bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(self),
-        negative_slope.to<double>()));
-  }
-  return AtenMNMTypeDefault::leaky_relu_backward(grad_output, self, negative_slope, self_is_result);
+  LTC_FN_COUNTER("mnm::");
+  LTC_CHECK(!self_is_result || negative_slope.to<double>() > 0.0);
+  return bridge::AtenFromLtcTensor(LazyTensor::leaky_relu_backward(
+      bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(self),
+      negative_slope.to<double>()));
 }
 
 at::Tensor AtenMNMType::log(const at::Tensor& self) {
@@ -2041,7 +1920,7 @@ at::Tensor AtenMNMType::log1p(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::log1p_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::log1p_(self_tensor);
@@ -2064,7 +1943,7 @@ at::Tensor& AtenMNMType::log2_(at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::log_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::log_(self_tensor);
@@ -2098,21 +1977,14 @@ at::Tensor AtenMNMType::logdet(const at::Tensor& self) {
 }
 
 at::Tensor AtenMNMType::lt(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::lt(bridge::mnm_backend::GetLtcTensor(self), other));
-  }
-  return AtenMNMTypeDefault::lt(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::lt(bridge::mnm_backend::GetLtcTensor(self), other));
 }
 
 at::Tensor AtenMNMType::lt(const at::Tensor& self, const at::Tensor& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::lt(bridge::mnm_backend::GetLtcTensor(self),
-                                                    bridge::mnm_backend::GetLtcTensor(other)));
-  }
-  return AtenMNMTypeDefault::lt(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::lt(bridge::mnm_backend::GetLtcTensor(self),
+                                                  bridge::mnm_backend::GetLtcTensor(other)));
 }
 
 at::Tensor& AtenMNMType::masked_fill_(at::Tensor& self, const at::Tensor& mask,
@@ -2159,7 +2031,7 @@ at::Tensor AtenMNMType::max(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::lt_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::lt_(self_tensor, other);
@@ -2169,7 +2041,7 @@ at::Tensor& AtenMNMType::lt_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::lt_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::lt_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -2396,29 +2268,23 @@ at::Tensor AtenMNMType::mse_loss_backward(const at::Tensor& grad_output, const a
 }
 
 at::Tensor AtenMNMType::mul(const at::Tensor& self, const at::Tensor& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
-                        return LazyTensor::mul(xself, xother, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::mul(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
+                      return LazyTensor::mul(xself, xother, dtype);
+                    });
 }
 
 at::Tensor AtenMNMType::mul(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
-                        return LazyTensor::mul(xself, other, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::mul(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
+                      return LazyTensor::mul(xself, other, dtype);
+                    });
 }
 
 at::Tensor& AtenMNMType::mul_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -2429,7 +2295,7 @@ at::Tensor& AtenMNMType::mul_(at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::mul_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
@@ -2499,12 +2365,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> AtenMNMType::native_batch_norm_ba
 }
 
 at::Tensor AtenMNMType::ne(const at::Tensor& self, const at::Scalar& other) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::ne(bridge::mnm_backend::GetLtcTensor(self), other));
-  }
-  return AtenMNMTypeDefault::ne(self, other);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::ne(bridge::mnm_backend::GetLtcTensor(self), other));
 }
 
 at::Tensor AtenMNMType::ne(const at::Tensor& self, const at::Tensor& other) {
@@ -2514,7 +2376,7 @@ at::Tensor AtenMNMType::ne(const at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::ne_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::ne_(self_tensor, other);
@@ -2524,7 +2386,7 @@ at::Tensor& AtenMNMType::ne_(at::Tensor& self, const at::Scalar& other) {
 }
 
 at::Tensor& AtenMNMType::ne_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::ne_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -2534,19 +2396,16 @@ at::Tensor& AtenMNMType::ne_(at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor AtenMNMType::neg(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    LTC_CHECK(self.scalar_type() != at::kBool)
-        << "Negation, the `-` operator, on a bool tensor is not supported. If "
-           "you are trying to invert a mask, use the `~` or `logical_not()` "
-           "operator instead.";
-    return bridge::AtenFromLtcTensor(LazyTensor::neg(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::neg(self);
+  LTC_FN_COUNTER("mnm::");
+  LTC_CHECK(self.scalar_type() != at::kBool)
+      << "Negation, the `-` operator, on a bool tensor is not supported. If "
+         "you are trying to invert a mask, use the `~` or `logical_not()` "
+         "operator instead.";
+  return bridge::AtenFromLtcTensor(LazyTensor::neg(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::neg_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::neg_(self_tensor);
@@ -2683,26 +2542,18 @@ at::Tensor& AtenMNMType::normal_(at::Tensor& self, double mean, double std,
 
 at::Tensor AtenMNMType::permute(const at::Tensor& self, at::IntArrayRef dims) {
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::permute(self_tensor, Helpers::I64List(dims)));
-  }
-  auto result = AtenMNMTypeDefault::permute(self, dims);
-  MarkAsInteropView(result);
-  return result;
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::permute(self_tensor, Helpers::I64List(dims)));
 }
 
 at::Tensor AtenMNMType::pow(const at::Tensor& self, const at::Scalar& exponent) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    // xla::Pow() doesn't support integer types.
-    if (!at::native::is_floating_point(self)) {
-      return AtenMNMTypeDefault::pow(self, exponent);
-    }
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::pow(bridge::mnm_backend::GetLtcTensor(self), exponent));
+  LTC_FN_COUNTER("mnm::");
+  // xla::Pow() doesn't support integer types.
+  if (!at::native::is_floating_point(self)) {
+    return AtenMNMTypeDefault::pow(self, exponent);
   }
-  return AtenMNMTypeDefault::pow(self, exponent);
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::pow(bridge::mnm_backend::GetLtcTensor(self), exponent));
 }
 
 at::Tensor AtenMNMType::pow(const at::Tensor& self, const at::Tensor& exponent) {
@@ -2728,7 +2579,7 @@ at::Tensor AtenMNMType::pow(const at::Scalar& self, const at::Tensor& exponent) 
 at::Tensor& AtenMNMType::pow_(at::Tensor& self, const at::Scalar& exponent) {
   LTC_FN_COUNTER("mnm::");
   // xla::Pow() doesn't support integer types.
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC && at::native::is_floating_point(self)) {
+  if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::pow_(self_tensor, exponent);
     return self;
@@ -2739,7 +2590,7 @@ at::Tensor& AtenMNMType::pow_(at::Tensor& self, const at::Scalar& exponent) {
 at::Tensor& AtenMNMType::pow_(at::Tensor& self, const at::Tensor& exponent) {
   LTC_FN_COUNTER("mnm::");
   // xla::Pow() doesn't support integer types.
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC && at::native::is_floating_point(self)) {
+  if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::pow_(self_tensor, bridge::mnm_backend::GetLtcTensor(exponent));
     return self;
@@ -2830,7 +2681,7 @@ at::Tensor AtenMNMType::reciprocal(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::reciprocal_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::reciprocal_(self_tensor);
@@ -2855,15 +2706,12 @@ at::Tensor AtenMNMType::reflection_pad2d_backward(const at::Tensor& grad_output,
 }
 
 at::Tensor AtenMNMType::relu(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::relu(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::relu(self);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::relu(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::relu_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::relu_(self_tensor);
@@ -2885,7 +2733,7 @@ at::Tensor AtenMNMType::remainder(const at::Tensor& self, const at::Scalar& othe
 }
 
 at::Tensor& AtenMNMType::remainder_(at::Tensor& self, const at::Tensor& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::remainder_(self_tensor, bridge::mnm_backend::GetLtcTensor(other));
@@ -2895,7 +2743,7 @@ at::Tensor& AtenMNMType::remainder_(at::Tensor& self, const at::Tensor& other) {
 }
 
 at::Tensor& AtenMNMType::remainder_(at::Tensor& self, const at::Scalar& other) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::remainder_(self_tensor, other);
@@ -2940,7 +2788,7 @@ at::Tensor AtenMNMType::replication_pad2d_backward(const at::Tensor& grad_output
 
 const at::Tensor& AtenMNMType::resize_(const at::Tensor& self, at::IntArrayRef size,
                                        c10::optional<at::MemoryFormat> memory_format) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::resize_(self_tensor, Helpers::I64List(size));
@@ -2955,7 +2803,7 @@ at::Tensor AtenMNMType::round(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::round_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::round_(self_tensor);
@@ -2997,7 +2845,7 @@ at::Tensor AtenMNMType::rsqrt(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::rsqrt_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::rsqrt_(self_tensor);
@@ -3008,26 +2856,20 @@ at::Tensor& AtenMNMType::rsqrt_(at::Tensor& self) {
 
 at::Tensor AtenMNMType::rsub(const at::Tensor& self, const at::Tensor& other,
                              const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckSubOperandTypes(self.scalar_type(), other.scalar_type());
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
-                        return LazyTensor::rsub(xself, xother, alpha, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::rsub(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  CheckSubOperandTypes(self.scalar_type(), other.scalar_type());
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
+                      return LazyTensor::rsub(xself, xother, alpha, dtype);
+                    });
 }
 
 at::Tensor AtenMNMType::rsub(const at::Tensor& self, const at::Scalar& other,
                              const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::rsub(bridge::mnm_backend::GetLtcTensor(self), other, alpha));
-  }
-  return AtenMNMTypeDefault::rsub(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::rsub(bridge::mnm_backend::GetLtcTensor(self), other, alpha));
 }
 
 at::Tensor& AtenMNMType::scatter_(at::Tensor& self, int64_t dim, const at::Tensor& index,
@@ -3057,12 +2899,9 @@ at::Tensor& AtenMNMType::scatter_add_(at::Tensor& self, int64_t dim, const at::T
 }
 
 at::Tensor AtenMNMType::select(const at::Tensor& self, int64_t dim, int64_t index) {
-  if (ForceNNC()) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::select(bridge::mnm_backend::GetLtcTensor(self), dim, index));
-  }
-  return AtenMNMTypeDefault::select(self, dim, index);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::select(bridge::mnm_backend::GetLtcTensor(self), dim, index));
 }
 
 at::Tensor& AtenMNMType::silu_out(const at::Tensor& self, at::Tensor& out) {
@@ -3074,15 +2913,12 @@ at::Tensor& AtenMNMType::silu_out(const at::Tensor& self, at::Tensor& out) {
 }
 
 at::Tensor AtenMNMType::sigmoid(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::sigmoid(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::sigmoid(self);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::sigmoid(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::sigmoid_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::sigmoid_(self_tensor);
@@ -3092,12 +2928,9 @@ at::Tensor& AtenMNMType::sigmoid_(at::Tensor& self) {
 }
 
 at::Tensor AtenMNMType::sigmoid_backward(const at::Tensor& grad_output, const at::Tensor& output) {
-  if (UseNNC(grad_output)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::sigmoid_backward(
-        bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output)));
-  }
-  return AtenMNMTypeDefault::sigmoid_backward(grad_output, output);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::sigmoid_backward(
+      bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output)));
 }
 
 at::Tensor AtenMNMType::sign(const at::Tensor& self) {
@@ -3106,7 +2939,7 @@ at::Tensor AtenMNMType::sign(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::sign_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::sign_(self_tensor);
@@ -3121,7 +2954,7 @@ at::Tensor AtenMNMType::sin(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::sin_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::sin_(self_tensor);
@@ -3136,7 +2969,7 @@ at::Tensor AtenMNMType::sinh(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::sinh_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::sinh_(self_tensor);
@@ -3147,24 +2980,12 @@ at::Tensor& AtenMNMType::sinh_(at::Tensor& self) {
 
 at::Tensor AtenMNMType::slice(const at::Tensor& self, int64_t dim, c10::optional<int64_t> start,
                               c10::optional<int64_t> end, int64_t step) {
+  LTC_FN_COUNTER("mnm::");
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    int64_t start_val = start.has_value() ? start.value() : 0;
-    int64_t end_val = end.has_value() ? end.value() : INT64_MAX;
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::slice(bridge::mnm_backend::GetLtcTensor(self), dim, start_val, end_val, step));
-  }
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::slice", 1);
-  LTC_VLOG(3) << "XLA slice :"
-              << " self=" << self.toString();
-  std::vector<at::Tensor> xlatens_tensors = {self};
-  auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);
-  auto x_result = at::slice(xlatens[0], dim, start, end, step);
-  auto result = bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
-  MarkAsInteropView(result);
-  return result;
+  int64_t start_val = start.has_value() ? start.value() : 0;
+  int64_t end_val = end.has_value() ? end.value() : INT64_MAX;
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::slice(bridge::mnm_backend::GetLtcTensor(self), dim, start_val, end_val, step));
 }
 
 at::Tensor AtenMNMType::smooth_l1_loss(const at::Tensor& self, const at::Tensor& target,
@@ -3239,15 +3060,12 @@ std::vector<at::Tensor> AtenMNMType::split_with_sizes(const at::Tensor& self,
 }
 
 at::Tensor AtenMNMType::sqrt(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::sqrt(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::sqrt(self);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::sqrt(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::sqrt_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::sqrt_(self_tensor);
@@ -3337,33 +3155,27 @@ at::Tensor AtenMNMType::std(const at::Tensor& self, c10::optional<at::IntArrayRe
 
 at::Tensor AtenMNMType::sub(const at::Tensor& self, const at::Tensor& other,
                             const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckSubOperandTypes(self.scalar_type(), other.scalar_type());
-    at::native::alpha_check(at::result_type(self, other), alpha);
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
-                        return LazyTensor::sub(xself, xother, alpha, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::sub(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  CheckSubOperandTypes(self.scalar_type(), other.scalar_type());
+  at::native::alpha_check(at::result_type(self, other), alpha);
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
+                      return LazyTensor::sub(xself, xother, alpha, dtype);
+                    });
 }
 
 at::Tensor AtenMNMType::sub(const at::Tensor& self, const at::Scalar& other,
                             const at::Scalar& alpha) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
-    return DoBinaryOp(self, other,
-                      [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
-                        return LazyTensor::sub(xself, other, alpha, dtype);
-                      });
-  }
-  return AtenMNMTypeDefault::sub(self, other, alpha);
+  LTC_FN_COUNTER("mnm::");
+  CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
+  return DoBinaryOp(self, other,
+                    [&](const LazyTensor& xself, const at::Scalar& other, at::ScalarType dtype) {
+                      return LazyTensor::sub(xself, other, alpha, dtype);
+                    });
 }
 
 at::Tensor& AtenMNMType::sub_(at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha) {
-  if (InPlaceUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     at::native::alpha_check(at::result_type(self, other), alpha);
@@ -3377,7 +3189,7 @@ at::Tensor& AtenMNMType::sub_(at::Tensor& self, const at::Tensor& other, const a
 }
 
 at::Tensor& AtenMNMType::sub_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     CheckBinaryOpTypePromotion(self, self, other);
     CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
@@ -3423,18 +3235,13 @@ std::tuple<at::Tensor, at::Tensor> AtenMNMType::symeig(const at::Tensor& self, b
 
 at::Tensor AtenMNMType::t(const at::Tensor& self) {
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::transpose(bridge::mnm_backend::GetLtcTensor(self), 0, 1));
-  }
-  auto result = AtenMNMTypeDefault::t(self);
-  MarkAsInteropView(result);
-  return result;
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::transpose(bridge::mnm_backend::GetLtcTensor(self), 0, 1));
 }
 
 at::Tensor& AtenMNMType::t_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::transpose_(self_tensor, 0, 1);
@@ -3455,7 +3262,7 @@ at::Tensor AtenMNMType::tan(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::tan_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::tan_(self_tensor);
@@ -3465,15 +3272,12 @@ at::Tensor& AtenMNMType::tan_(at::Tensor& self) {
 }
 
 at::Tensor AtenMNMType::tanh(const at::Tensor& self) {
-  if (UseNNC(self)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::tanh(bridge::mnm_backend::GetLtcTensor(self)));
-  }
-  return AtenMNMTypeDefault::tanh(self);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::tanh(bridge::mnm_backend::GetLtcTensor(self)));
 }
 
 at::Tensor& AtenMNMType::tanh_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::tanh_(self_tensor);
@@ -3483,12 +3287,9 @@ at::Tensor& AtenMNMType::tanh_(at::Tensor& self) {
 }
 
 at::Tensor AtenMNMType::tanh_backward(const at::Tensor& grad_output, const at::Tensor& output) {
-  if (UseNNC(grad_output)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::tanh_backward(
-        bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output)));
-  }
-  return AtenMNMTypeDefault::tanh_backward(grad_output, output);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::tanh_backward(
+      bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(output)));
 }
 
 at::Tensor AtenMNMType::threshold(const at::Tensor& self, const at::Scalar& threshold,
@@ -3500,7 +3301,7 @@ at::Tensor AtenMNMType::threshold(const at::Tensor& self, const at::Scalar& thre
 
 at::Tensor& AtenMNMType::threshold_(at::Tensor& self, const at::Scalar& threshold,
                                     const at::Scalar& value) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::threshold_(self_tensor, threshold.to<double>(), value.to<double>());
@@ -3511,13 +3312,10 @@ at::Tensor& AtenMNMType::threshold_(at::Tensor& self, const at::Scalar& threshol
 
 at::Tensor AtenMNMType::threshold_backward(const at::Tensor& grad_output, const at::Tensor& self,
                                            const at::Scalar& threshold) {
-  if (UseNNC(grad_output)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::threshold_backward(
-        bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(self),
-        threshold.to<double>()));
-  }
-  return AtenMNMTypeDefault::threshold_backward(grad_output, self, threshold);
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::threshold_backward(
+      bridge::mnm_backend::GetLtcTensor(grad_output), bridge::mnm_backend::GetLtcTensor(self),
+      threshold.to<double>()));
 }
 
 std::tuple<at::Tensor, at::Tensor> AtenMNMType::topk(const at::Tensor& self, int64_t k, int64_t dim,
@@ -3535,14 +3333,9 @@ at::Tensor AtenMNMType::trace(const at::Tensor& self) {
 
 at::Tensor AtenMNMType::transpose(const at::Tensor& self, int64_t dim0, int64_t dim1) {
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(
-        LazyTensor::transpose(bridge::mnm_backend::GetLtcTensor(self), dim0, dim1));
-  }
-  auto result = AtenMNMTypeDefault::transpose(self, dim0, dim1);
-  MarkAsInteropView(result);
-  return result;
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::transpose(bridge::mnm_backend::GetLtcTensor(self), dim0, dim1));
 }
 
 at::Tensor& AtenMNMType::transpose_(at::Tensor& self, int64_t dim0, int64_t dim1) {
@@ -3598,7 +3391,7 @@ at::Tensor AtenMNMType::trunc(const at::Tensor& self) {
 }
 
 at::Tensor& AtenMNMType::trunc_(at::Tensor& self) {
-  if (InPlaceMustUseNNC(self) == ExecutionKind::NNC) {
+  if (!bridge::IsInteropView(self)) {
     LTC_FN_COUNTER("mnm::");
     LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
     LazyTensor::trunc_(self_tensor);
@@ -3772,13 +3565,8 @@ at::Tensor AtenMNMType::var(const at::Tensor& self, c10::optional<at::IntArrayRe
 
 at::Tensor AtenMNMType::view(const at::Tensor& self, at::IntArrayRef size) {
   LazyTensor self_tensor = bridge::mnm_backend::GetLtcTensor(self);
-  if (UseNNCViews(self_tensor)) {
-    LTC_FN_COUNTER("mnm::");
-    return bridge::AtenFromLtcTensor(LazyTensor::view(self_tensor, Helpers::I64List(size)));
-  }
-  auto result = AtenMNMTypeDefault::view(self, size);
-  MarkAsInteropView(result);
-  return result;
+  LTC_FN_COUNTER("mnm::");
+  return bridge::AtenFromLtcTensor(LazyTensor::view(self_tensor, Helpers::I64List(size)));
 }
 
 at::Tensor& AtenMNMType::zero_(at::Tensor& self) {
