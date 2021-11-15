@@ -5,6 +5,7 @@ import copy
 import torch
 import mnm
 import tvm
+import logging
 from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 
 from .. import _TORCHMNMC
@@ -12,16 +13,24 @@ from .._lib import mnm
 from ..value import ValueToHandle
 from ..utils.utils import ltc_timed
 
+logger = logging.getLogger("jit.script")
 _APIS = mnm._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
+
+TORCH_DTYPES = {
+    "int32": torch.int32,
+    "int64": torch.int64,
+    "float32": torch.float32,
+    "float64": torch.float64,
+}
 
 
 def to_torch_name(name):
     """Transform the parameter naming style to PyTorch."""
     if name.startswith("model_"):
         assert name.startswith("model_")
-        name = name[6:]
+        name = name[len("model_") :]
         name = name.replace("_", ".")
     return name
 
@@ -108,11 +117,12 @@ def convert_module_to_meta(module, shape_n_dtype, args):
 
     Returns
     -------
-    ret: Tuple[relay.Function, Dict[str, str], Dict[int, int]]
-        A tuple of converted function, parameter names, and inplace update map.
+    ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, mnm.array]]
+        A tuple of converted function, parameter names, inplace update map, and parameter map
     """
     cloned_module = copy.deepcopy(module)
     model = mnm.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
+    mnm_params = model.state()
     record = model._internal(mnm.array(asnumpy(args[0])))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
@@ -121,7 +131,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
     func = mod["main"]
     param_names = [var.name_hint for var in func.params]
-    return func, param_names, inplace_update_map
+    return func, param_names, inplace_update_map, mnm_params
 
 
 def script(module: torch.nn.Module):
@@ -167,9 +177,24 @@ def script(module: torch.nn.Module):
             func, param_names, inplace_update_map = cache[cache_key]
         else:
             # Cache miss. Generate a Meta function and apply a series of transformations.
-            func, param_names, inplace_update_map = convert_module_to_meta(
+            func, param_names, inplace_update_map, mnm_params = convert_module_to_meta(
                 module, shape_n_dtype, args
             )
+            # Convert missing args
+            params_keys = [to_mnm_name(k) for k in params.keys()]
+            for name in param_names:
+                if name == "input0":
+                    continue
+                if name not in params_keys:
+                    t_name = to_torch_name(name)
+                    params[t_name] = torch.zeros(
+                        mnm_params[name].shape,
+                        dtype=TORCH_DTYPES.get(mnm_params[name].dtype, "float32"),
+                    ).to("xla")
+                    logger.warning(
+                        f"{name} parameter has been converted from mnm.array to torch.Tensor."
+                    )
+            # Updated cached function, param_names, and inplace update map
             cache[cache_key] = (func, param_names, inplace_update_map)
 
         positional_args = get_positional_args(param_names, *args, **params)
