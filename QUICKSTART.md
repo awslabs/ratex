@@ -73,7 +73,24 @@ export XLA_CUDA=0
 export FORCE_NNC=true
 export TORCH_HOME="$(pwd)"
 export USE_CUDA=0 # We will use our own CUDA backend so we turn off the one in PyTorch.
+export USE_MKL=1 # To accelerate mode tracing.
 ```
+
+##### Install MKL
+<details>
+```
+# Add GPG key
+cd /tmp
+wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
+apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
+# Add to list
+wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.list.d/intelproducts.list
+# Update
+apt-get update
+# Install. Make sure to install 2020 or later version!
+apt install -y intel-mkl-2020.0-088
+```
+</details>
 
 #### 4.2. Install required Python packages (under `pytorch/`)
 ```

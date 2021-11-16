@@ -1,6 +1,8 @@
 """The JIT script."""
 # pylint: disable=c-extension-no-member, protected-access
 import copy
+import hashlib
+import os
 
 import torch
 import mnm
@@ -11,8 +13,10 @@ from .. import _TORCHMNMC
 from .._lib import mnm
 from ..value import ValueToHandle
 from ..utils.utils import ltc_timed
+from ..utils.cache import cache as persist_cache
 
 logger = logging.getLogger("jit.script")
+
 _APIS = mnm._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
@@ -120,8 +124,28 @@ def convert_module_to_meta(module, shape_n_dtype, args):
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
     cloned_module = copy.deepcopy(module)
-    model = mnm.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
+    cache_key = (
+        hashlib.md5(str(cloned_module).encode(encoding="UTF-8")).hexdigest(),
+        str(shape_n_dtype),
+    )
+    cached_model_dir = persist_cache.query(cache_key)
+
+    # Cache miss. Add new entries to the cache and directly let from_pytorch write the
+    # traced model to the persistent storage.
+    if cached_model_dir is None:
+        cached_model_dir = persist_cache.create_entry(cache_key)
+
+    cached_model_file = os.path.join(cached_model_dir, "model.pt")
+    cached_hash_file = os.path.join(cached_model_dir, "model.hash")
+
+    model = mnm.frontend.from_pytorch(
+        cloned_module,
+        {"input0": shape_n_dtype},
+        model_file=cached_model_file,
+        hash_file=cached_hash_file,
+    )
     mnm_params = model.state()
+
     record = model._internal(mnm.array(asnumpy(args[0])))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
