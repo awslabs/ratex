@@ -6,7 +6,7 @@ import time
 from .. import _TORCHMNMC
 
 
-class ltc_timed:
+class ltc_timed:  # pylint: disable=invalid-name
     """A wrapper to add a timed sample to metric report. It can be used as a decorator or
     a context manager:
 

@@ -35,5 +35,12 @@ Pass CanonicalizeParamsForRAZOR();
  */
 Pass InplaceUpdateAnalysis();
 
+/*!
+ * \brief Mutate the IR to attach in-place update information according to the given alias map.
+ * Note that we cannot simply mark may_share because the IR may be transformed to GNF and erase
+ * the alias information. Thus, for now we only update the ops with "out" in their arguments.
+ */
+Pass InplaceUpdateByAlias(ir::Map<tvm::Integer, tvm::Integer> alias_map);
+
 }  // namespace pass
 }  // namespace mnm

@@ -4,7 +4,6 @@ import copy
 
 import torch
 import mnm
-import tvm
 import logging
 from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 

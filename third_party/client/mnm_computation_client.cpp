@@ -180,6 +180,12 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
       // we still need to cache the VM to reuse the JITed ops.
       mnm::executor::vm::VMCompiler compiler;
 
+      // Build the alias map.
+      ir::Map<tvm::Integer, tvm::Integer> alias_map;
+      for (const auto& kv : computation->alias()) {
+        alias_map.Set(kv.first, kv.second);
+      }
+
       auto device = GetDefaultDevice();
       auto mnm_device = ToMNMDevice(device);
 
@@ -211,6 +217,9 @@ std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
       pass_ctx->config.Set("mnm.amp.out_dtype", String("float32"));
       {
         tvm::With<pass::PassContext> ctx_scope(pass_ctx);
+        if (!alias_map.empty()) {
+          ir_module = mnm::pass::InplaceUpdateByAlias(alias_map)(ir_module);
+        }
         ir_module = seq(ir_module);
         ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
         ir_module = mnm::pass::InferType()(ir_module);

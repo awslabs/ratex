@@ -1,10 +1,11 @@
 """AMP model."""
+# pylint: disable=c-extension-no-member
 import functools
 
 from .. import _TORCHMNMC
 
 
-class autocast:
+class autocast:  # pylint: disable=invalid-name
     """We do not leverage PyTorch AMP because the list of supported ops is different."""
 
     # pylint: disable=missing-docstring
