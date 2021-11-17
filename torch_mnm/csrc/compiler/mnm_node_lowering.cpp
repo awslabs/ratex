@@ -672,8 +672,21 @@ Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
                                  const ir::ops::LogSoftmaxBackwardUseIn* node) {
   LTC_CHECK_EQ(ops.size(), 3U);
   Var dy = ops[0], y = ops[1], x = ops[2];
-  return BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.log_softmax_dx"), {x, y, dy, MakeConstant(Int(node->dim()))}));
+
+  static auto op_softmax = Op::Get("mnm.op.softmax");
+  static auto op_sum = Op::Get("mnm.op.sum");
+  static auto op_multiply = Op::Get("mnm.op.multiply");
+  static auto op_subtract = Op::Get("mnm.op.subtract");
+
+  const Expr& dim = MakeConstant(Int(node->dim()));
+  Var softmax_y = BindSymbol(mnm::ir::Call(op_softmax, {x, dim}));
+  Expr keep_dims = MakeConstant(ScalarValue::make((int64_t)1));
+  Expr exclude = MakeConstant(BoolValue::make(false));
+  Var e_1 =
+      BindSymbol(mnm::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
+  Var e_2 = BindSymbol(mnm::ir::Call(op_multiply, {e_1, softmax_y}));
+  Var e_3 = BindSymbol(mnm::ir::Call(op_subtract, {dy, e_2, MakeNull(), MakeNull()}));
+  return e_3;
 }
 
 Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackwardUseIn* node) {
