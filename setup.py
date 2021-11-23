@@ -238,6 +238,7 @@ torch_mnm_sources = (
     glob.glob("torch_mnm/csrc/*.cpp")
     + glob.glob("torch_mnm/csrc/ops/*.cpp")
     + glob.glob("torch_mnm/csrc/compiler/*.cpp")
+    + glob.glob("torch_mnm/csrc/serialization/*.cpp")
     + glob.glob("torch_mnm/csrc/value_ext/*.cpp")
     + glob.glob("torch_mnm/csrc/pass_ext/*.cpp")
     + glob.glob("third_party/client/*.cpp")

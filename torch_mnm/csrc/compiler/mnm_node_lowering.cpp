@@ -853,9 +853,8 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
       tv = MakeScalar(static_cast<float>(node->value().toLong()), dev);
       break;
     case lazy_tensors::PrimitiveType::F32:
-      tv = MakeScalar(static_cast<float>(node->value().toDouble()), dev);
-      break;
     case lazy_tensors::PrimitiveType::F64:
+    case lazy_tensors::PrimitiveType::BF16:
       tv = MakeScalar(static_cast<float>(node->value().toDouble()), dev);
       break;
     default:

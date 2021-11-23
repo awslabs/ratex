@@ -2,9 +2,11 @@
 # pylint: disable=c-extension-no-member, protected-access
 import functools
 import time
+import traceback
+
+import tvm
 
 from .. import _TORCHMNMC
-
 
 class ltc_timed:  # pylint: disable=invalid-name
     """A wrapper to add a timed sample to metric report. It can be used as a decorator or
@@ -48,3 +50,9 @@ class ltc_timed:  # pylint: disable=invalid-name
 def ltc_counter(name, value=1):
     """A wrapper to add a counter sample to metric report."""
     _TORCHMNMC._mnm_ltc_counter_metric(name, value)
+
+
+@tvm._ffi.register_func("torch_mnm.utils.print_stack")
+def print_stack():
+    print("python stack trace: ")
+    traceback.print_stack()

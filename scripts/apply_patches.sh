@@ -33,6 +33,10 @@ if [ -f "$TORCH_PIN" ]; then
   fi
 fi
 
-python $CDIR/cond_patch.py \
-  $XDIR/torch_patches \
-  $PTDIR
+# TODO(@hzfan): rm cond_patch.py
+# python $CDIR/cond_patch.py \
+#   $XDIR/torch_patches \
+#   $PTDIR
+
+# unconditional patches
+patch -d $PTDIR -p1 -i $XDIR/torch_patches/X10-codegen.diff -E -l -r - -s --no-backup-if-mismatch --follow-symlinks

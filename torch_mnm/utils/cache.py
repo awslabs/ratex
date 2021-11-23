@@ -11,6 +11,8 @@ import shutil
 import threading
 import time
 
+import tvm
+
 logger = logging.getLogger("Cache")
 
 # The path of the persistent cache.
@@ -64,6 +66,14 @@ class Cache:
 
         self.keys = self.load_cache_keys() if self.enable else {}
 
+    def normalize_key(self, key):
+        """ Normalize the cache key to ensure it's hashable """
+        if isinstance(key, list):
+            return tuple([self.normalize_key(x) for x in key])
+        if isinstance(key, dict):
+            return {self.normalize_key(k): self.normalize_key(v) for k, v in key.items()}
+        return key
+
     def load_cache_keys(self):
         """Load the cache keys for fast query."""
         key_file = os.path.join(self.persist_dir, self.KEY_FILE)
@@ -71,7 +81,7 @@ class Cache:
         if os.path.exists(key_file):
             with open(key_file, "r") as filep:
                 for entry in json.load(filep):
-                    key = tuple(entry["key"]) if isinstance(entry["key"], list) else entry["key"]
+                    key = self.normalize_key(entry["key"])
                     ret[key] = entry["token"]
         return ret
 
@@ -294,3 +304,28 @@ class Cache:
 
 
 cache = Cache(PERSIST_DIR)
+
+
+def normalize(key):
+    if isinstance(key, tvm.ir.container.Array):
+        return tuple([normalize(x) for x in key])
+    if isinstance(key, tvm.ir.container.Map):
+        ks = sorted(key, key=lambda x: normalize(x))
+        return tuple([
+            (normalize(k), normalize(key[k]))
+            for k in ks
+        ])
+    if isinstance(key, tvm.tir.expr.ConstExpr):
+        return key.value
+    return hashlib.md5(str(key).encode(encoding="UTF-8")).hexdigest()
+
+
+@tvm._ffi.register_func("torch_mnm.utils.cache.query")
+def query(key):
+    ret = cache.query(normalize(key))
+    return ret if ret is not None else ""
+
+
+@tvm._ffi.register_func("torch_mnm.utils.cache.create_entry")
+def create_entry(key):
+    return cache.create_entry(normalize(key))

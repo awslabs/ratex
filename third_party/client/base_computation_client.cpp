@@ -5,12 +5,15 @@
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
 #include "torch_mnm/csrc/compiler/utils.h"
+#include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
+#include "torch_mnm/csrc/utils/file.h"
 
 #include "env_vars.h"
 
 namespace lazy_tensors {
 
 using namespace torch_lazy_tensors::compiler;
+using namespace mnm;
 
 std::once_flag g_computation_client_once;
 std::atomic<lazy_tensors::ComputationClient*> g_computation_client(nullptr);
@@ -94,6 +97,58 @@ std::shared_ptr<std::vector<std::string>> BaseComputationClient::GetReplicationD
 }
 
 void BaseComputationClient::PrepareToExit() {
+}
+
+std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
+    std::vector<ComputationClient::CompileInstance> instances) {
+  std::vector<ComputationPtr> results;
+  for (const auto& ins : instances) {
+    if (options_.cache_enabled) {
+      static auto query = registry::GetPackedFunc("torch_mnm.utils.cache.query");
+      static auto create_entry = registry::GetPackedFunc("torch_mnm.utils.cache.create_entry");
+      const auto& key = CompileCacheKey(ins);
+      std::string dirname = query(key).operator std::string();
+      if (PathExist(dirname)) {
+        // Cache Hit
+        std::ifstream compute_file(dirname + "/compute.json");
+        std::string json = Load(compute_file);
+        results.push_back(CompileDeSerialize(json));
+      } else {
+        // Cache Miss
+        ComputationPtr res = Compile(ins);
+        dirname = create_entry(key).operator std::string();
+        std::ofstream compute_file(dirname + "/compute.json");
+        std::string json = CompileSerialize(res);
+        Save(compute_file, json);
+        results.push_back(res);
+      }
+    } else {
+      results.push_back(Compile(ins));
+    }
+  }
+  return results;
+}
+
+ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
+  auto* computation = static_cast<torch_lazy_tensors::
+    compiler::mnm_backend::GenericComputationMNM*>(instance.computation.get());
+  auto func = Downcast<Function>(computation->computation());
+  Array<Integer> model_states;
+  Map<Integer, Integer> alias;
+  for (size_t i = 0; i < func->params.size(); ++i) {
+    Var var = func->params[i];
+    if (computation->model_states().find(var) != computation->model_states().end()) {
+      model_states.push_back(i);
+    }
+  }
+  for (const auto& kv : computation->alias()) {
+    alias.Set(kv.first, kv.second);
+  }
+  return Array<ObjectRef>({
+    computation->computation(),
+    model_states,
+    alias
+  });
 }
 
 }  // namespace torch_mnm

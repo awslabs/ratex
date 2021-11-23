@@ -17,7 +17,6 @@ from torch import optim
 
 import torch_mnm
 
-
 class TorchLeNet(nn.Module):
     """LeNet in PyTorch."""
 
@@ -135,7 +134,7 @@ def fake_image_dataset(batch, channel, image_size, num_classes):
     )
 
 
-def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False):
+def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False, trim=False):
     """Run training."""
     results = []
     model = copy.deepcopy(model)
@@ -164,7 +163,12 @@ def train(device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
+                if trim:
+                    logger = default_logger()
+                    logger.log(logging.DEBUG, "Mark Step...")
+                    lm.mark_step()
                 optimizer.step()
+                logger.log(logging.DEBUG, "Mark Step...")
                 lm.mark_step()
             running_loss.append((loss, inputs.size(0)))
 

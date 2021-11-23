@@ -14,6 +14,7 @@ from . import amp
 from . import jit
 from . import torch_parameter
 from . import optimizer
+from .utils import cache
 
 try:
     from .version import __version__ as __version__

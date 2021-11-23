@@ -34,13 +34,13 @@ class LANS(torch.optim.Optimizer):
         if not self.adam_w_mode:
             raise NotImplementedError("adam_w_mode == False is not implemented")
 
-    def zero_grad(self):
+    def zero_grad(self, set_to_none: bool = False):
         if self.set_grad_none:
             for group in self.param_groups:
                 for param in group["params"]:
                     param.grad = None
         else:
-            super().zero_grad()
+            super().zero_grad(set_to_none)
 
     def step(self, closure=None):
         """Performs a single optimization step.
@@ -81,9 +81,9 @@ class LANS(torch.optim.Optimizer):
                 # State initialization
                 if len(state) == 0:
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(param.data)
+                    state["exp_avg"] = torch.zeros(param.data.size(), dtype=param.data.dtype, device=param.data.device)
                     # Exponential moving average of gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(param.data)
+                    state["exp_avg_sq"] = torch.zeros(param.data.size(), dtype=param.data.dtype, device=param.data.device)
 
                 # Buffer for scaled grad
                 # scaled_grad = torch.zeros_like(p.data)

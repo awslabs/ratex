@@ -67,7 +67,7 @@ class MNMComputationClient : public BaseComputationClient {
 
   std::vector<Literal> TransferFromServer(lazy_tensors::Span<const DataPtr> handles) override;
 
-  std::vector<ComputationPtr> Compile(std::vector<CompileInstance> instances) override;
+  ComputationPtr Compile(CompileInstance instances) override;
 
   std::vector<DataPtr> ExecuteComputation(const Computation& computation,
                                           lazy_tensors::Span<const DataPtr> arguments,

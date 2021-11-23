@@ -65,15 +65,28 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
   struct Options {
     std::string default_device;
-    // Maps a PyTorch device ID (example, "GPU:0", "TPU:0") to the full
-    // coordinates in self device format.
+    /*! \brief Maps a PyTorch device ID (example, "GPU:0", "TPU:0") to the full
+     *  coordinates in self device format.
+     */
     std::map<std::string, std::string> global_device_map;
-    // These are the devices that this instance of PyTorch is handling. These
-    // devices are in the form of "CPU:0", "TPU:3", ... For each of these
-    // devices, there is an entry within the global_device_map.
+    /*! \brief These are the devices that this instance of PyTorch is handling. These
+     *  devices are in the form of "CPU:0", "TPU:3", ... For each of these
+     *  devices, there is an entry within the global_device_map.
+     */
     std::set<std::string> devices;
     // Maps a TPU Worker with an EndPoint.
     // std::map<Worker, std::string> workers_map;
+    /*! \brief Whether to enable persistent cache. Note that if enabled, the following
+     *  methods must be impelmented:
+     *    1) virtual std::string CompileSerialize(ComputationPtr instance);
+     *    2) virtual ComputationPtr CompileDeSerialize(const std::string& str);
+     *  Cache miss is expected when one of the following changes:
+     *    1) Relay IR
+     *    2) Shape
+     *    3) The set of trianable parameters
+     *    4) Input/output alias
+     */
+    bool cache_enabled{false};
   };
 
   BaseComputationClient(Options options) : options_(options) {
@@ -133,6 +146,20 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
   }
 
   void PrepareToExit() override;
+
+  std::vector<ComputationPtr> Compile(std::vector<CompileInstance> instances) override;
+
+  virtual ComputationPtr Compile(CompileInstance instance) = 0;
+
+  virtual mnm::ObjectRef CompileCacheKey(CompileInstance instance);
+
+  virtual std::string CompileSerialize(ComputationPtr instance) {
+    LTC_LOG(FATAL) << "Serialization not implemented. Cached compilation should be disabled";
+  }
+
+  virtual ComputationPtr CompileDeSerialize(const std::string& str) {
+    LTC_LOG(FATAL) << "DeSerialization not implemented. Cached compilation should be disabled";
+  }
 
  protected:
   static lazy_tensors::client::ShapeData GetShapeData(const Shape& shape);

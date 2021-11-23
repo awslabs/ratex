@@ -40,6 +40,8 @@ inline DType::operator PrimitiveType() const {
       if (bits == 16) return PrimitiveType::F16;
       if (bits == 32) return PrimitiveType::F32;
       if (bits == 64) return PrimitiveType::F64;
+    case kDLBfloat:
+      if (bits == 16) return PrimitiveType::BF16;
     default:
       LTC_LOG(FATAL) << "Not implemented yet: " << c_str();
   }
@@ -107,6 +109,8 @@ inline DType ToMNMDType(const PrimitiveType type) {
       return DType(DTypeCode::kFloat(), 32);
     case PrimitiveType::F64:
       return DType(DTypeCode::kFloat(), 64);
+    case PrimitiveType::BF16:
+      return DType(DTypeCode::kBFloat(), 16);
     default:
       LTC_LOG(FATAL) << "Not implemented yet.";
   }

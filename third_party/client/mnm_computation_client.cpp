@@ -163,84 +163,80 @@ bool IsIdentityFunction(Function func) {
   return true;
 }
 
-std::vector<ComputationClient::ComputationPtr> MNMComputationClient::Compile(
-    std::vector<ComputationClient::CompileInstance> instances) {
+ComputationClient::ComputationPtr MNMComputationClient::Compile(
+ComputationClient::CompileInstance instance) {
   LTC_TIMED("MNMCompile");
   bool is_amp_enabled = torch_lazy_tensors::GetMNMModelState()->IsAMPEnabled();
-  std::vector<ComputationPtr> results;
-  for (const auto& ins : instances) {
-    auto* computation = static_cast<GenericComputationMNM*>(ins.computation.get());
-    Function func = Downcast<Function>(computation->computation());
-    IRModule ir_module = IRModule::FromExpr(computation->computation());
+  auto* computation = static_cast<GenericComputationMNM*>(instance.computation.get());
+  Function func = Downcast<Function>(computation->computation());
+  IRModule ir_module = IRModule::FromExpr(computation->computation());
 
-    tvm::runtime::Module exe, vm_module;
-    if (!IsIdentityFunction(func)) {
-      // For uncached function, we perform the VM compilation and cache the VM.
-      // Note that ops in the VM are not JITed until the first execution, but
-      // we still need to cache the VM to reuse the JITed ops.
-      mnm::executor::vm::VMCompiler compiler;
+  tvm::runtime::Module exe, vm_module;
+  if (!IsIdentityFunction(func)) {
+    // For uncached function, we perform the VM compilation and cache the VM.
+    // Note that ops in the VM are not JITed until the first execution, but
+    // we still need to cache the VM to reuse the JITed ops.
+    mnm::executor::vm::VMCompiler compiler;
 
-      // Build the alias map.
-      ir::Map<tvm::Integer, tvm::Integer> alias_map;
-      for (const auto& kv : computation->alias()) {
-        alias_map.Set(kv.first, kv.second);
-      }
-
-      auto device = GetDefaultDevice();
-      auto mnm_device = ToMNMDevice(device);
-
-      mnm::pass::MNMSequential seq({
-          mnm::pass::InferType(),
-          mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
-          mnm::pass::InferType(),
-          mnm::pass::LambdaLift(),
-          mnm::pass::InferType(),
-          mnm::pass::InlineClosure(),
-          mnm::pass::InferType(),
-          mnm::pass::DeadCodeElimination(),
-          mnm::pass::InferType(),
-          mnm::pass::EliminateClosure(),
-          mnm::pass::InferType(),
-          mnm::pass::InlineLet(),
-          mnm::pass::InferType(),
-          mnm::pass::DeadCodeElimination(),
-          mnm::pass::InferType(),
-          mnm::pass::CanonicalizeOps(),
-          mnm::pass::InferType(),
-      });
-
-      mnm::executor::vm::DeviceMap device_map{
-          {Integer((int)(mnm_device.device_type())), mnm_device}};
-
-      auto pass_ctx = pass::PassContext::Create();
-      pass_ctx->opt_level = 3;
-      pass_ctx->config.Set("mnm.amp.out_dtype", String("float32"));
-      {
-        tvm::With<pass::PassContext> ctx_scope(pass_ctx);
-        if (!alias_map.empty()) {
-          ir_module = mnm::pass::InplaceUpdateByAlias(alias_map)(ir_module);
-        }
-        ir_module = seq(ir_module);
-        ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
-        ir_module = mnm::pass::InferType()(ir_module);
-        if (is_amp_enabled) {
-          ir_module = mnm::pass::AutoCast()(ir_module);
-        }
-        compiler.Lower(ir_module, device_map);
-      }
-      exe = compiler.GetFunction("get_executable", nullptr)();
-
-      static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
-      vm_module = vm_constructor(exe, false);
-      vm_module->GetFunction("set_devices")(mnm_device);
+    // Build the alias map.
+    ir::Map<tvm::Integer, tvm::Integer> alias_map;
+    for (const auto& kv : computation->alias()) {
+      alias_map.Set(kv.first, kv.second);
     }
 
-    results.emplace_back(std::make_shared<MNMComputation>(
-        ins.computation, ConsumeValue(ins.computation->GetProgramShape()), ins.devices, exe,
-        vm_module));
-    lifted_computation_[results.back().get()] = ir_module;
+    auto device = GetDefaultDevice();
+    auto mnm_device = ToMNMDevice(device);
+
+    mnm::pass::MNMSequential seq({
+        mnm::pass::InferType(),
+        mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
+        mnm::pass::InferType(),
+        mnm::pass::LambdaLift(),
+        mnm::pass::InferType(),
+        mnm::pass::InlineClosure(),
+        mnm::pass::InferType(),
+        mnm::pass::DeadCodeElimination(),
+        mnm::pass::InferType(),
+        mnm::pass::EliminateClosure(),
+        mnm::pass::InferType(),
+        mnm::pass::InlineLet(),
+        mnm::pass::InferType(),
+        mnm::pass::DeadCodeElimination(),
+        mnm::pass::InferType(),
+        mnm::pass::CanonicalizeOps(),
+        mnm::pass::InferType(),
+    });
+
+    mnm::executor::vm::DeviceMap device_map{
+        {Integer((int)(mnm_device.device_type())), mnm_device}};
+
+    auto pass_ctx = pass::PassContext::Create();
+    pass_ctx->opt_level = 3;
+    pass_ctx->config.Set("mnm.amp.out_dtype", String("float32"));
+    {
+      tvm::With<pass::PassContext> ctx_scope(pass_ctx);
+      if (!alias_map.empty()) {
+        ir_module = mnm::pass::InplaceUpdateByAlias(alias_map)(ir_module);
+      }
+      ir_module = seq(ir_module);
+      ir_module = IRModule::FromExpr(ir_module->Lookup("main"));
+      ir_module = mnm::pass::InferType()(ir_module);
+      if (is_amp_enabled) {
+        ir_module = mnm::pass::AutoCast()(ir_module);
+      }
+      compiler.Lower(ir_module, device_map);
+    }
+    exe = compiler.GetFunction("get_executable", nullptr)();
+
+    static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
+    vm_module = vm_constructor(exe, false);
+    vm_module->GetFunction("set_devices")(mnm_device);
   }
-  return results;
+  auto ret = std::make_shared<MNMComputation>(
+      instance.computation, ConsumeValue(instance.computation->GetProgramShape()), instance.devices, exe,
+      vm_module);
+  lifted_computation_[ret.get()] = ir_module;
+  return ret;
 }
 
 std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation(
