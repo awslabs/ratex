@@ -13,6 +13,10 @@ pytorch
 
 ### 1. Preparation
 
+#### 1.0 Install prerequisites
+
+Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/master/docs/wiki/Build-MNM-on-Ubuntu-18.04.md
+
 #### 1.1 Clone a copy of the PyTorch repo and switch to the lazy_tensor_staging branch
 
 ```
@@ -77,7 +81,6 @@ export USE_MKL=1 # To accelerate mode tracing.
 ```
 
 ##### Install MKL
-<details>
 ```
 # Add GPG key
 cd /tmp
@@ -90,7 +93,6 @@ apt-get update
 # Install. Make sure to install 2020 or later version!
 apt install -y intel-mkl-2020.0-088
 ```
-</details>
 
 #### 4.2. Install required Python packages (under `pytorch/`)
 ```
@@ -152,7 +154,7 @@ under `pytorch/` to perform the following steps.
 #### 5.1 Compile Meta/TVM (under `pytorch/`)
 
 Note that you can also compile Meat with other configurations, such as
-CUTLASS and NCCL supports.
+CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
 
 ```
 cd torch_mnm/third_party/meta/
