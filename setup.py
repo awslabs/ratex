@@ -255,6 +255,7 @@ include_dirs = [
     third_party_path,
     os.path.join(third_party_path, "meta/include"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/include"),
+    os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/compiler-rt"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/dmlc-core/include"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/dlpack/include"),
     os.path.join(pytorch_dir, "torch/csrc"),

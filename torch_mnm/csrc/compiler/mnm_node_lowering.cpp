@@ -682,8 +682,7 @@ Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
   Var softmax_y = BindSymbol(mnm::ir::Call(op_softmax, {x, dim}));
   Expr keep_dims = MakeConstant(ScalarValue::make((int64_t)1));
   Expr exclude = MakeConstant(BoolValue::make(false));
-  Var e_1 =
-      BindSymbol(mnm::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
+  Var e_1 = BindSymbol(mnm::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
   Var e_2 = BindSymbol(mnm::ir::Call(op_multiply, {e_1, softmax_y}));
   Var e_3 = BindSymbol(mnm::ir::Call(op_subtract, {dy, e_2, MakeNull(), MakeNull()}));
   return e_3;
@@ -821,15 +820,15 @@ Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   return BindSymbol(MakeConstant(value));
 }
 
-TensorValue MakeScalar(float scalar, mnm::Device to_dev) {
-  float a[1] = {scalar};
-  static int64_t b[1] = {1};
-  DType dtype = DType(DTypeCode::kFloat(), 32, 1);
+template <typename T>
+TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev) {
+  T value[1] = {scalar};
+  static int64_t shape[1] = {1};
   DLTensor tensor;
-  tensor.data = a;
+  tensor.data = value;
   tensor.device = mnm::Device(DevType::kCPU(), 0);
   tensor.dtype = dtype;
-  tensor.shape = b;
+  tensor.shape = shape;
   tensor.ndim = 0;
   tensor.strides = nullptr;
   tensor.byte_offset = 0;
@@ -844,27 +843,43 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;
   mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+  auto mnm_dtype = ToMNMDType(node->shape().element_type());
+
+// 1. Switch case based on the LTC dtype.
+// 2. Get the scalar data from PyTorch and convert to the primitive C type.
+// 3. Make a Meta constant expression using the scalar data.
+#define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                             \
+  case lazy_tensors::PrimitiveType::LTC_TYPE: {                                                \
+    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), mnm_dtype, dev); \
+    break;                                                                                     \
+  }
 
   switch (node->shape().element_type()) {
-    case lazy_tensors::PrimitiveType::PRED:
-      tv = MakeScalar(static_cast<float>(node->value().toBool()), dev);
-      break;
-    case lazy_tensors::PrimitiveType::S64:
-      tv = MakeScalar(static_cast<float>(node->value().toLong()), dev);
-      break;
-    case lazy_tensors::PrimitiveType::F32:
-    case lazy_tensors::PrimitiveType::F64:
-    case lazy_tensors::PrimitiveType::BF16:
-      tv = MakeScalar(static_cast<float>(node->value().toDouble()), dev);
-      break;
+    ADD_SCALAR_CASE(PRED, Bool, bool);
+    ADD_SCALAR_CASE(S8, Char, int8_t);
+    ADD_SCALAR_CASE(S16, Short, int16_t);
+    ADD_SCALAR_CASE(S32, Int, int32_t);
+    ADD_SCALAR_CASE(S64, Long, int64_t);
+    ADD_SCALAR_CASE(U8, Char, uint8_t);
+    ADD_SCALAR_CASE(U16, Short, uint16_t);
+    ADD_SCALAR_CASE(U32, Int, uint32_t);
+    ADD_SCALAR_CASE(U64, Long, uint64_t);
+    ADD_SCALAR_CASE(F16, Double, float);
+    ADD_SCALAR_CASE(BF16, Double, float);
+    ADD_SCALAR_CASE(F32, Double, float);
+    ADD_SCALAR_CASE(F64, Double, double);
     default:
       LTC_LOG(FATAL) << "Unable to lower scalar " << node->value() << " of shape " << node->shape();
   }
-  Expr untyped_scalar = MakeConstant(tv);
-  Var scalar = BindSymbol(mnm::ir::Call(
-      Op::Get("mnm.op.cast"),
-      {untyped_scalar,
-       MakeConstant(String(DLDataType2String(ToMNMDType(node->shape().element_type()))))}));
+
+#undef DEFINE_SCALAR_CASE
+
+  // FIXME: Somehow BindSymbol(MakeConstant(tv)) doesn't work, so we use a dummy cast op
+  // to make it work. Although the dummy cast op will be simplified by SimplifyExpr pass,
+  // it is better to avoid dummy ops anyways.
+  Var scalar = BindSymbol(
+      mnm::ir::Call(Op::Get("mnm.op.cast"),
+                    {MakeConstant(tv), MakeConstant(String(DLDataType2String(mnm_dtype)))}));
   Span<const int64> dimensions = node->shape().dimensions();
   return node->shape().rank() == 0
              ? scalar

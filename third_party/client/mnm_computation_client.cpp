@@ -191,6 +191,9 @@ ComputationClient::CompileInstance instance) {
         mnm::pass::InferType(),
         mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
         mnm::pass::InferType(),
+        mnm::pass::FoldConstant(),
+        mnm::pass::DeadCodeElimination(),
+        mnm::pass::InferType(),
         mnm::pass::LambdaLift(),
         mnm::pass::InferType(),
         mnm::pass::InlineClosure(),
@@ -294,7 +297,6 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
     }
     return val;
   };
-  static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
   const auto& mnm_computation = static_cast<const MNMComputation&>(computation);
   bool is_identity_function = !mnm_computation.executable.defined();
   std::vector<Value> values;
@@ -305,8 +307,15 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
   if (!is_identity_function) {
     auto vm_module = mnm_computation.vm_module;
     auto* vm = dynamic_cast<mnm::executor::vm::VirtualMachine*>(vm_module.operator->());
-    mnm::executor::vm::VMContext vm_ctx = vm->PrepareVMContext("main", values);
-    ret = vm->Run(vm_ctx);  // TODO(@hzfan): sync the execution
+
+    // Enable auto scheduler when JITing kernels at the first run.
+    static auto pass_ctx = pass::PassContext::Create();
+    pass_ctx->config.Set("relay.backend.use_auto_scheduler", Bool(true));
+    {
+      tvm::With<pass::PassContext> ctx_scope(pass_ctx);
+      mnm::executor::vm::VMContext vm_ctx = vm->PrepareVMContext("main", values);
+      ret = vm->Run(vm_ctx);  // TODO(@hzfan): sync the execution
+    }
   } else {
     LTC_CHECK_EQ(values.size(), 1U);
     ret = values[0];

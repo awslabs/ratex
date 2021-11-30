@@ -39,4 +39,4 @@ fi
 #   $PTDIR
 
 # unconditional patches
-patch -d $PTDIR -p1 -i $XDIR/torch_patches/X10-codegen.diff -E -l -r - -s --no-backup-if-mismatch --follow-symlinks
+patch -d $PTDIR -p1 -i $XDIR/torch_patches/X10-codegen.diff -E -l -r - -s --no-backup-if-mismatch --follow-symlinks --force
