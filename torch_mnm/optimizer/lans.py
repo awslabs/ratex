@@ -81,9 +81,13 @@ class LANS(torch.optim.Optimizer):
                 # State initialization
                 if len(state) == 0:
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(param.data.size(), dtype=param.data.dtype, device=param.data.device)
+                    state["exp_avg"] = torch.zeros(
+                        param.data.size(), dtype=param.data.dtype, device=param.data.device
+                    )
                     # Exponential moving average of gradient values
-                    state["exp_avg_sq"] = torch.zeros(param.data.size(), dtype=param.data.dtype, device=param.data.device)
+                    state["exp_avg_sq"] = torch.zeros(
+                        param.data.size(), dtype=param.data.dtype, device=param.data.device
+                    )
 
                 # Buffer for scaled grad
                 # scaled_grad = torch.zeros_like(p.data)

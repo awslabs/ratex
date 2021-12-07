@@ -8,6 +8,7 @@ import tvm
 
 from .. import _TORCHMNMC
 
+
 class ltc_timed:  # pylint: disable=invalid-name
     """A wrapper to add a timed sample to metric report. It can be used as a decorator or
     a context manager:
@@ -54,5 +55,6 @@ def ltc_counter(name, value=1):
 
 @tvm._ffi.register_func("torch_mnm.utils.print_stack")
 def print_stack():
+    """Print stack trace."""
     print("python stack trace: ")
     traceback.print_stack()

@@ -1,7 +1,7 @@
 """Utilitis of RAZOR Persistent Cache.
 TODO: Implement the cache in C++ in the future if we need to cache something in C++.
 """
-# pylint: disable=unspecified-encoding
+# pylint: disable=unspecified-encoding, protected-access
 from collections import OrderedDict
 import json
 import logging
@@ -67,9 +67,9 @@ class Cache:
         self.keys = self.load_cache_keys() if self.enable else {}
 
     def normalize_key(self, key):
-        """ Normalize the cache key to ensure it's hashable """
+        """Normalize the cache key to ensure it's hashable"""
         if isinstance(key, list):
-            return tuple([self.normalize_key(x) for x in key])
+            return tuple(self.normalize_key(x) for x in key)
         if isinstance(key, dict):
             return {self.normalize_key(k): self.normalize_key(v) for k, v in key.items()}
         return key
@@ -307,14 +307,12 @@ cache = Cache(PERSIST_DIR)
 
 
 def normalize(key):
+    """Normalize the given key by hashing it with MD5."""
     if isinstance(key, tvm.ir.container.Array):
-        return tuple([normalize(x) for x in key])
+        return tuple(normalize(x) for x in key)
     if isinstance(key, tvm.ir.container.Map):
-        ks = sorted(key, key=lambda x: normalize(x))
-        return tuple([
-            (normalize(k), normalize(key[k]))
-            for k in ks
-        ])
+        keys = sorted(key, key=normalize)
+        return tuple((normalize(k), normalize(key[k])) for k in keys)
     if isinstance(key, tvm.tir.expr.ConstExpr):
         return key.value
     return hashlib.md5(str(key).encode(encoding="UTF-8")).hexdigest()
@@ -322,10 +320,12 @@ def normalize(key):
 
 @tvm._ffi.register_func("torch_mnm.utils.cache.query")
 def query(key):
+    """A helper function to query the cache for the given key in C++."""
     ret = cache.query(normalize(key))
     return ret if ret is not None else ""
 
 
 @tvm._ffi.register_func("torch_mnm.utils.cache.create_entry")
 def create_entry(key):
+    """A helper function to create an entry for the given key in C++."""
     return cache.create_entry(normalize(key))

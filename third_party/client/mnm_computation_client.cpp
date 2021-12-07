@@ -232,7 +232,7 @@ ComputationClient::CompileInstance instance) {
     exe = compiler.GetFunction("get_executable", nullptr)();
 
     static auto vm_constructor = registry::GetPackedFunc("mnm.vm.VirtualMachine");
-    vm_module = vm_constructor(exe, false);
+    vm_module = vm_constructor(exe, false, false);
     vm_module->GetFunction("set_devices")(mnm_device);
   }
   auto ret = std::make_shared<MNMComputation>(

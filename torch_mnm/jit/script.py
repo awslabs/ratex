@@ -2,11 +2,11 @@
 # pylint: disable=c-extension-no-member, protected-access
 import copy
 import hashlib
+import logging
 import os
 
 import torch
 import mnm
-import logging
 from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 
 from .. import _TORCHMNMC
@@ -195,8 +195,7 @@ def script(module: torch.nn.Module):
         shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
         cache_key = str(shape_n_dtype)
         if cache_key in cache:
-            # Cache hit. Note that the function will be wrapped to a lazy tensor and processed
-            # by LTC, so we clone a new function to avoid unexpected behaviors.
+            # Cache hit.
             func, param_names, inplace_update_map = cache[cache_key]
         else:
             # Cache miss. Generate a Meta function and apply a series of transformations.
@@ -215,7 +214,7 @@ def script(module: torch.nn.Module):
                         dtype=TORCH_DTYPES.get(mnm_params[name].dtype, "float32"),
                     ).to("xla")
                     logger.warning(
-                        f"{name} parameter has been converted from mnm.array to torch.Tensor."
+                        "%s parameter has been converted from mnm.array to torch.Tensor.", name
                     )
             # Updated cached function, param_names, and inplace update map
             cache[cache_key] = (func, param_names, inplace_update_map)
