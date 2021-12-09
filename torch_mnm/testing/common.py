@@ -136,7 +136,8 @@ def fake_image_dataset(batch, channel, image_size, num_classes):
 
 
 def train(
-    device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False, trim=False
+    device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False,
+    trim=False, dtype=torch.float32
 ):
     """Run training."""
     results = []
@@ -145,7 +146,7 @@ def train(
         dataset, batch_size=batch_size, shuffle=False, num_workers=1
     )
     dataset_size = len(dataset)
-    model = model.to(device, dtype=torch.float32)
+    model = model.to(device, dtype=dtype)
     model.train()
 
     # adapting loss cacluation from
