@@ -135,8 +135,10 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     if cached_model_dir is None:
         cached_model_dir = persist_cache.create_entry(cache_key)
 
-    cached_model_file = os.path.join(cached_model_dir, "model.pt")
-    cached_hash_file = os.path.join(cached_model_dir, "model.hash")
+    cached_model_file, cached_hash_file = None, None
+    if cached_model_dir != "":
+        cached_model_file = os.path.join(cached_model_dir, "model.pt")
+        cached_hash_file = os.path.join(cached_model_dir, "model.hash")
 
     model = mnm.frontend.from_pytorch(
         cloned_module,
