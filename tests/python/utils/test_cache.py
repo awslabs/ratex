@@ -1,9 +1,14 @@
 import os
 import tempfile
+import shutil
 
 import pytest
 
 from torch_mnm.utils.cache import Cache
+from torch_mnm.testing import TorchLeNet, fake_image_dataset, train
+
+import torch.optim as optim
+
 
 def test_cache():
     with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
@@ -17,7 +22,7 @@ def test_cache():
         val = cache.commit(key1, 123, saver=lambda v: str(v))
         assert val == 123
         assert key1 in cache.keys
-        assert val == cache.entries[key1]        
+        assert val == cache.entries[key1]
 
         token = cache.keys[key1]
         entry_dir = os.path.join(temp_dir, token)
@@ -46,6 +51,28 @@ def test_cache():
         pruned_keys = cache.prune_persist(days=1)
         assert len(pruned_keys) == 1 and pruned_keys[0] == key2
         assert len(cache.keys) == 1 and key1 in cache.keys
+
+
+def test_compile_cache():
+    """
+    NOTES: This test creates a temporary new global cache, which will affect other tests result
+    if multi tests are being exectuted in parallel. Need to revise in the future if we run tests
+    in parallel.
+    """
+    from torch_mnm.utils.cache import cache
+
+    batch_size = 1
+    dataset = fake_image_dataset(batch_size, 1, 28, 10)
+    model = TorchLeNet()
+
+    with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
+        Cache.__init__(cache, temp_dir)
+
+        train("xla", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
+        assert cache.misses == 1 and cache.hits == 0
+
+        train("xla", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
+        assert cache.misses == 1 and cache.hits == 1
 
 
 if __name__ == "__main__":

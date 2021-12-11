@@ -8,6 +8,8 @@
 #include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
 #include "torch_mnm/csrc/utils/file.h"
 
+#include "mnm/serialization.h"
+
 #include "env_vars.h"
 
 namespace lazy_tensors {
@@ -144,8 +146,11 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   for (const auto& kv : computation->alias()) {
     alias.Set(kv.first, kv.second);
   }
+
+  String json(mnm::ir::serialization::SaveJSON(computation->computation()));
+
   return Array<ObjectRef>({
-    computation->computation(),
+    json,
     model_states,
     alias
   });

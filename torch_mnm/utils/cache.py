@@ -1,14 +1,14 @@
 """Utilitis of RAZOR Persistent Cache.
 TODO: Implement the cache in C++ in the future if we need to cache something in C++.
 """
-# pylint: disable=unspecified-encoding, protected-access
+# pylint: disable=unspecified-encoding, protected-access, too-many-instance-attributes
 from collections import OrderedDict
 import json
 import logging
 import hashlib
 import os
 import shutil
-import threading
+import multiprocessing
 import time
 
 import tvm
@@ -41,11 +41,11 @@ class Cache:
     DEFAULT_VALUE_FILE = "_cache_value_file"
     TIMESTAMP_FILE = "timestamp"
 
-    class ThreadSafeWrapper:
+    class ProcessSafeWrapper:
         """A thread-safe wrapper of a lock."""
 
         def __init__(self):
-            self.lock = threading.Lock()
+            self.lock = multiprocessing.Lock()
 
         def __enter__(self):
             self.lock.acquire()
@@ -54,17 +54,20 @@ class Cache:
             self.lock.release()
 
     def __init__(self, persist_dir, capacity=None):
+        self.process_safe_wrapper = self.ProcessSafeWrapper()
         self.persist_dir = persist_dir
-        if self.persist_dir != "" and not os.path.exists(self.persist_dir):
-            os.makedirs(self.persist_dir)
+
+        with self.process_safe_wrapper:
+            if self.persist_dir != "" and not os.path.exists(self.persist_dir):
+                os.makedirs(self.persist_dir)
 
         self.enable = self.persist_dir != ""
-        self.thread_safe_wrapper = self.ThreadSafeWrapper()
-
         self.capacity = capacity if capacity is not None else float("inf")
         self.entries = OrderedDict()
 
         self.keys = self.load_cache_keys() if self.enable else {}
+        self.hits = 0
+        self.misses = 0
 
     def normalize_key(self, key):
         """Normalize the cache key to ensure it's hashable"""
@@ -130,13 +133,15 @@ class Cache:
         # Miss in the persistent cache.
         if key not in self.keys:
             logger.debug("Cache miss in persistent cache: %s", str(key))
+            self.misses += 1
             return None
 
-        with self.thread_safe_wrapper:
+        with self.process_safe_wrapper:
             # Cache hit.
             if key in self.entries:
                 logger.debug("Cache hit: %s", str(key))
                 self.entries.move_to_end(key)
+                self.hits += 1
                 return self.entries[key]
 
             # Cache miss. Bring from the persistent cache.
@@ -190,7 +195,7 @@ class Cache:
         entry_dir = self.create_entry(key)
         entry_file = os.path.join(entry_dir, self.DEFAULT_VALUE_FILE)
 
-        with self.thread_safe_wrapper:
+        with self.process_safe_wrapper:
             logger.debug("Commit %s to persistent cache", str(key))
 
             # Write the value to a file.
@@ -218,7 +223,7 @@ class Cache:
         if not self.enable:
             return ""
 
-        with self.thread_safe_wrapper:
+        with self.process_safe_wrapper:
             logger.debug("Create a key entry for %s", str(key))
             token = self.get_persist_token(key)
             entry_dir = self.get_persist_path(token, check_exist=False)
@@ -239,6 +244,8 @@ class Cache:
             if key not in self.keys:
                 logger.debug("Update key %s to persistent cache", str(key))
                 self.keys[key] = token
+                # Load the cache keys file to sync with other processes
+                self.keys.update(self.load_cache_keys())
                 self.save_cache_keys()
             self.evict()
             return entry_dir
@@ -264,11 +271,11 @@ class Cache:
 
         prunted_keys = []
 
-        with self.thread_safe_wrapper:
+        with self.process_safe_wrapper:
             logger.debug("Prune persistent cache entries that are older than %d days", days)
 
             # Clean all in-memory cache entries.
-            self.entries = []
+            self.entries = OrderedDict()
 
             for key, token in self.keys.items():
                 entry_dir = self.get_persist_path(token)
