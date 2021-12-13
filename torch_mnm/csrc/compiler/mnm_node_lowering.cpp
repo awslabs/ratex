@@ -142,6 +142,7 @@ using namespace mnm::value;
 using namespace mnm::binding;
 using namespace mnm::pass;
 using mnm::op::regs::schema2value::Bool;
+using mnm::op::regs::schema2value::Double;
 using mnm::op::regs::schema2value::Int;
 using mnm::op::regs::schema2value::String;
 using mnm::op::regs::schema2value::TupleInt;
@@ -209,6 +210,10 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP2(LogSoftmaxBackwardUseIn);
   DECLARE_OP2(RelayExpr);
   DECLARE_OP2(RelayFunction);
+  DECLARE_OP2(Select);
+  DECLARE_OP2(Unselect);
+  DECLARE_OP2(ConstantPadNd);
+  DECLARE_OP2(Scatter);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -221,6 +226,7 @@ class MNMNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node);
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
+  lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
 };
 
 #undef DECLARE_OP2
@@ -278,6 +284,8 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
     HANDLE_GENERIC_OP2(View, at::aten::view)
     HANDLE_GENERIC_OP2(AsStrided, at::aten::as_strided)
     HANDLE_GENERIC_OP2(Sum, at::aten::sum)
+    HANDLE_GENERIC_OP2(ConstantPadNd, at::aten::constant_pad_nd)
+    HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -303,6 +311,12 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
       if (node->op() == *ir::ops::ltc_as_strided_view_update) {
         return LowerAsStridedViewUpdate(
             ir::NodeCast<ir::ops::AsStridedViewUpdate>(node, *ir::ops::ltc_as_strided_view_update));
+      }
+      if (node->op() == *ir::ops::ltc_select) {
+        return LowerSelect(ir::NodeCast<ir::ops::Select>(node, *ir::ops::ltc_select));
+      }
+      if (node->op() == *ir::ops::ltc_unselect) {
+        return LowerUnselect(ir::NodeCast<ir::ops::Unselect>(node, *ir::ops::ltc_unselect));
       }
       if (node->op() == *ir::ops::mnm_relay_expr) {
         return LowerRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::mnm_relay_expr));
@@ -822,6 +836,21 @@ Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   return BindSymbol(MakeConstant(value));
 }
 
+TensorValue MakeTensor(void* data, int64_t* shape, int ndim, mnm::Device to_dev, DType dtype) {
+  DLTensor tensor;
+  tensor.data = data;
+  tensor.device = mnm::Device(DevType::kCPU(), 0);
+  tensor.dtype = dtype;
+  tensor.shape = shape;
+  tensor.ndim = ndim;
+  tensor.strides = nullptr;
+  tensor.byte_offset = 0;
+  auto array =
+      tvm::runtime::NDArray::Empty(std::vector<int64_t>(shape, shape + ndim), dtype, to_dev);
+  array.CopyFrom(&tensor);
+  return TensorValue::make(Tensor::FromDLPack(array.ToDLPack()));
+}
+
 template <typename T>
 TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev) {
   T value[1] = {scalar};
@@ -890,6 +919,65 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
                                                      dimensions.begin(), dimensions.end())))}));
 }
 
+Var MNMNodeLowering::LowerSelect(const ir::ops::Select* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Expr begin = MakeConstant(Int(node->start()));
+  Expr end = MakeConstant(Int(node->end()));
+  Expr stride = MakeConstant(Int(node->stride()));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.strided_slice"), {x, begin, end, stride}));
+}
+
+Var MNMNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
+  Var dy = loctx()->GetOutputOp(node->operand(1));
+  int64_t range = node->end() - node->start();
+  int64_t shape[1] = {range};
+  int64_t indices_data[range];
+  for (int64_t i = 0; i < range; i++) indices_data[i] = node->start() + i;
+
+  mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+
+  // Make a dummy data that has the same shape as node input
+  auto x_dummy_value =
+      mnm::value::CreateDummyValueFromType(ToMNMType(node->operand(0).shape()), dev);
+  Expr x = MakeConstant(x_dummy_value);
+
+  TensorValue indices_tv = MakeTensor(indices_data, shape, 1, dev, DType(DTypeCode::kInt(), 64));
+  Expr indices = MakeConstant(indices_tv);
+  Expr axis = MakeConstant(Int(node->dim()));
+  Expr mode = MakeConstant(String("clip"));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.take_dx"), {x, dy, indices, axis, mode}));
+}
+
+Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var x = ops[0];
+  std::vector<lazy_tensors::int64> pad_vec(node->pad());
+
+  // Meta and PyTorch have different padding axis order. Appending zeros to full axis and reverse it
+  while (pad_vec.size() < node->operand(0).shape().dimensions_size() * 2)
+    pad_vec.insert(pad_vec.end(), {0, 0});
+  std::reverse(pad_vec.begin(), pad_vec.end());
+  for (int i = 0; i < pad_vec.size(); i += 2) std::swap(pad_vec[i], pad_vec[i + 1]);
+
+  Expr pad = MakeConstant(TupleInt(pad_vec));
+  Expr value = MakeConstant(Double(node->value().toDouble()));
+  Expr pad_mode = MakeConstant(String("constant"));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.pad"), {x, pad, value, pad_mode}));
+}
+
+Var MNMNodeLowering::LowerConstantPadNd(const ir::ops::ConstantPadNd* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildConstantPadNd({x}, node);
+}
+
+Var MNMNodeLowering::LowerScatter(const ir::ops::Scatter* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Var idx = loctx()->GetOutputOp(node->operand(1));
+  Var src = loctx()->GetOutputOp(node->operand(2));
+  Expr axis = MakeConstant(Int(node->dim()));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.scatter"), {x, idx, src, axis}));
+}
+
 lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
   const ir::OpKind& kind = node->op();
   switch (kind.op) {
@@ -918,6 +1006,10 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
     }
     case at::aten::sum: {
       return InferSum(ir::NodeCast<ir::ops::Sum>(node, ir::OpKind(at::aten::sum)));
+    }
+    case at::aten::constant_pad_nd: {
+      return InferConstantPadNd(
+          ir::NodeCast<ir::ops::ConstantPadNd>(node, ir::OpKind(at::aten::constant_pad_nd)));
     }
     case at::aten::__and__:
     case at::aten::__or__:
@@ -992,6 +1084,17 @@ lazy_tensors::Shape MNMNodeLowering::InferSum(const ir::ops::Sum* node) {
     ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
   }
   Var out = BuildSum(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape MNMNodeLowering::InferConstantPadNd(const ir::ops::ConstantPadNd* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+  }
+  Var out = BuildConstantPadNd(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

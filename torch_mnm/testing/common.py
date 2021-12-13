@@ -46,15 +46,18 @@ class TorchLeNet(nn.Module):
 
 def default_logger():
     """A logger used to output seed information to logs."""
-    logger = logging.getLogger(__name__)
+    new_logger = logging.getLogger(__name__)
     # getLogger() lookups will return the same logger, but only add the handler once.
-    if len(logger.handlers) == 0:
+    if len(new_logger.handlers) == 0:
         handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-        logger.addHandler(handler)
-        if logger.getEffectiveLevel() == logging.NOTSET:
-            logger.setLevel(logging.INFO)
-    return logger
+        new_logger.addHandler(handler)
+        if new_logger.getEffectiveLevel() == logging.NOTSET:
+            new_logger.setLevel(logging.INFO)
+    return new_logger
+
+
+logger = default_logger()
 
 
 def with_seed(seed=None):
@@ -97,7 +100,6 @@ def with_seed(seed=None):
             post_test_state = np.random.get_state()
             np.random.seed(this_test_seed)
             random.seed(this_test_seed)
-            logger = default_logger()
             # 'pytest --logging-level=DEBUG' shows this msg even with an ensuing core dump.
             pre_test_msg = (
                 f"Setting test np/python random seeds, use seed={this_test_seed}" " to reproduce."
@@ -136,8 +138,15 @@ def fake_image_dataset(batch, channel, image_size, num_classes):
 
 
 def train(
-    device, model, dataset, optimizer=optim.SGD, batch_size=1, num_epochs=10, amp=False,
-    trim=False, dtype=torch.float32
+    device,
+    model,
+    dataset,
+    optimizer=optim.SGD,
+    batch_size=1,
+    num_epochs=10,
+    amp=False,
+    trim=False,
+    dtype=torch.float32,
 ):
     """Run training."""
     results = []
@@ -168,7 +177,6 @@ def train(
                 loss = criterion(outputs, labels)
                 loss.backward()
                 if trim:
-                    logger = default_logger()
                     logger.log(logging.DEBUG, "Mark Step...")
                     lm.mark_step()
                 optimizer.step()
@@ -188,3 +196,34 @@ def verify(xla_results, cpu_results, tol=1e-5):
     print("cpu_losses = ", cpu_results)
     for xla, cpu in zip(xla_results, cpu_results):
         torch.testing.assert_close(xla, cpu, atol=tol, rtol=tol)
+
+
+def run_step(device, model_origin, args, jit_script=True):
+    """
+    Run the model once.
+
+    Parameters
+    ----------
+    device : device to run on
+
+    model_origin : The original PyTorch model
+
+    args : args of the model
+
+    jit_script : If jit_script is set False, the graph will be traced using LTC-to-mnm lowering
+    instead of mnm.frontend.from_pytorch in jit.script and it is used to evaluate lowering the ops
+    without backward
+    """
+    model = copy.deepcopy(model_origin)
+    model = model.to(device, dtype=torch.float32)
+    if device == "xla" and jit_script:
+        model = torch_mnm.jit.script(model)
+    args = [arg.to(device) for arg in args]
+    return model(*args).to("cpu")
+
+
+def verify_step(model, args, jit_script=True):
+    """Verify the results between CPU and XLA"""
+    torch.testing.assert_close(
+        run_step("cpu", model, args), run_step("xla", model, args, jit_script)
+    )

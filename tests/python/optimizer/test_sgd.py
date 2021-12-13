@@ -2,60 +2,14 @@
 import pytest
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 import mnm
-from mnm.model import Conv2d, Linear, BatchNorm
 from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, check
 
-from torch_mnm.optimizer import LANS
+from torch_mnm.optimizer import SGD
+
 from common import TorchTest, MNMTest
-
-
-class TorchSimpleTest(nn.Module):  # pylint: disable=abstract-method
-    def __init__(self, shape):
-        super(TorchSimpleTest, self).__init__()
-        self.x = torch.nn.Parameter(torch.randn(*shape))
-        self.x.requires_grad = True
-
-    def forward(self):  # pylint: disable=arguments-differ
-        y = F.relu(self.x)
-        return y
-
-
-class MNMSimpleTest(mnm.Model):
-    # pylint: disable=attribute-defined-outside-init
-    def build(self, shape):
-        self.x = mnm.array(np.random.randn(*shape).astype("float32"))
-
-    @mnm.model.trace
-    def forward(self):
-        y = mnm.relu(self.x)
-        return y
-
-
-def test_traced_lans_simple():
-    # pylint: disable=attribute-defined-outside-init
-    device = "cpu"
-    shape = (2, 2)
-    iter_size = 4
-    t_model = TorchSimpleTest(shape)
-    t_model.train()
-    t_model.to(device)
-    t_optimizer = LANS(t_model.parameters())
-    m_model = MNMSimpleTest(shape)
-    m_model.x = t2m_param(t_model.x, device=device)
-    m_model.train_mode()
-    m_optimizer = mnm.optim.lans.with_lans()(m_model)
-    for i in range(iter_size):
-        m_dy, t_dy = randn_torch(shape, device=device, requires_grad=False)
-        m_loss = run_vm_model(m_optimizer, device, [m_dy])
-        t_optimizer.zero_grad()
-        t_loss = t_model()
-        t_loss.backward(t_dy)
-        t_optimizer.step()
-        check(m_model.x, t_model.x, rtol=1e-4, atol=1e-4)
+from torch_mnm.testing import with_seed
 
 
 @pytest.mark.parametrize(
@@ -64,7 +18,8 @@ def test_traced_lans_simple():
         (4, 28, 10),
     ],
 )
-def test_traced_lans(config):
+@with_seed(0)
+def test_traced_sgd(config):
     # pylint: disable=too-many-locals
     device = "cpu"
     iter_size = config[0]
@@ -82,8 +37,8 @@ def test_traced_lans(config):
 
     m_model.train_mode()
     t_model.train()
-    m_optimizer = mnm.optim.lans.with_lans()(m_model)
-    t_optimizer = LANS(t_model.parameters())
+    m_optimizer = mnm.optim.sgd.with_sgd(momentum=0.01)(m_model)
+    t_optimizer = SGD(t_model.parameters(), momentum=0.01)
     for i in range(iter_size):
         m_dy, t_dy = randn_torch((), std=0.0, mean=1.0, device=device, requires_grad=False)
         m_x, t_x = randn_torch([1, 3, config[1], config[1]], requires_grad=True, device=device)

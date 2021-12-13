@@ -5,19 +5,7 @@ import torch
 import torch.nn as nn
 
 import torch_mnm
-
-
-def run(device, model_origin, args):
-    model = copy.deepcopy(model_origin)
-    model = model.to(device, dtype=torch.float32)
-    if device == "xla":
-        model = torch_mnm.jit.script(model)
-    args = [arg.to(device) for arg in args]
-    return model(*args).to("cpu")
-
-
-def verify(model, args):
-    torch.testing.assert_close(run("cpu", model, args), run("xla", model, args))
+from torch_mnm.testing import verify_step
 
 
 def test_conv():
@@ -34,7 +22,7 @@ def test_conv():
 
     shape = [1, 1, 28, 28]
     x = torch.randn(*shape)
-    verify(Test(), [x])
+    verify_step(Test(), [x])
 
 
 def test_linear():
@@ -49,7 +37,7 @@ def test_linear():
 
     shape = [32, 120]
     x = torch.randn(*shape)
-    verify(Test(), [x])
+    verify_step(Test(), [x])
 
 
 def test_sum():
@@ -63,7 +51,22 @@ def test_sum():
 
     shape = [32, 120]
     x = torch.randn(*shape)
-    verify(Test(), [x])
+    verify_step(Test(), [x], jit_script=False)
+
+
+def test_pad():
+    class Test(nn.Module):
+        def __init__(self):
+            super(Test, self).__init__()
+
+        def forward(self, x):
+            pad = (1, 2, 3, 4, 5, 6)
+            out = torch.nn.functional.pad(x, pad, "constant", 2)
+            return out
+
+    shape = [32, 120, 20]
+    x = torch.randn(*shape)
+    verify_step(Test(), [x], jit_script=False)
 
 
 if __name__ == "__main__":

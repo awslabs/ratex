@@ -7,7 +7,8 @@ import os
 
 import torch
 import mnm
-from mnm._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
+from mnm import distributed as dist
+from mnm._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
 
 from .. import _TORCHMNMC
 from .._lib import mnm
@@ -123,6 +124,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, mnm.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
+    dctx = dist.get_context()
     cloned_module = copy.deepcopy(module)
     cache_key = (
         hashlib.md5(str(cloned_module).encode(encoding="UTF-8")).hexdigest(),
@@ -151,6 +153,8 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     record = model._internal(mnm.array(asnumpy(args[0])))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
+    if dctx.enable_data_parallel:
+        mod = AutoDataParallel()(mod)
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
     inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
