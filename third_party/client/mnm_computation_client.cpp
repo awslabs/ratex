@@ -19,6 +19,7 @@
 #include "mnm/serialization.h"
 #include "mnm/vm/vm.h"
 #include "mnm/vm/value.h"
+#include "mnm/dist_context.h"
 #include "meta/src/common/shape_utils.h"
 #include "meta/src/impl/vm/compiler.h"
 #include "meta/src/op/ty/utils.h"
@@ -28,6 +29,8 @@ namespace torch_mnm {
 using namespace torch_lazy_tensors::compiler;
 using namespace torch_lazy_tensors::compiler::mnm_backend;
 using namespace mnm::value;
+using namespace mnm::distributed::communicator;
+using mnm::distributed::DistContext;
 
 void MNMComputationClient::MNMData::Assign(const Data& data) {
   const MNMData& mnm_data = dynamic_cast<const MNMData&>(data);
@@ -164,9 +167,10 @@ bool IsIdentityFunction(Function func) {
 }
 
 ComputationClient::ComputationPtr MNMComputationClient::Compile(
-ComputationClient::CompileInstance instance) {
+    ComputationClient::CompileInstance instance) {
   LTC_TIMED("MNMCompile");
   bool is_amp_enabled = torch_lazy_tensors::GetMNMModelState()->IsAMPEnabled();
+  auto dctx = DistContext::Global();
   auto* computation = static_cast<GenericComputationMNM*>(instance.computation.get());
   Function func = Downcast<Function>(computation->computation());
   IRModule ir_module = IRModule::FromExpr(computation->computation());
@@ -187,31 +191,25 @@ ComputationClient::CompileInstance instance) {
     auto device = GetDefaultDevice();
     auto mnm_device = ToMNMDevice(device);
 
+    if (dctx->zero_opt_level > 0) {
+      ir_module = mnm::pass::PartitionOptimStatus()(ir_module);
+      ir_module = mnm::pass::InferType()(ir_module);
+    }
+
     mnm::pass::MNMSequential seq({
-        mnm::pass::InferType(),
-        mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
-        mnm::pass::InferType(),
-        mnm::pass::FoldConstant(),
-        mnm::pass::DeadCodeElimination(),
-        mnm::pass::InferType(),
-        mnm::pass::LambdaLift(),
-        mnm::pass::InferType(),
-        mnm::pass::InlineClosure(),
-        mnm::pass::InferType(),
-        mnm::pass::DeadCodeElimination(),
-        mnm::pass::InferType(),
-        mnm::pass::EliminateClosure(),
-        mnm::pass::InferType(),
-        mnm::pass::InlineLet(),
-        mnm::pass::InferType(),
-        mnm::pass::DeadCodeElimination(),
-        mnm::pass::InferType(),
-        mnm::pass::CanonicalizeOps(),
-        mnm::pass::InferType(),
+        mnm::pass::InferType(),           mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
+        mnm::pass::InferType(),           mnm::pass::FoldConstant(),
+        mnm::pass::DeadCodeElimination(), mnm::pass::InferType(),
+        mnm::pass::LambdaLift(),          mnm::pass::InferType(),
+        mnm::pass::InlineClosure(),       mnm::pass::InferType(),
+        mnm::pass::DeadCodeElimination(), mnm::pass::InferType(),
+        mnm::pass::EliminateClosure(),    mnm::pass::InferType(),
+        mnm::pass::InlineLet(),           mnm::pass::InferType(),
+        mnm::pass::DeadCodeElimination(), mnm::pass::InferType(),
+        mnm::pass::CanonicalizeOps(),     mnm::pass::InferType(),
     });
 
-    mnm::executor::vm::DeviceMap device_map{
-        {Integer((int)(mnm_device.device_type())), mnm_device}};
+    mnm::executor::vm::DeviceMap device_map{{Integer((int)(mnm_device.device_type())), mnm_device}};
 
     auto pass_ctx = pass::PassContext::Create();
     pass_ctx->opt_level = 3;
@@ -235,9 +233,9 @@ ComputationClient::CompileInstance instance) {
     vm_module = vm_constructor(exe, false, false);
     vm_module->GetFunction("set_devices")(mnm_device);
   }
-  auto ret = std::make_shared<MNMComputation>(
-      instance.computation, ConsumeValue(instance.computation->GetProgramShape()), instance.devices, exe,
-      vm_module);
+  auto ret = std::make_shared<MNMComputation>(instance.computation,
+                                              ConsumeValue(instance.computation->GetProgramShape()),
+                                              instance.devices, exe, vm_module);
   lifted_computation_[ret.get()] = ir_module;
   return ret;
 }
