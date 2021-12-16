@@ -214,6 +214,7 @@ ComputationClient::ComputationPtr MNMComputationClient::Compile(
     auto pass_ctx = pass::PassContext::Create();
     pass_ctx->opt_level = 3;
     pass_ctx->config.Set("mnm.amp.out_dtype", String("float32"));
+    pass_ctx->config.Set("mnm.memory_schedule", Bool(true));
     {
       tvm::With<pass::PassContext> ctx_scope(pass_ctx);
       if (!alias_map.empty()) {
