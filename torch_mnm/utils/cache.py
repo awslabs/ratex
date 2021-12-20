@@ -3,6 +3,7 @@ TODO: Implement the cache in C++ in the future if we need to cache something in 
 """
 # pylint: disable=unspecified-encoding, protected-access, too-many-instance-attributes
 from collections import OrderedDict
+from pathlib import Path
 import json
 import logging
 import hashlib
@@ -16,9 +17,7 @@ import tvm
 logger = logging.getLogger("Cache")
 
 # The path of the persistent cache.
-PERSIST_DIR = os.environ.get(
-    "RAZOR_CACHE_DIR", os.path.join(os.path.expanduser("~"), ".torch_mnm_cache")
-)
+PERSIST_DIR = os.environ.get("RAZOR_CACHE_DIR", Path.home() / ".torch_mnm_cache")
 
 
 class Cache:
@@ -55,13 +54,17 @@ class Cache:
 
     def __init__(self, persist_dir, capacity=None):
         self.process_safe_wrapper = self.ProcessSafeWrapper()
-        self.persist_dir = persist_dir
+        self.persist_path = None
+        self.enable = False
+
+        if persist_dir != "":
+            self.persist_path = Path(persist_dir)
+            self.enable = True
 
         with self.process_safe_wrapper:
-            if self.persist_dir != "" and not os.path.exists(self.persist_dir):
-                os.makedirs(self.persist_dir)
+            if self.enable and not self.persist_path.exists():
+                self.persist_path.mkdir(parents=True)
 
-        self.enable = self.persist_dir != ""
         self.capacity = capacity if capacity is not None else float("inf")
         self.entries = OrderedDict()
 
@@ -79,9 +82,9 @@ class Cache:
 
     def load_cache_keys(self):
         """Load the cache keys for fast query."""
-        key_file = os.path.join(self.persist_dir, self.KEY_FILE)
+        key_file = self.persist_path / self.KEY_FILE
         ret = {}
-        if os.path.exists(key_file):
+        if key_file.exists():
             with open(key_file, "r") as filep:
                 for entry in json.load(filep):
                     key = self.normalize_key(entry["key"])
@@ -90,7 +93,7 @@ class Cache:
 
     def save_cache_keys(self):
         """Save the cache keys to the persistent cache."""
-        with open(os.path.join(self.persist_dir, self.KEY_FILE), "w") as filep:
+        with open(self.persist_path / self.KEY_FILE, "w") as filep:
             json.dump([{"key": key, "token": token} for key, token in self.keys.items()], filep)
 
     def evict(self):
@@ -106,10 +109,10 @@ class Cache:
 
     def get_persist_path(self, token, check_exist=True):
         """Get the path of a persistent cache entry."""
-        entry_dir = os.path.join(self.persist_dir, token)
-        if check_exist and not os.path.exists(entry_dir):
-            raise ValueError(f"Cache entry path is not found: {entry_dir}")
-        return entry_dir
+        entry_path = self.persist_path / token
+        if check_exist and not entry_path.exists():
+            raise ValueError(f"Cache entry path is not found: {entry_path}")
+        return entry_path
 
     def query(self, key, loader=None):
         """Query the cache value.
@@ -146,10 +149,10 @@ class Cache:
 
             # Cache miss. Bring from the persistent cache.
             entry_path = self.get_persist_path(self.get_persist_token(key))
-            entry_file = os.path.join(entry_path, self.DEFAULT_VALUE_FILE)
+            entry_file = entry_path / self.DEFAULT_VALUE_FILE
             logger.debug("Bring from persistent cache: %s", str(key))
 
-            if os.path.exists(entry_file):
+            if entry_file.exists():
                 # If the default cache value file exists, we assume the value was written
                 # by the commit() function, and we directly load the value from the file
                 # to speedup future queries.
@@ -192,8 +195,8 @@ class Cache:
         if not self.enable:
             return value
 
-        entry_dir = self.create_entry(key)
-        entry_file = os.path.join(entry_dir, self.DEFAULT_VALUE_FILE)
+        entry_path = self.create_entry(key)
+        entry_file = entry_path / self.DEFAULT_VALUE_FILE
 
         with self.process_safe_wrapper:
             logger.debug("Commit %s to persistent cache", str(key))
@@ -217,27 +220,27 @@ class Cache:
 
         Returns
         -------
-        entry_dir: str
-            The entry folder path.
+        entry_path: Optional[Path]
+            The entry folder pathm, or None if cache is disabled.
         """
         if not self.enable:
-            return ""
+            return None
 
         with self.process_safe_wrapper:
             logger.debug("Create a key entry for %s", str(key))
             token = self.get_persist_token(key)
-            entry_dir = self.get_persist_path(token, check_exist=False)
+            entry_path = self.get_persist_path(token, check_exist=False)
 
             # Create an empty directory.
-            if os.path.exists(entry_dir):
-                shutil.rmtree(entry_dir)
-            os.makedirs(entry_dir)
+            if entry_path.exists():
+                shutil.rmtree(entry_path)
+            entry_path.mkdir(parents=True)
 
             # Set the value to be the entry directory path.
-            self.entries[key] = entry_dir
+            self.entries[key] = entry_path
 
             # Write the current timestamp.
-            with open(os.path.join(entry_dir, self.TIMESTAMP_FILE), "w") as filep:
+            with open(entry_path / self.TIMESTAMP_FILE, "w") as filep:
                 filep.write(str(time.time()))
 
             # Update and persist the key table.
@@ -248,7 +251,7 @@ class Cache:
                 self.keys.update(self.load_cache_keys())
                 self.save_cache_keys()
             self.evict()
-            return entry_dir
+            return entry_path
 
     def prune_persist(self, days):
         """Prune the persistent cache entries that are older than the given number of days.
@@ -279,8 +282,8 @@ class Cache:
 
             for key, token in self.keys.items():
                 entry_dir = self.get_persist_path(token)
-                timestamp_file = os.path.join(entry_dir, self.TIMESTAMP_FILE)
-                if not os.path.exists(timestamp_file):
+                timestamp_file = entry_dir / self.TIMESTAMP_FILE
+                if not timestamp_file.exists():
                     logger.warning(
                         "Cannot determine whether %s can be pruned: Timestamp not found", str(key)
                     )

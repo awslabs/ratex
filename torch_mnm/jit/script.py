@@ -1,9 +1,8 @@
 """The JIT script."""
-# pylint: disable=c-extension-no-member, protected-access
+# pylint: disable=c-extension-no-member, protected-access, too-many-locals
 import copy
 import hashlib
 import logging
-import os
 
 import torch
 import mnm
@@ -130,17 +129,17 @@ def convert_module_to_meta(module, shape_n_dtype, args):
         hashlib.md5(str(cloned_module).encode(encoding="UTF-8")).hexdigest(),
         str(shape_n_dtype),
     )
-    cached_model_dir = persist_cache.query(cache_key)
+    cached_model_path = persist_cache.query(cache_key)
 
     # Cache miss. Add new entries to the cache and directly let from_pytorch write the
     # traced model to the persistent storage.
-    if cached_model_dir is None:
-        cached_model_dir = persist_cache.create_entry(cache_key)
+    if cached_model_path is None:
+        cached_model_path = persist_cache.create_entry(cache_key)
 
     cached_model_file, cached_hash_file = None, None
-    if cached_model_dir != "":
-        cached_model_file = os.path.join(cached_model_dir, "model.pt")
-        cached_hash_file = os.path.join(cached_model_dir, "model.hash")
+    if cached_model_path is not None:
+        cached_model_file = cached_model_path / "model.pt"
+        cached_hash_file = cached_model_path / "model.hash"
 
     model = mnm.frontend.from_pytorch(
         cloned_module,

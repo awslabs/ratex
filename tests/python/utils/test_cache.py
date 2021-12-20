@@ -1,6 +1,5 @@
 import os
 import tempfile
-import shutil
 
 import pytest
 
@@ -31,7 +30,7 @@ def test_cache():
 
         key2 = "aaa"
         entry_dir = cache.create_entry(key2)
-        assert entry_dir.startswith(temp_dir)
+        assert cache.persist_path in entry_dir.parents
         assert os.path.exists(os.path.join(entry_dir, cache.TIMESTAMP_FILE))
 
         # Test cache hit and evit.
@@ -40,7 +39,7 @@ def test_cache():
         val = cache.query(key1, loader=lambda v: int(v))
         assert val == 123
         entry_dir = cache.query(key2)
-        assert entry_dir.startswith(temp_dir)
+        assert cache.persist_path in entry_dir.parents
         assert len(cache.entries) == 1
 
         # Test pruning by hacking the timestamp file of key2.
