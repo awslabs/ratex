@@ -132,8 +132,9 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
 }
 
 ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
-  auto* computation = static_cast<torch_lazy_tensors::
-    compiler::mnm_backend::GenericComputationMNM*>(instance.computation.get());
+  auto* computation =
+      static_cast<torch_lazy_tensors::compiler::mnm_backend::GenericComputationMNM*>(
+          instance.computation.get());
   auto func = Downcast<Function>(computation->computation());
   Array<Integer> model_states;
   Map<Integer, Integer> alias;
@@ -149,11 +150,7 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
 
   String json(mnm::ir::serialization::SaveJSON(computation->computation()));
 
-  return Array<ObjectRef>({
-    json,
-    model_states,
-    alias
-  });
+  return Array<ObjectRef>({json, model_states, alias});
 }
 
 }  // namespace torch_mnm

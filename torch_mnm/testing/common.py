@@ -16,6 +16,7 @@ import torch.nn.functional as F
 from torch import optim
 
 import torch_mnm
+import mnm
 
 
 class TorchLeNet(nn.Module):
@@ -143,7 +144,7 @@ def train(
     dataset,
     optimizer=optim.SGD,
     batch_size=1,
-    num_epochs=10,
+    num_epochs=3,
     amp=False,
     trim=False,
     dtype=torch.float32,
@@ -227,3 +228,22 @@ def verify_step(model, args, jit_script=True):
     torch.testing.assert_close(
         run_step("cpu", model, args), run_step("xla", model, args, jit_script)
     )
+
+
+def numpy(x):
+    """Helper function to convert x to numpy"""
+    if isinstance(x, (mnm.ndarray, mnm._core.value.TensorValue)):
+        return x.numpy()
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    if np.isscalar(x):
+        return np.array(x)
+    assert isinstance(x, np.ndarray), f"{type(x)} is not supported"
+    return x
+
+
+def check(m_x, m_y, *, rtol=1e-5, atol=1e-5):
+    """Helper function to check if m_x and m_y are equal"""
+    m_x = numpy(m_x)
+    m_y = numpy(m_y)
+    np.testing.assert_allclose(m_x, m_y, rtol=rtol, atol=atol)

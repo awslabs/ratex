@@ -4,12 +4,12 @@ import numpy as np
 import torch
 
 import mnm
-from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, check
+from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param
 
 from torch_mnm.optimizer import SGD
 
 from common import TorchTest, MNMTest
-from torch_mnm.testing import with_seed
+from torch_mnm.testing import check, with_seed
 
 
 @pytest.mark.parametrize(

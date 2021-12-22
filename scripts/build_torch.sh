@@ -27,6 +27,9 @@ export TORCH_HOME="$(pwd)"
 # Disable CUDA in PyTorch to reduce the build time
 export USE_CUDA=0
 
+# Enable MKL in PyTorch to accelerate graph tracing
+export USE_MKL=1
+
 # Build PyTorch
 echo "Building PyTorch wheel..."
 python3 setup.py bdist_wheel -d build/pip/public/pytorch

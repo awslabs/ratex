@@ -6,10 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import mnm
-from mnm.model import Conv2d, Linear, BatchNorm
-from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, check
+from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param
 
 from torch_mnm.optimizer import LANS
+from torch_mnm.testing import check
 from common import TorchTest, MNMTest
 
 

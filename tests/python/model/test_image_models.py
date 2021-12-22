@@ -12,7 +12,7 @@ from torch_mnm.testing import TorchLeNet, fake_image_dataset, verify, train, wit
 
 @pytest.mark.parametrize("optimizer", [optim.SGD, LANS])
 @with_seed(0)
-def test_lenet(optimizer):
+def test_lenet_cifar10(optimizer):
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
     model = TorchLeNet()
@@ -23,7 +23,7 @@ def test_lenet(optimizer):
 
 @pytest.mark.parametrize("amp", [False, True])
 @with_seed(0)
-def test_resnet18(amp):
+def test_resnet18_imagenet(amp):
     if amp and os.environ.get("RAZOR_DEVICE", None) != "GPU":
         pytest.skip("AMP requires GPU")
 
