@@ -143,6 +143,7 @@ def train(
     model,
     dataset,
     optimizer=optim.SGD,
+    optimizer_params=None,
     batch_size=1,
     num_epochs=3,
     amp=False,
@@ -150,6 +151,9 @@ def train(
     dtype=torch.float32,
 ):
     """Run training."""
+    if optimizer_params is None:
+        optimizer_params = {"lr": 0.001}
+
     results = []
     model = copy.deepcopy(model)
     dataloader = torch.utils.data.DataLoader(
@@ -163,7 +167,7 @@ def train(
     # https://www.programmersought.com/article/86167037001/
     # this doesn't match nn.NLLLoss() exactly, but close...
     criterion = lambda pred, true: -torch.sum(pred * true) / true.size(0)
-    optimizer = optimizer(model.parameters(), lr=0.001)
+    optimizer = optimizer(model.parameters(), **optimizer_params)
     if device == "xla":
         model = torch_mnm.jit.script(model)
 
