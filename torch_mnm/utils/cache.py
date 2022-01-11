@@ -148,9 +148,10 @@ class Cache:
                 return self.entries[key]
 
             # Cache miss. Bring from the persistent cache.
-            entry_path = self.get_persist_path(self.get_persist_token(key))
+            token = self.get_persist_token(key)
+            entry_path = self.get_persist_path(token)
             entry_file = entry_path / self.DEFAULT_VALUE_FILE
-            logger.debug("Bring from persistent cache: %s", str(key))
+            logger.debug("Bring from persistent cache: %s, token:%s", str(key), str(token))
 
             if entry_file.exists():
                 # If the default cache value file exists, we assume the value was written
@@ -245,7 +246,7 @@ class Cache:
 
             # Update and persist the key table.
             if key not in self.keys:
-                logger.debug("Update key %s to persistent cache", str(key))
+                logger.debug("Update key %s to persistent cache, token %s", str(key), str(token))
                 self.keys[key] = token
                 # Load the cache keys file to sync with other processes
                 self.keys.update(self.load_cache_keys())
@@ -332,10 +333,16 @@ def normalize(key):
 def query(key):
     """A helper function to query the cache for the given key in C++."""
     ret = cache.query(normalize(key))
-    return ret if ret is not None else ""
+    return str(ret) if ret is not None else ""
 
 
 @tvm._ffi.register_func("torch_mnm.utils.cache.create_entry")
 def create_entry(key):
     """A helper function to create an entry for the given key in C++."""
-    return cache.create_entry(normalize(key))
+    return str(cache.create_entry(normalize(key)))
+
+
+@tvm._ffi.register_func("torch_mnm.utils.cache.get_persist_token")
+def get_persist_token(key):
+    """A helper function to create a token for the given key in C++."""
+    return cache.get_persist_token(normalize(key))
