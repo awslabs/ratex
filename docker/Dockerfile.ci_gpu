@@ -1,0 +1,36 @@
+FROM metaprojdev/meta:ci_gpu-v0.20
+
+# Deal with Python symbols.
+RUN rm /usr/bin/python /usr/bin/python-config
+RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN ln -s /usr/bin/python3-config /usr/bin/python-config
+RUN ln -s /usr/lib/x86_64-linux-gnu/libpython3.6m.so /usr/lib/libpython3.6m.so
+
+# Install MKL.
+COPY install/install_mkl.sh install/install_mkl.sh
+RUN bash /install/install_mkl.sh
+
+# Clone PyTorch.
+RUN git clone https://github.com/pytorch/pytorch.git --recursive
+
+# Install required Python packages.
+RUN python3 -m pip install -U --force-reinstall pip
+RUN cd pytorch && python3 -m pip install -r requirements.txt
+RUN python3 -m pip install pytest astunparse numpy ninja pyyaml
+RUN python3 -m pip install mkl mkl-include setuptools cmake cffi
+RUN python3 -m pip install typing_extensions future six requests dataclasses
+RUN python3 -m pip install glob2 decorator scipy pillow pygithub
+RUN python3 -m pip install datasets==1.15.1
+RUN python3 -m pip install transformers==4.3
+
+# Build PyTorch from source.
+COPY install/build_torch.sh pytorch/build_torch.sh
+RUN cd pytorch && git checkout lazy_tensor_staging \
+               && git checkout 0e8776b4d45a243df6e8499d070e2df89dcad1f9 \
+               && git submodule update --recursive
+RUN cd pytorch && bash build_torch.sh
+
+# Build LazyTensorCore.
+COPY install/build_ltc.sh pytorch/build_ltc.sh
+RUN cd pytorch && bash build_ltc.sh
+
