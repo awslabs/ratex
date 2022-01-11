@@ -28,7 +28,7 @@
 #include "torch_mnm/csrc/aten_autograd_ops.h"
 #include "torch_mnm/csrc/version.h"
 #include "torch_mnm/csrc/aten_mnm_bridge.h"
-
+#include "torch_mnm/csrc/utils/debug.h"
 // [Implementation Guidelines]
 // - If you want to call a at::func which doesn't exist in AtenMNMType,
 //   call at::native::func instead.

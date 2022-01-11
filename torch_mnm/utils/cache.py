@@ -13,6 +13,7 @@ import multiprocessing
 import time
 
 import tvm
+import mnm
 
 logger = logging.getLogger("Cache")
 
@@ -326,6 +327,9 @@ def normalize(key):
         return tuple((normalize(k), normalize(key[k])) for k in keys)
     if isinstance(key, tvm.tir.expr.ConstExpr):
         return key.value
+    # FIXME: mnm.ir.AsText(key) segfaults, because we do not have may_share field
+    # if isinstance(key, tvm.relay.Expr):
+    #     return hashlib.md5(mnm.ir.AsText(key).encode(encoding="UTF-8")).hexdigest()
     return hashlib.md5(str(key).encode(encoding="UTF-8")).hexdigest()
 
 
@@ -346,3 +350,11 @@ def create_entry(key):
 def get_persist_token(key):
     """A helper function to create a token for the given key in C++."""
     return cache.get_persist_token(normalize(key))
+
+
+def copy_cache(src_cache, tgt_cache, days):
+    assert os.path.isdir(src_cache)
+    assert not os.path.isdir(tgt_cache)
+    shutil.copytree(src_cache, tgt_cache)
+    cache = Cache(tgt_cache)
+    cache.prune_persist(days)

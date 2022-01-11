@@ -6,6 +6,7 @@ import logging
 
 import torch
 import mnm
+import tvm
 from mnm import distributed as dist
 from mnm._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
 
@@ -106,7 +107,43 @@ def asnumpy(x):
     return x.cpu().detach().numpy()
 
 
+def persit_cache(wrapped_func):
+    def wrapper(module, shape_n_dtype, args):
+        dctx = dist.get_context()
+        cache_key = (
+            hashlib.md5(str(module).encode(encoding="UTF-8")).hexdigest(),
+            str(shape_n_dtype),
+            dctx.enable_data_parallel,
+            dctx.size,
+            "convert_module_to_meta",
+        )
+
+        def unpack(value):
+            if isinstance(value, tvm.ir.Array):
+                return [unpack(x) for x in value]
+            if isinstance(value, tvm.ir.Map):
+                return {unpack(k): unpack(v) for k, v in value.items()}
+            return value
+
+        def loader(value):
+            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
+                unpack(mnm.ir.load_json(value))
+
+            return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
+
+        def saver(value):
+            return mnm.ir.save_json(value)
+
+        value = persist_cache.query(cache_key, loader=loader)
+        if value is None:
+            value = wrapped_func(module, shape_n_dtype, args)
+            persist_cache.commit(cache_key, value, saver=saver)
+        return value
+    return wrapper
+
+
 @ltc_timed("MNMTraceConvertModuleToMeta")
+@persit_cache
 def convert_module_to_meta(module, shape_n_dtype, args):
     """Convert the PyTorch module to Meta and apply necessary transformations.
     Parameters
@@ -148,18 +185,26 @@ def convert_module_to_meta(module, shape_n_dtype, args):
         hash_file=cached_hash_file,
     )
     mnm_params = model.state()
+    # ensure mnm_params are cachable
+    mnm_params_shape = {
+        k: v.shape for k, v in mnm_params.items()
+    }
+    mnm_params_dtype = {
+        k: v.dtype for k, v in mnm_params.items()
+    }
 
     record = model._internal(mnm.array(asnumpy(args[0])))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
     if dctx.enable_data_parallel:
+        # FIXME: move AutoDataParallel to Optimize in client files
         mod = AutoDataParallel()(mod)
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
     inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
     func = mod["main"]
     param_names = [var.name_hint for var in func.params]
-    return func, param_names, inplace_update_map, mnm_params
+    return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
 
 
 def script(module: torch.nn.Module):
@@ -204,9 +249,8 @@ def script(module: torch.nn.Module):
             func, param_names, inplace_update_map = cache[cache_key]
         else:
             # Cache miss. Generate a Meta function and apply a series of transformations.
-            func, param_names, inplace_update_map, mnm_params = convert_module_to_meta(
-                module, shape_n_dtype, args
-            )
+            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
+                convert_module_to_meta(module, shape_n_dtype, args)
             # Convert missing args
             params_keys = [to_mnm_name(k) for k in params.keys()]
             for name in param_names:
@@ -215,8 +259,8 @@ def script(module: torch.nn.Module):
                 if name not in params_keys:
                     t_name = to_torch_name(name)
                     params[t_name] = torch.zeros(
-                        mnm_params[name].shape,
-                        dtype=TORCH_DTYPES.get(mnm_params[name].dtype, "float32"),
+                        mnm_params_shape[name],
+                        dtype=TORCH_DTYPES.get(mnm_params_dtype[name], "float32"),
                     ).to("xla")
                     logger.warning(
                         "%s parameter has been converted from mnm.array to torch.Tensor.", name
