@@ -101,6 +101,11 @@ std::shared_ptr<std::vector<std::string>> BaseComputationClient::GetReplicationD
 void BaseComputationClient::PrepareToExit() {
 }
 
+void BaseComputationClient::SaveArtifacts(const std::string& dir, const std::string& json) {
+  std::string compute_file_path = dir + "/compute.json";
+  Save(compute_file_path, json);
+}
+
 std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
     std::vector<ComputationClient::CompileInstance> instances) {
   std::vector<ComputationPtr> results;
@@ -108,20 +113,20 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
     if (options_.cache_enabled) {
       static auto query = registry::GetPackedFunc("torch_mnm.utils.cache.query");
       static auto create_entry = registry::GetPackedFunc("torch_mnm.utils.cache.create_entry");
+
       const auto& key = CompileCacheKey(ins);
       std::string dirname = query(key).operator std::string();
       if (PathExist(dirname)) {
         // Cache Hit
-        std::ifstream compute_file(dirname + "/compute.json");
+        std::string compute_file = dirname + "/compute.json";
         std::string json = Load(compute_file);
         results.push_back(CompileDeSerialize(json));
       } else {
         // Cache Miss
         ComputationPtr res = Compile(ins);
         dirname = create_entry(key).operator std::string();
-        std::ofstream compute_file(dirname + "/compute.json");
         std::string json = CompileSerialize(res);
-        Save(compute_file, json);
+        SaveArtifacts(dirname, json);
         results.push_back(res);
       }
     } else {

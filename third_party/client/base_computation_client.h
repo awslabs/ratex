@@ -161,6 +161,8 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
     LTC_LOG(FATAL) << "DeSerialization not implemented. Cached compilation should be disabled";
   }
 
+  virtual void SaveArtifacts(const std::string& dir, const std::string& json);
+
  protected:
   static lazy_tensors::client::ShapeData GetShapeData(const Shape& shape);
 

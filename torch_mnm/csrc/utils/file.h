@@ -6,20 +6,12 @@
 
 namespace torch_mnm {
 
-bool PathExist(const std::string& path) {
-  struct stat buffer;
-  return (stat(path.c_str(), &buffer) == 0);
-}
+bool PathExist(const std::string& path);
 
-std::string Load(std::ifstream& in) {
-    std::ostringstream sstr;
-    sstr << in.rdbuf();
-    return sstr.str();
-}
+std::string Load(const std::string& file_path);
 
-void Save(std::ofstream& out, std::string str) {
-    out << str;
-    out.flush();
-}
+void Save(const std::string& dir, const std::string& str);
+
+void CopyFile(const std::string& from, const std::string& to);
 
 }  // namespace torch_mnm
