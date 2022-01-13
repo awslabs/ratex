@@ -1,5 +1,7 @@
 #include "./mnm_node_lowering.h"
 
+#include <c10/util/BFloat16.h>
+
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
 #include "lazy_tensor_core/csrc/data_ops.h"
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool2d.h"
@@ -368,6 +370,16 @@ std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, co
   }
 }
 
+bool IsScalar(const ir::Output& x, double val) {
+  if (x.node->op().op == at::prim::Constant) {
+    const auto* scalar = dynamic_cast<const ir::ops::Scalar*>(x.node);
+    LTC_CHECK(scalar);
+    return scalar->value().isFloatingPoint() ? scalar->value().toDouble() == val
+      : static_cast<double>(scalar->value().toLong()) == val;
+  }
+  return false;
+}
+
 ir::Output SimplifyBinaryInputs(const ir::Output& x, const ir::Output& y) {
   if (x.node->op().op == at::aten::expand) {
     lazy_tensors::Shape x_shape = x.shape();
@@ -388,6 +400,8 @@ Var MNMNodeLowering::LowerAdd(const ir::Node* node) {
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
   ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
+  if (IsScalar(node->operand(0), 0))  return op1;
+  if (IsScalar(node->operand(1), 0))  return op0;
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.add"), {op0, op1, MakeNull(), MakeNull()}));
 }
 
@@ -415,6 +429,8 @@ Var MNMNodeLowering::LowerMul(const ir::Node* node) {
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
   ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
+  if (IsScalar(node->operand(0), 1))  return op1;
+  if (IsScalar(node->operand(1), 1))  return op0;
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.multiply"), {op0, op1}));
 }
 
@@ -852,18 +868,22 @@ TensorValue MakeTensor(void* data, int64_t* shape, int ndim, mnm::Device to_dev,
 }
 
 template <typename T>
-TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev) {
-  T value[1] = {scalar};
-  static int64_t shape[1] = {1};
+TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev, std::vector<int64> shape) {
+  int64 numel = 1;
+  for (const auto& x : shape) {
+    numel = numel * x;
+  }
+  LTC_CHECK_GT(numel, 0);
+  std::vector<T> value(numel, scalar);
   DLTensor tensor;
-  tensor.data = value;
+  tensor.data = value.data();
   tensor.device = mnm::Device(DevType::kCPU(), 0);
   tensor.dtype = dtype;
-  tensor.shape = shape;
+  tensor.shape = shape.data();
   tensor.ndim = 0;
   tensor.strides = nullptr;
   tensor.byte_offset = 0;
-  auto array = tvm::runtime::NDArray::Empty({}, dtype, to_dev);
+  auto array = tvm::runtime::NDArray::Empty(shape, dtype, to_dev);
   array.CopyFrom(&tensor);
   return TensorValue::make(Tensor::FromDLPack(array.ToDLPack()));
 }
@@ -875,18 +895,21 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   TensorValue tv;
   mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
   auto mnm_dtype = ToMNMDType(node->shape().element_type());
-
+  Span<const int64> dimensions = node->shape().dimensions();
 // 1. Switch case based on the LTC dtype.
 // 2. Get the scalar data from PyTorch and convert to the primitive C type.
 // 3. Make a Meta constant expression using the scalar data.
 #define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                             \
   case lazy_tensors::PrimitiveType::LTC_TYPE: {                                                \
-    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), mnm_dtype, dev); \
+    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), mnm_dtype, dev,  \
+      std::vector<int64>(dimensions.begin(), dimensions.end()));                               \
     break;                                                                                     \
   }
 
   switch (node->shape().element_type()) {
-    ADD_SCALAR_CASE(PRED, Bool, bool);
+    // FIXME: bool cannot be initilized in this way, because std::vector<bool> contains
+    // potentially discontinuous data
+    // ADD_SCALAR_CASE(PRED, Bool, bool);
     ADD_SCALAR_CASE(S8, Char, int8_t);
     ADD_SCALAR_CASE(S16, Short, int16_t);
     ADD_SCALAR_CASE(S32, Int, int32_t);
@@ -896,9 +919,13 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
     ADD_SCALAR_CASE(U32, Int, uint32_t);
     ADD_SCALAR_CASE(U64, Long, uint64_t);
     ADD_SCALAR_CASE(F16, Double, float);
-    ADD_SCALAR_CASE(BF16, Double, float);
     ADD_SCALAR_CASE(F32, Double, float);
     ADD_SCALAR_CASE(F64, Double, double);
+    case lazy_tensors::PrimitiveType::BF16: {
+      tv = MakeScalar<uint16_t>(c10::BFloat16(static_cast<float>(node->value().toDouble())).x,
+        mnm_dtype, dev, std::vector<int64>(dimensions.begin(), dimensions.end()));
+      break;
+    }
     default:
       LTC_LOG(FATAL) << "Unable to lower scalar " << node->value() << " of shape " << node->shape();
   }
@@ -911,12 +938,7 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   Var scalar = BindSymbol(
       mnm::ir::Call(Op::Get("mnm.op.cast"),
                     {MakeConstant(tv), MakeConstant(String(DLDataType2String(mnm_dtype)))}));
-  Span<const int64> dimensions = node->shape().dimensions();
-  return node->shape().rank() == 0
-             ? scalar
-             : BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"),
-                                        {scalar, MakeConstant(TupleInt(std::vector<int64_t>(
-                                                     dimensions.begin(), dimensions.end())))}));
+  return scalar;
 }
 
 Var MNMNodeLowering::LowerSelect(const ir::ops::Select* node) {

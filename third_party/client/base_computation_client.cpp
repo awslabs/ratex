@@ -147,7 +147,6 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   for (const auto& kv : computation->alias()) {
     alias.Set(kv.first, kv.second);
   }
-
   String json(mnm::ir::serialization::SaveJSON(computation->computation()));
 
   return Array<ObjectRef>({json, model_states, alias});

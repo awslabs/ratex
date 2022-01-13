@@ -177,7 +177,7 @@ def train(
             inputs = inputs.to(device)
             labels = labels.to(device)
             with torch_mnm.amp.autocast(amp):
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()

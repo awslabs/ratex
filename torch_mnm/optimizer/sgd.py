@@ -1,8 +1,9 @@
 """SGD optimizer"""
 # pylint: disable=too-many-locals, invalid-name, too-many-branches
 import math
-import numpy as np
+from importlib import import_module
 
+import numpy as np
 import torch
 
 from mnm import distributed as dist
@@ -11,12 +12,13 @@ from mnm import distributed as dist
 class SGD(torch.optim.Optimizer):
     """distributed SGD optimizer."""
 
-    def __init__(self, params, lr=0.1, momentum=0):
+    def __init__(self, params, lr=0.1, momentum=0, mark_step=False):
         defaults = dict(lr=lr, momentum=momentum)
         dctx = dist.get_context()
         self._zero_opt_level = dctx.zero_opt_level
         self._rank = dctx.rank
         self._world_size = dctx.size
+        self._lm = import_module("lazy_tensor_core.core.lazy_model") if mark_step else None
 
         super().__init__(params, defaults)
 
@@ -93,6 +95,8 @@ class SGD(torch.optim.Optimizer):
                     else:
                         momentum_buffer.mul_(momentum).add_(p.grad)
                         p.add_(momentum_buffer, alpha=-lr)
+                    if self._lm:
+                        self._lm.mark_step()
 
         return loss
 
