@@ -128,7 +128,8 @@ def persit_cache(wrapped_func):
         def loader(value):
             func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
                 unpack(mnm.ir.load_json(value))
-
+            # mnm_params_shape is tuple instead of list
+            mnm_params_shape = {k: tuple(v) for k, v in mnm_params_shape.items()}
             return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
 
         def saver(value):

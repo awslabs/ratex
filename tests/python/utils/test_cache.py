@@ -1,5 +1,6 @@
 import os
 import tempfile
+from collections import OrderedDict
 
 import pytest
 import torch
@@ -91,10 +92,13 @@ def test_convert_module_to_meta_cache():
         func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
             convert_module_to_meta(module, shape_n_dtype, args)
         assert cache.misses == 2 and cache.hits == 0
-
         func_1, param_names_1, inplace_update_map_1, mnm_params_shape_1, mnm_params_dtype_1 = \
             convert_module_to_meta(module, shape_n_dtype, args)
         assert cache.misses == 2 and cache.hits == 1
+        # clear in-memory cache
+        cache.entries = OrderedDict()
+        func_1, param_names_1, inplace_update_map_1, mnm_params_shape_1, mnm_params_dtype_1 = \
+            convert_module_to_meta(module, shape_n_dtype, args)
         assert isinstance(func, tvm.relay.Function)
         assert tvm.ir.structural_equal(func, func_1)
         assert param_names == param_names_1
