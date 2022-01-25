@@ -29,16 +29,13 @@
 #include "torch_mnm/csrc/version.h"
 #include "torch_mnm/csrc/aten_mnm_bridge.h"
 #include "torch_mnm/csrc/utils/debug.h"
+#include "torch_mnm/csrc/utils/torch_mnm_logging.h"
+
 // [Implementation Guidelines]
 // - If you want to call a at::func which doesn't exist in AtenMNMType,
 //   call at::native::func instead.
 //   E.g. don't call tensor.is_floating_point() or
 //   at::is_floating_point(tensor), use at::native::is_floating_point(tensor).
-
-#define VLOG(n) \
-  if (-n >= CAFFE2_LOG_THRESHOLD) ::c10::MessageLogger((char*)__FILE__, __LINE__, -n).stream()
-
-#define LTC_VLOG(level) VLOG(level)
 
 namespace torch_lazy_tensors {
 
@@ -198,8 +195,8 @@ void CheckBinaryOpTypePromotion(const at::Tensor& out, const at::Tensor& self,
 }
 
 void AtenInitialize() {
-  LTC_VLOG(1) << "PyTorch GIT revision: " << torch_mnm::TORCH_GITREV;
-  LTC_VLOG(1) << "MNM GIT revision: " << torch_mnm::MNM_GITREV;
+  TORCH_MNM_VLOG(1) << "PyTorch GIT revision: " << torch_mnm::TORCH_GITREV;
+  TORCH_MNM_VLOG(1) << "MNM GIT revision: " << torch_mnm::MNM_GITREV;
 
   LTCTensorImpl::AtenInitialize();
 }
@@ -687,8 +684,8 @@ const at::Tensor& AtenMNMType::as_strided_(const at::Tensor& self, at::IntArrayR
   }
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::as_strided_", 1);
-  LTC_VLOG(3) << "XLA as_strided_ :"
-              << " self=" << self.toString();
+  TORCH_MNM_VLOG(3) << "XLA as_strided_ :"
+                    << " self=" << self.toString();
   auto xlatens = bridge::LtcCreateTensorList({self});
   at::as_strided_(xlatens[0], size, stride, storage_offset);
   bridge::LtcUpdateTensors({self}, xlatens, {0});
@@ -3088,8 +3085,8 @@ at::Tensor AtenMNMType::squeeze(const at::Tensor& self, int64_t dim) {
 at::Tensor& AtenMNMType::squeeze_(at::Tensor& self) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::squeeze_", 1);
-  LTC_VLOG(3) << "XLA squeeze_ :"
-              << " self=" << self.toString();
+  TORCH_MNM_VLOG(3) << "XLA squeeze_ :"
+                    << " self=" << self.toString();
   std::vector<at::Tensor> xlatens_tensors = {self};
   auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);
   xlatens[0].squeeze_();
@@ -3105,8 +3102,8 @@ at::Tensor& AtenMNMType::squeeze_(at::Tensor& self) {
 at::Tensor& AtenMNMType::squeeze_(at::Tensor& self, int64_t dim) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::squeeze_", 1);
-  LTC_VLOG(3) << "XLA squeeze_ :"
-              << " self=" << self.toString();
+  TORCH_MNM_VLOG(3) << "XLA squeeze_ :"
+                    << " self=" << self.toString();
   std::vector<at::Tensor> xlatens_tensors = {self};
   auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);
   xlatens[0].squeeze_(dim);
