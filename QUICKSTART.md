@@ -15,7 +15,7 @@ pytorch
 
 #### 1.0 Install prerequisites
 
-Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/master/docs/wiki/Build-MNM-on-Ubuntu-18.04.md
+Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md
 
 #### 1.1 Clone a copy of the PyTorch repo and switch to the lazy_tensor_staging branch
 
