@@ -197,7 +197,6 @@ ComputationClient::ComputationPtr MNMComputationClient::Compile(
     }
 
     mnm::pass::MNMSequential seq({
-        mnm::pass::InferType(),           mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
         mnm::pass::InferType(),           mnm::pass::FoldConstant(),
         mnm::pass::DeadCodeElimination(), mnm::pass::InferType(),
         mnm::pass::LambdaLift(),          mnm::pass::InferType(),
@@ -207,6 +206,7 @@ ComputationClient::ComputationPtr MNMComputationClient::Compile(
         mnm::pass::InlineLet(),           mnm::pass::InferType(),
         mnm::pass::DeadCodeElimination(), mnm::pass::InferType(),
         mnm::pass::CanonicalizeOps(),     mnm::pass::InferType(),
+        mnm::pass::AssignDevice(mnm_device.device_type().c_str()),
     });
 
     mnm::executor::vm::DeviceMap device_map{{Integer((int)(mnm_device.device_type())), mnm_device}};

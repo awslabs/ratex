@@ -107,7 +107,20 @@ def asnumpy(x):
     return x.cpu().detach().numpy()
 
 
-def persit_cache(wrapped_func):
+def persis_cache_fn(wrapped_func):
+    """Persistent cache a Python function. Note that we assume the cached function
+    refers to the distributed context, so it values are also a part of the cache key.
+
+    Parameters
+    ----------
+    wrapped_func: Callable
+        The function to be cached.
+
+    Returns
+    -------
+    fun: Callable
+        The wrapped function with caching.
+    """
     def wrapper(module, shape_n_dtype, args):
         dctx = dist.get_context()
         cache_key = (
@@ -144,7 +157,7 @@ def persit_cache(wrapped_func):
 
 
 @ltc_timed("MNMTraceConvertModuleToMeta")
-@persit_cache
+@persis_cache_fn
 def convert_module_to_meta(module, shape_n_dtype, args):
     """Convert the PyTorch module to Meta and apply necessary transformations.
     Parameters
