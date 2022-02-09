@@ -13,7 +13,6 @@ import multiprocessing
 import time
 
 import tvm
-import mnm
 
 logger = logging.getLogger("Cache")
 
@@ -102,6 +101,10 @@ class Cache:
         while len(self.entries) > self.capacity:
             logger.debug("Evit an item from cache")
             self.entries.popitem(last=False)
+
+    def evict_all(self):
+        """Evict all entries"""
+        self.entries = OrderedDict()
 
     @staticmethod
     def get_persist_token(key):
@@ -353,8 +356,21 @@ def get_persist_token(key):
 
 
 def copy_cache(src_cache, tgt_cache, days):
+    """Copy cache to another directory.
+
+    Parameters
+    ----------
+    src_cache: string
+        The source directory.
+
+    tgt_cache: string
+        The target directory.
+
+    days: int
+        The number of days to be preserved.
+    """
     assert os.path.isdir(src_cache)
     assert not os.path.isdir(tgt_cache)
     shutil.copytree(src_cache, tgt_cache)
-    cache = Cache(tgt_cache)
-    cache.prune_persist(days)
+    new_cache = Cache(tgt_cache)
+    new_cache.prune_persist(days)

@@ -15,6 +15,9 @@ LazyTensor GetLtcTensor(const at::Tensor& tensor);
 // Same as above, applied to a list of tensors.
 std::vector<LazyTensor> GetLtcTensors(lazy_tensors::Span<const at::Tensor> tensors);
 
+// Get client data from ir node output
+lazy_tensors::ComputationClient::DataPtr GetData(ir::Output out);
+
 }  // namespace mnm_backend
 }  // namespace bridge
 }  // namespace torch_lazy_tensors

@@ -121,6 +121,7 @@ def persis_cache_fn(wrapped_func):
     fun: Callable
         The wrapped function with caching.
     """
+
     def wrapper(module, shape_n_dtype, args):
         dctx = dist.get_context()
         cache_key = (
@@ -139,8 +140,9 @@ def persis_cache_fn(wrapped_func):
             return value
 
         def loader(value):
-            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
-                unpack(mnm.ir.load_json(value))
+            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = unpack(
+                mnm.ir.load_json(value)
+            )
             # mnm_params_shape is tuple instead of list
             mnm_params_shape = {k: tuple(v) for k, v in mnm_params_shape.items()}
             return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
@@ -153,6 +155,7 @@ def persis_cache_fn(wrapped_func):
             value = wrapped_func(module, shape_n_dtype, args)
             persist_cache.commit(cache_key, value, saver=saver)
         return value
+
     return wrapper
 
 
@@ -200,14 +203,12 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     )
     mnm_params = model.state()
     # ensure mnm_params are cachable
-    mnm_params_shape = {
-        k: v.shape for k, v in mnm_params.items()
-    }
-    mnm_params_dtype = {
-        k: v.dtype for k, v in mnm_params.items()
-    }
+    mnm_params_shape = {k: v.shape for k, v in mnm_params.items()}
+    mnm_params_dtype = {k: v.dtype for k, v in mnm_params.items()}
 
-    record = model._internal(mnm.array(asnumpy(args[0])))
+    # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
+    # because asnumpy() calls *.cpu()
+    record = model._internal(mnm.array(asnumpy(args[0].clone())))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
     if dctx.enable_data_parallel:
@@ -219,6 +220,11 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     func = mod["main"]
     param_names = [var.name_hint for var in func.params]
     return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
+
+
+# Module based cache that maps the input shape/dtype to a tuple of
+# (processed Relay function, function parameter names, inplace update map).
+JIT_CACHE = {}
 
 
 def script(module: torch.nn.Module):
@@ -233,10 +239,6 @@ def script(module: torch.nn.Module):
     func: Callable
         A function to run on Meta.
     """
-    # Module based cache that maps the input shape/dtype to a tuple of
-    # (processed Relay function, function parameter names, inplace update map).
-    cache = {}
-
     # Difference between state_dict() and named_parameters():
     # module.state_dict() sets the requires_grad of all parameters to false
     # module.state_dict() includes in-place updated parameters while model.paramters() does not
@@ -258,13 +260,18 @@ def script(module: torch.nn.Module):
         assert not kwargs, "Do not support kwargs yet"
         shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
         cache_key = str(shape_n_dtype)
-        if cache_key in cache:
+        if cache_key in JIT_CACHE:
             # Cache hit.
-            func, param_names, inplace_update_map = cache[cache_key]
+            func, param_names, inplace_update_map = JIT_CACHE[cache_key]
         else:
             # Cache miss. Generate a Meta function and apply a series of transformations.
-            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
-                convert_module_to_meta(module, shape_n_dtype, args)
+            (
+                func,
+                param_names,
+                inplace_update_map,
+                mnm_params_shape,
+                mnm_params_dtype,
+            ) = convert_module_to_meta(module, shape_n_dtype, args)
             # Convert missing args
             params_keys = [to_mnm_name(k) for k in params.keys()]
             for name in param_names:
@@ -280,7 +287,7 @@ def script(module: torch.nn.Module):
                         "%s parameter has been converted from mnm.array to torch.Tensor.", name
                     )
             # Updated cached function, param_names, and inplace update map
-            cache[cache_key] = (func, param_names, inplace_update_map)
+            JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
 
         positional_args = get_positional_args(param_names, *args, **params)
         return RelayFunction.apply(func, inplace_update_map, *positional_args)

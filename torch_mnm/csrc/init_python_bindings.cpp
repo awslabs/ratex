@@ -4,6 +4,7 @@
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "lazy_tensors/shape.h"
 #include "lazy_tensor_core/csrc/ops/device_data.h"
+#include "torch_mnm/csrc/aten_mnm_bridge.h"
 #include "torch_mnm/csrc/ops/relay_expr.h"
 #include "torch_mnm/csrc/ops/relay_function.h"
 #include "torch_mnm/csrc/ops/mnm_ops.h"
@@ -95,6 +96,11 @@ void InitMNMModuleBindings(py::module m) {
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);
     ir::Value ir_value = lazy_tensor.GetIrValue();
     GetMNMModelState()->AddModelState(lazy_tensor);
+
+    Value value = lazy_tensor.GetIrValue();
+    lazy_tensors::ComputationClient::DataPtr data = bridge::mnm_backend::GetData(value);
+    static_cast<torch_mnm::BaseComputationClient::BaseData*>(data.get())->is_param = true;
+
     return tensor;
   });
 

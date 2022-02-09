@@ -1,5 +1,5 @@
 """Common utilities for testing."""
-# pylint: disable=too-many-locals, unused-import, too-many-arguments
+# pylint: disable=too-many-locals, unused-import, too-many-arguments, protected-access
 import copy
 import functools
 import logging
@@ -15,8 +15,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch import optim
 
-import torch_mnm
 import mnm
+import torch_mnm
 
 
 class TorchLeNet(nn.Module):
@@ -145,6 +145,7 @@ def train(
     optimizer=optim.SGD,
     optimizer_params=None,
     batch_size=1,
+    num_classes=10,
     num_epochs=3,
     amp=False,
     trim=False,
@@ -175,6 +176,7 @@ def train(
         running_loss = []
         for inputs, labels in dataloader:
             inputs = inputs.to(device)
+            labels = torch.from_numpy(np.eye(num_classes, dtype=np.float32)[labels])
             labels = labels.to(device)
             with torch_mnm.amp.autocast(amp):
                 optimizer.zero_grad(set_to_none=True)

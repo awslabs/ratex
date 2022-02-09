@@ -1,6 +1,6 @@
 import os
 import tempfile
-from collections import OrderedDict
+import re
 
 import pytest
 import torch
@@ -10,7 +10,6 @@ import tvm
 import torch_mnm
 from torch_mnm.utils.cache import Cache
 from torch_mnm.testing import TorchLeNet, fake_image_dataset, train
-
 
 
 def test_cache():
@@ -79,32 +78,115 @@ def test_compile_cache():
 
 
 def test_convert_module_to_meta_cache():
+    """
+    NOTES: This test creates a temporary new global cache, which will affect other tests result
+    if multi tests are being exectuted in parallel. Need to revise in the future if we run tests
+    in parallel.
+    """
     from torch_mnm.utils.cache import cache
+
     model = TorchLeNet()
     with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
         # it cannot be accessed with torch_mnm.jit.script.convert_module_to_meta
         from torch_mnm.jit.script import convert_module_to_meta
+
         # Hook persistent cache to a temporary one
         Cache.__init__(cache, temp_dir)
         args = [torch.rand(1, 1, 28, 28, dtype=torch.float32)]
         shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
         module = TorchLeNet()
-        func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = \
-            convert_module_to_meta(module, shape_n_dtype, args)
+        (
+            func,
+            param_names,
+            inplace_update_map,
+            mnm_params_shape,
+            mnm_params_dtype,
+        ) = convert_module_to_meta(module, shape_n_dtype, args)
         assert cache.misses == 2 and cache.hits == 0
-        func_1, param_names_1, inplace_update_map_1, mnm_params_shape_1, mnm_params_dtype_1 = \
-            convert_module_to_meta(module, shape_n_dtype, args)
+        (
+            func_1,
+            param_names_1,
+            inplace_update_map_1,
+            mnm_params_shape_1,
+            mnm_params_dtype_1,
+        ) = convert_module_to_meta(module, shape_n_dtype, args)
         assert cache.misses == 2 and cache.hits == 1
         # clear in-memory cache
-        cache.entries = OrderedDict()
-        func_1, param_names_1, inplace_update_map_1, mnm_params_shape_1, mnm_params_dtype_1 = \
-            convert_module_to_meta(module, shape_n_dtype, args)
+        cache.evict_all()
+        (
+            func_1,
+            param_names_1,
+            inplace_update_map_1,
+            mnm_params_shape_1,
+            mnm_params_dtype_1,
+        ) = convert_module_to_meta(module, shape_n_dtype, args)
         assert isinstance(func, tvm.relay.Function)
         assert tvm.ir.structural_equal(func, func_1)
         assert param_names == param_names_1
         assert inplace_update_map == inplace_update_map_1
         assert mnm_params_shape == mnm_params_shape_1
         assert mnm_params_dtype == mnm_params_dtype_1
+
+
+def test_convert_module_to_meta_cache_ltc_trace():
+    """
+    NOTES: This test creates a temporary new global cache, which will affect other tests result
+    if multi tests are being exectuted in parallel. Need to revise in the future if we run tests
+    in parallel.
+
+    This test is to test if the LTC IR is the same before and after JIT compile hits.
+    """
+    from torch_mnm.utils.cache import cache
+    from torch_mnm.jit.script import JIT_CACHE
+
+    batch_size = 16
+    dataset = fake_image_dataset(batch_size, 1, 28, 10)
+    model = TorchLeNet()
+
+    with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
+        # Hook persistent cache to a temporary one
+        Cache.__init__(cache, temp_dir)
+        ltc_file = "ltc_file.txt"
+
+        os.environ["LTC_SAVE_TENSORS_FILE"] = ltc_file
+        os.environ["COMPILATION_CACHE_SIZE"] = "0"
+
+        train(
+            "xla",
+            model,
+            dataset,
+            optimizer=optim.SGD,
+            batch_size=batch_size,
+            num_epochs=1,
+            trim=True,
+        )
+
+        with open(ltc_file, "r") as file:
+            hashes_before_hit = [l for l in file if re.search("Hashes", l)]
+            # Last two are hashes for the model and the optimizer
+            hashes_before_hit = hashes_before_hit[-2:]
+
+        # Clear in-memory cache
+        cache.evict_all()
+        JIT_CACHE.clear()
+
+        train(
+            "xla",
+            model,
+            dataset,
+            optimizer=optim.SGD,
+            batch_size=batch_size,
+            num_epochs=1,
+            trim=True,
+        )
+
+        with open(ltc_file, "r") as file:
+            hashes_after_hit = [l for l in file if re.search("Hashes", l)]
+            # Last two are hashes for the model and the optimizer
+            hashes_after_hit = hashes_after_hit[-2:]
+
+        os.remove(ltc_file)
+        assert hashes_before_hit == hashes_after_hit
 
 
 if __name__ == "__main__":

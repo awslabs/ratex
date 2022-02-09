@@ -152,7 +152,12 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   for (const auto& kv : computation->alias()) {
     alias.Set(kv.first, kv.second);
   }
-  String json(mnm::ir::serialization::SaveJSON(computation->computation()));
+
+  IRModule ir_module = IRModule::FromExpr(computation->computation());
+  // Canonicalize IR.
+  ir_module = mnm::pass::FoldConstant()(ir_module);
+  ir_module = mnm::pass::InferType()(ir_module);
+  String json(mnm::ir::serialization::SaveJSON(ir_module));
 
   return Array<ObjectRef>({json, model_states, alias});
 }
