@@ -1,20 +1,22 @@
 #!/usr/bin/env python
 # Acknowledge: This file originates from pytorch/xla:setup.py
 #
+# Environment variable you must set:
+#
+#   PYTORCH_SOURCE_PATH
+#     the path to the PyTorch source
+#
 # Environment variables you are probably interested in:
 #
 #   DEBUG
 #     build with -O0 and -g (debug symbols)
 #
-#   TORCH_XLA_VERSION
+#   TORCH_MNM_VERSION
 #     specify the version of PyTorch/XLA, rather than the hard-coded version
 #     in this file; used when we're building binaries for distribution
 #
-#   VERSIONED_XLA_BUILD
+#   VERSIONED_MNM_BUILD
 #     creates a versioned build
-#
-#   LAZY_XLA_PACKAGE_NAME
-#     change the package name to something other than 'lazy_xla'
 #
 #   COMPILE_PARALLEL=1
 #     enable parallel compile
@@ -22,18 +24,9 @@
 #   BUILD_CPP_TESTS=1
 #     build the C++ tests
 #
-#   XLA_DEBUG=0
-#     build the xla/xrt client in debug mode
-#
-#   XLA_BAZEL_VERBOSE=0
-#     turn on verbose messages during the bazel build of the xla/xrt client
-#
-#   XLA_CUDA=0
-#     build the xla/xrt client with CUDA enabled
-#
 
 from __future__ import print_function
-from os.path import join
+import glob2
 
 from setuptools import setup, find_packages, distutils
 from torch.utils.cpp_extension import BuildExtension, CppExtension
@@ -45,7 +38,6 @@ import inspect
 import multiprocessing
 import multiprocessing.pool
 import os
-import imp
 import platform
 import re
 import shutil
@@ -58,9 +50,9 @@ import tvm
 import mnm
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-lazy_core_dir = os.getenv("LTC_SOURCE_PATH", os.path.join(base_dir, "..", "lazy_tensor_core"))
-pytorch_dir = os.getenv("PYTORCH_SOURCE_PATH", os.path.dirname(base_dir))
-third_party_path = os.path.join(base_dir, "third_party")
+pytorch_source_dir = os.getenv("PYTORCH_SOURCE_PATH", None)
+if pytorch_source_dir is None:
+    raise RuntimeError("PYTORCH_SOURCE_PATH is unset")
 
 
 def _get_build_mode():
@@ -121,14 +113,14 @@ def create_version_files(base_dir, version, mnm_git_sha, torch_git_sha):
 
 def generate_mnm_aten_code(base_dir):
     generate_code_cmd = [os.path.join(base_dir, "scripts", "generate_code.sh")]
-    if subprocess.call(generate_code_cmd, env=dict(os.environ, PTDIR=str(pytorch_dir))) != 0:
+    if subprocess.call(generate_code_cmd, env=dict(os.environ, PTDIR=str(pytorch_source_dir))) != 0:
         print("Failed to generate ATEN bindings: {}".format(generate_code_cmd), file=sys.stderr)
         sys.exit(1)
 
 
 def apply_patches():
     apply_patches_cmd = [os.path.join(base_dir, "scripts", "apply_patches.sh")]
-    if subprocess.call(apply_patches_cmd, env=dict(os.environ, PTDIR=str(pytorch_dir))) != 0:
+    if subprocess.call(apply_patches_cmd, env=dict(os.environ, PTDIR=str(pytorch_source_dir))) != 0:
         warnings.warn("Failed to apply patches: {}".format(apply_patches_cmd))
 
 
@@ -229,45 +221,71 @@ if build_mode not in ["clean"]:
     # Generate version info (lazy_xla.__version__).
     create_version_files(base_dir, version, mnm_git_sha, torch_git_sha)
     # Apply code patches for PyTorch
+    # FIXME: This patch is used to codegen the ATen ops to fallback torch_mnm unsupported ops.
+    # This can be removed once against to PyTorch master branch that has the CPU fallback support.
     apply_patches()
     # Generate the code before globbing!
     generate_mnm_aten_code(base_dir)
 
-# Fetch the sources to be built.
-torch_mnm_sources = (
-    glob.glob("torch_mnm/csrc/*.cpp")
-    + glob.glob("torch_mnm/csrc/ops/*.cpp")
-    + glob.glob("torch_mnm/csrc/compiler/*.cpp")
-    + glob.glob("torch_mnm/csrc/serialization/*.cpp")
-    + glob.glob("torch_mnm/csrc/value_ext/*.cpp")
-    + glob.glob("torch_mnm/csrc/pass_ext/*.cpp")
-    + glob.glob("torch_mnm/csrc/utils/*.cpp")
-    + glob.glob("third_party/client/*.cpp")
+# Only include necessary abseil files.
+absl_files = list(
+    set(glob2.glob("third_party/abseil-cpp/absl/**/*.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/*_test.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/*_testing.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/benchmarks.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/*_benchmark.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/*_benchmarks.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/spinlock_test_common.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/flags/**/*.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/mutex_nonprod.cc"))
+    - set(glob2.glob("third_party/abseil-cpp/absl/**/gaussian_distribution_gentables.cc"))
 )
 
-# Constant known variables used throughout this file.
-lib_path = os.path.join(base_dir, "torch_mnm/lib")
+source_files = absl_files
+
+# Add torch_mnm files.
+source_files += (
+    glob2.glob("torch_mnm/csrc/*.cpp")
+    + glob2.glob("torch_mnm/csrc/ops/*.cpp")
+    + glob2.glob("torch_mnm/csrc/compiler/*.cpp")
+    + glob2.glob("torch_mnm/csrc/serialization/*.cpp")
+    + glob2.glob("torch_mnm/csrc/value_ext/*.cpp")
+    + glob2.glob("torch_mnm/csrc/pass_ext/*.cpp")
+    + glob2.glob("torch_mnm/csrc/utils/*.cpp")
+    + glob2.glob("third_party/client/*.cpp")
+)
+
+# Add lazy tensor core files.
+source_files += (
+    glob2.glob("torch_mnm/lazy_tensor_core/csrc/*.cpp")
+    + glob2.glob("torch_mnm/lazy_tensor_core/csrc/compiler/*.cpp")
+    + glob2.glob("torch_mnm/lazy_tensor_core/csrc/ops/*.cpp")
+    + glob2.glob("torch_mnm/lazy_tensors/**/*.cc")
+)
+
+torch_mnm_path = os.path.join(base_dir, "torch_mnm")
+third_party_path = os.path.join(base_dir, "third_party")
 
 # Setup include directories folders.
 include_dirs = [
     base_dir,
-    lazy_core_dir,
-    pytorch_dir,
+    torch_mnm_path,
+    pytorch_source_dir,
     third_party_path,
+    os.path.join(third_party_path, "abseil-cpp"),
     os.path.join(third_party_path, "meta/include"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/include"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/compiler-rt"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/dmlc-core/include"),
     os.path.join(third_party_path, "meta/3rdparty/tvm/3rdparty/dlpack/include"),
-    os.path.join(pytorch_dir, "torch/csrc"),
-    os.path.join(pytorch_dir, "torch/lib/tmp_install/include"),
-    os.path.join(lazy_core_dir, "third_party/abseil-cpp"),
+    os.path.join(pytorch_source_dir, "torch/csrc"),
+    os.path.join(pytorch_source_dir, "torch/lib/tmp_install/include"),
 ]
 
 tvm_library_dir = os.path.dirname(tvm._ffi.libinfo.find_lib_path()[0])
 mnm_library_dir = os.path.dirname(mnm._lib.find_lib_path()[0])
 library_dirs = [
-    os.path.dirname(imp.find_module("_LAZYC")[1]),
+    os.path.join(torch_mnm_path, "lib"),
     tvm_library_dir,
     mnm_library_dir,
 ]
@@ -305,7 +323,6 @@ else:
 
 PY_VERSION = "".join(sys.version[:3].split("."))
 extra_link_args = [
-    f"-l:_LAZYC.cpython-{PY_VERSION}m-x86_64-linux-gnu.so",
     "-lmnm",
     "-ltvm",
     make_relative_rpath(""),
@@ -320,7 +337,7 @@ setup(
     ext_modules=[
         CppExtension(
             "_TORCHMNMC",
-            torch_mnm_sources,
+            source_files,
             include_dirs=include_dirs,
             extra_compile_args=extra_compile_args,
             library_dirs=library_dirs,

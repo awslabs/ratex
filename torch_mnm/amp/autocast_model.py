@@ -2,7 +2,7 @@
 # pylint: disable=c-extension-no-member
 import functools
 
-from .. import _TORCHMNMC
+import _TORCHMNMC
 
 
 class autocast:  # pylint: disable=invalid-name

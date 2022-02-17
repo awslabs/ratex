@@ -1,5 +1,4 @@
 #!/usr/bin
-# Please make sure you are at the PyTorch folder when running this script.
 # Environment variables you are probably interested in:
 #
 #   BUILD_TYPE
@@ -12,7 +11,7 @@
 #     maximum number of jobs to build. Default: all CPU cores.
 set -ex
 
-TORCH_DIR=`pwd`
+BASE_DIR=`pwd`
 
 if [[ -z ${BUILD_TYPE+x} ]]; then
   BUILD_TYPE="Debug"
@@ -31,7 +30,7 @@ fi
 
 echo "Building Meta/TVM..."
 pushd .
-cd ${TORCH_DIR}/torch_mnm/third_party/meta/
+cd third_party/meta/
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
@@ -42,13 +41,13 @@ popd
 
 echo "Building Meta/TVM wheels..."
 pushd .
-cd ${TORCH_DIR}/torch_mnm/third_party/meta/3rdparty/tvm/python
+cd third_party/meta/3rdparty/tvm/python
 rm -rf ../build/pip/public/tvm_latest
-TVM_LIBRARY_PATH=${TORCH_DIR}/torch_mnm/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
+TVM_LIBRARY_PATH=${BASE_DIR}/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
 python3 -m pip install ../build/pip/public/tvm_latest/*.whl --upgrade --force-reinstall --no-deps
 popd
 pushd .
-cd ${TORCH_DIR}/torch_mnm/third_party/meta/python
+cd third_party/meta/python
 rm -rf ../build/pip/public/mnm
 python3 setup.py bdist_wheel -d ../build/pip/public/mnm
 python3 -m pip install ../build/pip/public/mnm/*.whl --upgrade --force-reinstall --no-deps

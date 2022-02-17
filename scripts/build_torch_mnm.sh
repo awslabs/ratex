@@ -8,16 +8,16 @@ export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
 export CC=clang-8
 export CXX=clang++-8
 export BUILD_CPP_TESTS=0
-export PYTORCH_SOURCE_PATH=`pwd`
-export LTC_SOURCE_PATH=${PYTORCH_SOURCE_PATH}/lazy_tensor_core
+
+if [ -z $PYTORCH_SOURCE_PATH ]; then
+  echo "PYTORCH_SOURCE_PATH is not set"
+  exit 1
+fi
 
 echo "Building torch_mnm wheels..."
-pushd .
-cd ${PYTORCH_SOURCE_PATH}/torch_mnm
 rm -rf ./build/pip/public/torch_mnm
 python3 setup.py bdist_wheel -d ./build/pip/public/torch_mnm
 pip3 install ./build/pip/public/torch_mnm/*.whl --upgrade --force-reinstall --no-deps
-popd
 
 echo "Testing..."
 pushd .

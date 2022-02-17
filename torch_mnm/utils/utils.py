@@ -6,7 +6,7 @@ import traceback
 
 import tvm
 
-from .. import _TORCHMNMC
+import _TORCHMNMC
 
 
 class ltc_timed:  # pylint: disable=invalid-name

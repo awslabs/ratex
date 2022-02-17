@@ -2,9 +2,8 @@ import copy
 
 import torch
 import torch_mnm
-import lazy_tensor_core
-import lazy_tensor_core.debug.metrics as metrics
-import lazy_tensor_core.core.lazy_model as lm
+import torch_mnm.lazy_tensor_core.debug.metrics as metrics
+import torch_mnm.lazy_tensor_core.core.lazy_model as lm
 
 
 import torch.nn as nn
@@ -22,17 +21,9 @@ import copy
 class TorchLeNet(nn.Module):
     def __init__(self, input_shape=28, num_classes=10):
         super(TorchLeNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=1,
-                               out_channels=6,
-                               kernel_size=5,
-                               padding=2,
-                               bias=False)
-        self.conv2 = nn.Conv2d(in_channels=6,
-                               out_channels=16,
-                               kernel_size=5,
-                               bias=False)
-        self.linear1 = nn.Linear(((input_shape // 2 - 4) // 2) ** 2 * 16,
-                                 120)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, padding=2, bias=False)
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, bias=False)
+        self.linear1 = nn.Linear(((input_shape // 2 - 4) // 2) ** 2 * 16, 120)
         self.linear2 = nn.Linear(120, 84)
         self.linear3 = nn.Linear(84, num_classes)
 
@@ -51,10 +42,13 @@ class TorchLeNet(nn.Module):
 
 
 def train(device, model, image_datasets):
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=1,
-                                                  shuffle=False, num_workers=1)
-                for x in ['train', 'val']}
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+    dataloaders = {
+        x: torch.utils.data.DataLoader(
+            image_datasets[x], batch_size=1, shuffle=False, num_workers=1
+        )
+        for x in ["train", "val"]
+    }
+    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
     model = model.to(device, dtype=torch.float32)
     model.train()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
@@ -65,8 +59,8 @@ def train(device, model, image_datasets):
     if device == "xla":
         model = torch_mnm.jit.script(model)
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+        print("Epoch {}/{}".format(epoch, num_epochs - 1))
+        print("-" * 10)
         running_loss = 0.0
         running_corrects = 0
 
@@ -75,12 +69,12 @@ def train(device, model, image_datasets):
             inputs = inputs.to(device)
             inputs.requires_grad = True
             labels_one_hot = torch.tensor(np.eye(10, dtype=np.float32)[labels])
-            labels_one_hot = labels_one_hot.to(device) # One-hot
+            labels_one_hot = labels_one_hot.to(device)  # One-hot
             optimizer.zero_grad()
             outputs = model(inputs)
             # _, preds = torch.max(outputs, 1)
             # loss = criterion(outputs, labels)
-            # adapting loss cacluation from 
+            # adapting loss cacluation from
             # https://www.programmersought.com/article/86167037001/
             # this doesn't match nn.NLLLoss() exactly, but close...
             loss = -torch.sum(outputs * labels_one_hot) / inputs.size(0)
@@ -92,15 +86,17 @@ def train(device, model, image_datasets):
 
         epoch_loss = running_loss / dataset_sizes["train"]
         epoch_acc = 0
-        print('{} Loss: {:.4f}'.format(
-              "train", epoch_loss))
+        print("{} Loss: {:.4f}".format("train", epoch_loss))
 
 
 def infer(device, model, image_datasets):
-    dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=1,
-                                                  shuffle=False, num_workers=1)
-                   for x in ['train', 'val']}
-    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+    dataloaders = {
+        x: torch.utils.data.DataLoader(
+            image_datasets[x], batch_size=1, shuffle=False, num_workers=1
+        )
+        for x in ["train", "val"]
+    }
+    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
     model = model.to(device)
     model.eval()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
@@ -124,25 +120,31 @@ def infer(device, model, image_datasets):
     epoch_loss = running_loss / dataset_sizes["val"]
     # epoch_acc = running_corrects.double() / dataset_sizes["train"]
     epoch_acc = 0
-    print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-        "val", epoch_loss, epoch_acc))
+    print("{} Loss: {:.4f} Acc: {:.4f}".format("val", epoch_loss, epoch_acc))
 
 
 model_mnm = TorchLeNet()
 model_cpu = copy.deepcopy(model_mnm)
 data_transforms = {
-    'train': transforms.Compose([
-        transforms.CenterCrop(28),
-        transforms.ToTensor(),
-    ]),
-    'val': transforms.Compose([
-        transforms.CenterCrop(28),
-        transforms.ToTensor(),
-    ]),
+    "train": transforms.Compose(
+        [
+            transforms.CenterCrop(28),
+            transforms.ToTensor(),
+        ]
+    ),
+    "val": transforms.Compose(
+        [
+            transforms.CenterCrop(28),
+            transforms.ToTensor(),
+        ]
+    ),
 }
-image_datasets = {x: datasets.FakeData(size=1, image_size=(1, 28, 28), num_classes=10,
-                                       transform=data_transforms[x])
-                  for x in ['train', 'val']}
+image_datasets = {
+    x: datasets.FakeData(
+        size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
+    )
+    for x in ["train", "val"]
+}
 print("mnm starts...")
 train("xla", model_mnm, image_datasets)
 print("cpu starts...")

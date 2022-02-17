@@ -1,4 +1,5 @@
 #include "torch/csrc/jit/python/pybind.h"
+#include "torch/csrc/utils/cuda_lazy_init.h"
 #include "lazy_tensor_core/csrc/aten_ltc_bridge.h"
 #include "lazy_tensor_core/csrc/device.h"
 #include "lazy_tensor_core/csrc/tensor_util.h"
@@ -15,6 +16,8 @@
 #include "meta/src/op/ty/utils.h"
 
 namespace torch_lazy_tensors {
+
+extern void InitLtcBindings(py::module m);
 
 namespace {
 
@@ -126,5 +129,11 @@ void InitMNMBindings(py::module m) {
 }  // namespace torch_lazy_tensors
 
 PYBIND11_MODULE(_TORCHMNMC, m) {
+  try {
+    torch::utils::cuda_lazy_init();
+  } catch (const python_error&) {
+    // Do nothing, CUDA not available.
+  }
+  torch_lazy_tensors::InitLtcBindings(m);
   torch_lazy_tensors::InitMNMBindings(m);
 }

@@ -8,8 +8,6 @@ import sys
 
 import numpy as np
 
-import lazy_tensor_core
-import lazy_tensor_core.core.lazy_model as lm
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -17,6 +15,8 @@ from torch import optim
 
 import mnm
 import torch_mnm
+
+from ..lazy_tensor_core.core import lazy_model as lm
 
 
 class TorchLeNet(nn.Module):

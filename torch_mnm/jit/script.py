@@ -4,13 +4,13 @@ import copy
 import hashlib
 import logging
 
+import _TORCHMNMC
 import torch
 import mnm
 import tvm
 from mnm import distributed as dist
 from mnm._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
 
-from .. import _TORCHMNMC
 from .._lib import mnm
 from ..value import ValueToHandle
 from ..utils.utils import ltc_timed
