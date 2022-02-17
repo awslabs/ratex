@@ -74,6 +74,11 @@ class MNMComputationClient : public BaseComputationClient {
                                           const std::string& device,
                                           const ExecuteComputationOptions& options) override;
 
+  std::vector<DataPtr> DryrunComputation(const Computation& computation,
+                                         lazy_tensors::Span<const DataPtr> arguments,
+                                         const std::string& device,
+                                         const ExecuteComputationOptions& options);
+
  private:
   std::vector<DataPtr> TransferToServerInternal(lazy_tensors::Span<const TensorSource> tensors);
 };

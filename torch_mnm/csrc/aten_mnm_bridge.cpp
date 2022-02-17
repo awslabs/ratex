@@ -3,7 +3,9 @@
 
 #include "client/base_computation_client.h"
 
+#include "lazy_tensor_core/csrc/ops/cast.h"
 #include "lazy_tensor_core/csrc/ops/device_data.h"
+#include "lazy_tensor_core/csrc/tensor_util.h"
 
 namespace torch_lazy_tensors {
 namespace bridge {
@@ -52,6 +54,25 @@ std::vector<LazyTensor> GetLtcTensors(lazy_tensors::Span<const at::Tensor> tenso
     ltc_tensors.push_back(bridge::GetLtcTensor(tensor));
   }
   return ltc_tensors;
+}
+
+// TODO: Remove this function after we have control over LTC
+ir::Value MaybeCastIrValue(const LazyTensor& self, ir::Value ir_value, const Device& device,
+                           c10::optional<at::ScalarType> logical_element_type) {
+  if (!logical_element_type) {
+    logical_element_type = self.dtype_optional();
+  }
+  if (logical_element_type && RequiresRawTypeCasting(*logical_element_type, &device)) {
+    ir_value = ir::MakeNode<ir::ops::Cast>(ir_value, *logical_element_type);
+  }
+  return ir_value;
+}
+
+// TODO: Remove this function after we have control over LTC
+LazyTensor CreateFrom(const LazyTensor& self, ir::Value ir_value) {
+  ir_value = MaybeCastIrValue(self, std::move(ir_value), self.GetDevice(),
+                              /*logical_element_type=*/c10::nullopt);
+  return LazyTensor::Create(std::move(ir_value), self.GetDevice(), self.dtype_optional());
 }
 
 }  // namespace mnm_backend

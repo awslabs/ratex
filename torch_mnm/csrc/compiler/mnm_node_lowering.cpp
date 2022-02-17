@@ -7,6 +7,7 @@
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool2d.h"
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool3d.h"
 #include "lazy_tensor_core/csrc/ops/all.h"
+#include "lazy_tensor_core/csrc/ops/all_reduce.h"
 #include "lazy_tensor_core/csrc/ops/amp_foreach_non_finite_check_and_unscale.h"
 #include "lazy_tensor_core/csrc/ops/amp_update_scale.h"
 #include "lazy_tensor_core/csrc/ops/any.h"
@@ -115,6 +116,7 @@
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensors/shape_util.h"
 
+#include "torch_mnm/csrc/ops/all_gather.h"
 #include "torch_mnm/csrc/ops/relay_expr.h"
 #include "torch_mnm/csrc/ops/relay_function.h"
 #include "torch_mnm/csrc/ops/log_softmax_backward_use_in.h"
@@ -216,6 +218,8 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP2(Unselect);
   DECLARE_OP2(ConstantPadNd);
   DECLARE_OP2(Scatter);
+  DECLARE_OP2(AllReduce);
+  DECLARE_OP2(MNMAllGather);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -229,6 +233,8 @@ class MNMNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
+  lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
+  lazy_tensors::Shape InferMNMAllGather(const ir::ops::MNMAllGather* node);
 };
 
 #undef DECLARE_OP2
@@ -330,6 +336,14 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
       if (node->op() == *ir::ops::mnm_log_softmax_backward_use_in) {
         return LowerLogSoftmaxBackwardUseIn(ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
             node, *ir::ops::mnm_log_softmax_backward_use_in));
+      }
+      if (node->op() == *ir::ops::mnm_all_gather) {
+        return LowerMNMAllGather(
+            ir::NodeCast<ir::ops::MNMAllGather>(node, *ir::ops::mnm_all_gather));
+      }
+      if (node->op() == *ir::ops::ltc_cross_replica_sum) {
+        return LowerAllReduce(
+            ir::NodeCast<ir::ops::AllReduce>(node, *ir::ops::ltc_cross_replica_sum));
       }
     }
   }
@@ -1000,6 +1014,65 @@ Var MNMNodeLowering::LowerScatter(const ir::ops::Scatter* node) {
   return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.scatter"), {x, idx, src, axis}));
 }
 
+Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) {
+  using tvm::runtime::DLDataType2String;
+  Expr computation;
+  if (node->reduce_type() == AllReduceType::kSum) {
+    computation = MakeConstant(String("sum"));
+  } else if (node->reduce_type() == AllReduceType::kMul) {
+    computation = MakeConstant(String("prod"));
+  } else if (node->reduce_type() == AllReduceType::kMin) {
+    computation = MakeConstant(String("min"));
+  } else if (node->reduce_type() == AllReduceType::kMax) {
+    computation = MakeConstant(String("max"));
+  } else {
+    LTC_LOG(FATAL) << "Unsupported Allreduce Type "
+                   << lazy_tensors::util::GetEnumValue(node->reduce_type());
+  }
+
+  // The last element in the operands is token
+  std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
+  Var allreduce_in = BindSymbol(mnm::ir::Tuple(Array<Expr>(ops_expr)));
+  Var ret = BindSymbol(mnm::ir::Call(Op::Get("mnm.op._allreduce"), {allreduce_in, computation}));
+  if (node->scale() != 1.0) {
+    DType dtype = ToMNMDType(node->operands()[0].shape().element_type());
+    // Take the reverse of the scale to reserve the precision if the data is integer
+    double scale_value = 1.0 / node->scale();
+    Expr scale;
+    if (dtype.code == DTypeCode::kFloat() && dtype.bits == 32) {
+      scale = MakeConstant(ScalarValue::make(float(scale_value)));
+    } else if (dtype.code == DTypeCode::kInt() && dtype.bits == 32) {
+      scale = MakeConstant(ScalarValue::make(int(scale_value)));
+    } else {
+      LTC_LOG(FATAL) << "Unsupported Allreduce datatype "
+                     << node->operands()[0].shape().element_type();
+    }
+    ret = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.divide"), {ret, scale}));
+  }
+
+  // Bind the token back
+  return BindSymbol(mnm::ir::Tuple(Array<Expr>({ret, ops.back()})));
+}
+
+Var MNMNodeLowering::LowerAllReduce(const ir::ops::AllReduce* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildAllReduce(ops, node);
+}
+
+Var BuildMNMAllGather(const std::vector<Var>& ops, const ir::ops::MNMAllGather* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  Expr dim = MakeConstant(Int(node->dim()));
+  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op._allgather"), {x, dim}));
+}
+
+Var MNMNodeLowering::LowerMNMAllGather(const ir::ops::MNMAllGather* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildMNMAllGather({x}, node);
+}
+
 lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
   const ir::OpKind& kind = node->op();
   switch (kind.op) {
@@ -1049,6 +1122,14 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
       if (kind == *ir::ops::mnm_relay_function) {
         return InferRelayFunction(
             ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::mnm_relay_function));
+      }
+      if (kind == *ir::ops::mnm_all_gather) {
+        return InferMNMAllGather(
+            ir::NodeCast<ir::ops::MNMAllGather>(node, *ir::ops::mnm_all_gather));
+      }
+      if (kind == *ir::ops::ltc_cross_replica_sum) {
+        return InferAllReduce(
+            ir::NodeCast<ir::ops::AllReduce>(node, *ir::ops::ltc_cross_replica_sum));
       }
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
@@ -1127,6 +1208,27 @@ lazy_tensors::Shape MNMNodeLowering::InferRelayExpr(const ir::ops::RelayExpr* no
 
 lazy_tensors::Shape MNMNodeLowering::InferRelayFunction(const ir::ops::RelayFunction* node) {
   LTC_LOG(FATAL) << "Should not reach here";
+}
+
+lazy_tensors::Shape MNMNodeLowering::InferAllReduce(const ir::ops::AllReduce* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+  }
+  Var out = BuildAllReduce(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape MNMNodeLowering::InferMNMAllGather(const ir::ops::MNMAllGather* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+  }
+  Var out = BuildMNMAllGather(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
 }
 
 #define DEFINE_INFER_COMPARISON_OP(name)                                   \

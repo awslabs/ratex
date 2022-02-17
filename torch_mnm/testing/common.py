@@ -1,10 +1,12 @@
 """Common utilities for testing."""
-# pylint: disable=too-many-locals, unused-import, too-many-arguments, protected-access
+# pylint: disable=too-many-locals, unused-import, too-many-arguments, protected-access, unspecified-encoding
 import copy
 import functools
 import logging
 import random
 import sys
+import os
+import tempfile
 
 import numpy as np
 
@@ -15,6 +17,7 @@ from torch import optim
 
 import mnm
 import torch_mnm
+from torch_mnm.utils.cache import Cache, cache
 
 from ..lazy_tensor_core.core import lazy_model as lm
 
@@ -126,6 +129,24 @@ def with_seed(seed=None):
     return test_helper
 
 
+def with_temp_cache(orig_test):
+    """
+    A decorator for test functions to use temporary cache folder.
+    NOTES: This creates a temporary new global cache, which will affect other tests result
+    if multi tests are being exectuted in parallel. Need to revise in the future if we run tests
+    in parallel.
+    """
+
+    @functools.wraps(orig_test)
+    def wrapper(*args, **kwargs):
+        with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
+            # Hook persistent cache to a temporary one
+            Cache.__init__(cache, temp_dir)
+            orig_test(*args, **kwargs)
+
+    return wrapper
+
+
 def fake_image_dataset(batch, channel, image_size, num_classes):
     """Fake an image dataset."""
     from torchvision import datasets, transforms  # pylint: disable=import-outside-toplevel
@@ -149,6 +170,7 @@ def train(
     num_epochs=3,
     amp=False,
     trim=False,
+    reduce_gradients=False,
     dtype=torch.float32,
 ):
     """Run training."""
@@ -186,6 +208,8 @@ def train(
                 if trim:
                     logger.log(logging.DEBUG, "Mark Step...")
                     lm.mark_step()
+                if reduce_gradients:
+                    torch_mnm.core.lazy_model.reduce_gradients(optimizer)
                 optimizer.step()
                 logger.log(logging.DEBUG, "Mark Step...")
                 lm.mark_step()
@@ -234,6 +258,48 @@ def verify_step(model, args, jit_script=True):
     torch.testing.assert_close(
         run_step("cpu", model, args), run_step("xla", model, args, jit_script)
     )
+
+
+def compile_only(model_origin, args, jit_script=True):
+    """
+    LTC Trace and compile the model, return the compiled module
+
+    Parameters
+    ----------
+    model_origin : torch.Module
+      The original PyTorch model
+
+    args : List[torch.Tensor]
+      Input args of the model
+
+    jit_script : bool
+      If False, the graph will be traced using LTC-to-mnm lowering
+      instead of mnm.frontend.from_pytorch in jit.script, and it is used to evaluate lowering the
+      ops without backward.
+
+    Return
+    ------
+    module : mnm.Module
+      Compiled meta module
+
+    """
+    meta_ir_file = "module.json"
+    os.environ["TORCH_MNM_DRY_RUN"] = "true"
+    os.environ["TORCH_MNM_SAVE_IR_FILE"] = meta_ir_file
+
+    model = copy.deepcopy(model_origin)
+    model = model.to("xla", dtype=torch.float32)
+    if jit_script:
+        model = torch_mnm.jit.script(model)
+    args = [arg.to("xla") for arg in args]
+    model(*args).to("cpu")
+
+    with open(meta_ir_file, "r") as module_file:
+        module_json = module_file.read()
+        module = mnm.ir.serialization.LoadJSON(module_json)
+
+    os.remove(meta_ir_file)
+    return module
 
 
 def numpy(x):

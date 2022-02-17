@@ -6,11 +6,13 @@
 #include "lazy_tensors/shape.h"
 #include "lazy_tensor_core/csrc/ops/device_data.h"
 #include "torch_mnm/csrc/aten_mnm_bridge.h"
+#include "torch_mnm/csrc/ops/all_gather.h"
 #include "torch_mnm/csrc/ops/relay_expr.h"
 #include "torch_mnm/csrc/ops/relay_function.h"
 #include "torch_mnm/csrc/ops/mnm_ops.h"
 #include "torch_mnm/csrc/compiler/utils.h"
 #include "torch_mnm/csrc/mnm_model_state.h"
+#include "torch_mnm/csrc/aten_mnm_bridge.h"
 #include "client/mnm_computation_client.h"
 #include "mnm/registry.h"
 #include "meta/src/op/ty/utils.h"
@@ -22,6 +24,34 @@ extern void InitLtcBindings(py::module m);
 namespace {
 
 using namespace ir;
+
+std::vector<std::vector<lazy_tensors::int64>> CreateReduceGroups(const py::list& groups) {
+  std::vector<std::vector<lazy_tensors::int64>> replica_groups;
+  for (auto& group : groups) {
+    replica_groups.emplace_back();
+    for (auto& replica_id : group.cast<py::list>()) {
+      replica_groups.back().push_back(replica_id.cast<lazy_tensors::int64>());
+    }
+  }
+  return replica_groups;
+}
+
+Device GetDeviceOrCurrent(const std::string& device_str) {
+  if (device_str.empty()) {
+    return GetCurrentDevice();
+  }
+  return bridge::AtenDeviceToLtcDevice(c10::Device(device_str));
+}
+
+std::shared_ptr<ir::Value> CreateToken(const std::string& device_str) {
+  // This should be using lazy_tensors::CreateToken() once we have added Token
+  // support to the backend AllReduce(). Since mnm AllReduce doesn't need token
+  // so we only return a dummy IR value.
+  Device device = GetDeviceOrCurrent(device_str);
+  ir::Value ir_value =
+      LazyTensor::GetIrValueForScalar(0.0, lazy_tensors::PrimitiveType::F32, device);
+  return std::make_shared<ir::Value>(std::move(ir_value));
+}
 
 void InitMNMModuleBindings(py::module m) {
   m.def("_mnm_invoke_relay",
@@ -94,6 +124,20 @@ void InitMNMModuleBindings(py::module m) {
     }
     return bridge::AtenFromLtcTensor(ret);
   });
+
+  // TODO: Remove this function and use LTC binding after we have control over LTC
+  m.def("_mnm_all_gather",
+        [](const at::Tensor& input, lazy_tensors::int64 dim, const py::list& groups) {
+          std::vector<std::vector<lazy_tensors::int64>> replica_groups = CreateReduceGroups(groups);
+          const LazyTensor& input_ltc = bridge::GetLtcTensor(input);
+          std::vector<ir::Value> input_values({input_ltc.GetIrValue()});
+          ir::NodePtr node =
+              ir::MakeNode<ir::ops::MNMAllGather>(input_values, dim, std::move(replica_groups));
+          LazyTensor ret = bridge::mnm_backend::CreateFrom(input_ltc, ir::Value(node, 0));
+          return bridge::AtenFromLtcTensor(std::move(ret));
+        });
+
+  m.def("_mnm_create_token", [](const std::string& device) { return CreateToken(device); });
 
   m.def("_mnm_mark_parameter", [](at::Tensor tensor) -> at::Tensor {
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);

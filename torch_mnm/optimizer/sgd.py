@@ -44,6 +44,8 @@ class SGD(torch.optim.Optimizer):
 
                     if group["momentum"] == 0:
                         p.add_(p.grad, alpha=-lr)
+                        if self._lm:
+                            self._lm.mark_step()
                         continue
 
                     if momentum is None:

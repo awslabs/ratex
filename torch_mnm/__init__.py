@@ -10,6 +10,7 @@ import torch
 from . import lazy_tensor_core
 
 from . import amp
+from . import core
 from . import jit
 from . import torch_parameter
 from . import optimizer

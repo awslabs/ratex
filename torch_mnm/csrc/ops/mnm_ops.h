@@ -12,6 +12,8 @@ namespace ops {
 extern const OpKindWrapper mnm_relay_expr;
 extern const OpKindWrapper mnm_relay_function;
 extern const OpKindWrapper mnm_log_softmax_backward_use_in;
+extern const OpKindWrapper mnm_all_reduce;
+extern const OpKindWrapper mnm_all_gather;
 
 }  // namespace ops
 }  // namespace ir

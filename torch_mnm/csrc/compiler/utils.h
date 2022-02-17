@@ -112,7 +112,7 @@ inline DType ToMNMDType(const PrimitiveType type) {
     case PrimitiveType::BF16:
       return DType(DTypeCode::kBFloat(), 16);
     default:
-      LTC_LOG(FATAL) << "Not implemented yet.";
+      LTC_LOG(FATAL) << type << " Not implemented yet.";
   }
 }
 

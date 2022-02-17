@@ -8,6 +8,7 @@
 #include "torch_mnm/csrc/mnm_model_state.h"
 #include "torch_mnm/csrc/value_ext/value.h"
 #include "torch_mnm/csrc/pass_ext/pass.h"
+#include "torch_mnm/csrc/utils/file.h"
 #include "env_vars.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
@@ -238,6 +239,12 @@ ComputationClient::ComputationPtr MNMComputationClient::Compile(
                                               ConsumeValue(instance.computation->GetProgramShape()),
                                               instance.devices, exe, vm_module);
   lifted_computation_[ret.get()] = ir_module;
+
+  std::string file_path = lazy_tensors::sys_util::GetEnvString("TORCH_MNM_SAVE_IR_FILE", "");
+  if (file_path != "") {
+    Save(file_path, mnm::serialization::SaveJSON(ir_module));
+  }
+
   return ret;
 }
 
@@ -245,6 +252,12 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
     const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
     const std::string& device, const ExecuteComputationOptions& options) {
   LTC_TIMED("MNMExecute");
+
+  bool is_dryrun = lazy_tensors::sys_util::GetEnvBool("TORCH_MNM_DRY_RUN", false);
+  if (is_dryrun) {
+    return DryrunComputation(computation, arguments, device, options);
+  }
+
   std::function<std::vector<ComputationClient::DataPtr>(Value)> explode_tuple =
       [&](Value val) -> std::vector<ComputationClient::DataPtr> {
     if (const auto* tup = val.as<TupleValueObj>()) {
@@ -321,6 +334,50 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
   }
   ret = normalize_value(ret);
   return explode_tuple(ret);
+}
+
+TensorValue MakeZeros(Type ty, std::string device) {
+  auto tty = Downcast<TensorType>(ty);
+  mnm::Device dev_cpu(mnm::DevType::kCPU(), 0);
+  mnm::Device dev = ToMNMDevice(device);
+  mnm::DType dtype(tty->dtype.operator DLDataType());
+  std::vector<int64_t> shape(mnm::op::ArrayToInt(tty->shape));
+  TensorValue tv_shape = mnm::value::TensorValue::Assemble(dev_cpu, dtype, shape);
+  int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(*(tv_shape.operator DLTensor*()));
+  auto buffer_cpu = mnm::memory_pool::Memory::Alloc(dev_cpu, nbytes);
+  std::memset(buffer_cpu->data, 0, nbytes);
+  auto tv_cpu = TensorValue::Assemble(dev_cpu, dtype, shape, {}, buffer_cpu->data, buffer_cpu);
+  auto tv = TensorValue::make(
+      mnm::tensor::Tensor(tv_cpu->tensor.CopyTo(dev)));  // memory of tv is allocated by tvm
+  return tv;
+}
+
+std::vector<ComputationClient::DataPtr> MNMComputationClient::DryrunComputation(
+    const Computation& computation, lazy_tensors::Span<const DataPtr> arguments,
+    const std::string& device, const ExecuteComputationOptions& options) {
+  const auto& mnm_computation = static_cast<const MNMComputation&>(computation);
+  bool is_identity_function = !mnm_computation.executable.defined();
+
+  if (!is_identity_function) {
+    IRModule mod = lifted_computation_.at(&computation);
+    auto func = Downcast<Function>(mod->Lookup("main"));
+
+    const auto& type = Downcast<FuncType>(func->checked_type())->ret_type;
+    if (const auto* tty = type.as<TupleTypeNode>()) {
+      std::vector<ComputationClient::DataPtr> ret;
+      for (const auto& ty : tty->fields) {
+        ret.push_back(std::make_shared<MNMData>(device, ToLTCShape(ty), MakeZeros(ty, device)));
+      }
+      return ret;
+    } else if (type.as<TensorTypeNode>()) {
+      return {std::make_shared<MNMData>(device, ToLTCShape(type), MakeZeros(type, device))};
+    }
+    LTC_LOG(FATAL) << "NotImplementedError: " << type;
+  } else {
+    LTC_CHECK_EQ(arguments.size(), 1U);
+    return {arguments[0]};
+  }
+  return {};
 }
 
 lazy_tensors::ComputationClient* MNMGet() {

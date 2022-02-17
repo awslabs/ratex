@@ -390,23 +390,6 @@ at::Tensor AtenMNMType::_log_softmax(const at::Tensor& self, int64_t dim,
       LazyTensor::log_softmax(bridge::mnm_backend::GetLtcTensor(self), dim, c10::nullopt));
 }
 
-ir::Value MaybeCastIrValue(const LazyTensor& self, ir::Value ir_value, const Device& device,
-                           c10::optional<at::ScalarType> logical_element_type) {
-  if (!logical_element_type) {
-    logical_element_type = self.dtype_optional();
-  }
-  if (logical_element_type && RequiresRawTypeCasting(*logical_element_type, &device)) {
-    ir_value = ir::MakeNode<ir::ops::Cast>(ir_value, *logical_element_type);
-  }
-  return ir_value;
-}
-
-LazyTensor CreateFrom(const LazyTensor& self, ir::Value ir_value) {
-  ir_value = MaybeCastIrValue(self, std::move(ir_value), self.GetDevice(),
-                              /*logical_element_type=*/c10::nullopt);
-  return LazyTensor::Create(std::move(ir_value), self.GetDevice(), self.dtype_optional());
-}
-
 ir::NodePtr LogSoftmaxBackwardUseInOp(const ir::Value& grad_output, const ir::Value& output,
                                       lazy_tensors::int64 dim, const ir::Value& self) {
   return ir::MakeNode<ir::ops::LogSoftmaxBackwardUseIn>(
@@ -416,9 +399,9 @@ ir::NodePtr LogSoftmaxBackwardUseInOp(const ir::Value& grad_output, const ir::Va
 
 LazyTensor log_softmax_backward(const LazyTensor& grad_output, const LazyTensor& output,
                                 lazy_tensors::int64 dim, const LazyTensor& self) {
-  return CreateFrom(grad_output,
-                    LogSoftmaxBackwardUseInOp(grad_output.GetIrValue(), output.GetIrValue(), dim,
-                                              self.GetIrValue()));
+  return bridge::mnm_backend::CreateFrom(
+      grad_output, LogSoftmaxBackwardUseInOp(grad_output.GetIrValue(), output.GetIrValue(), dim,
+                                             self.GetIrValue()));
 }
 
 at::Tensor AtenMNMType::_log_softmax_backward_data(const at::Tensor& grad_output,

@@ -18,6 +18,10 @@ std::vector<LazyTensor> GetLtcTensors(lazy_tensors::Span<const at::Tensor> tenso
 // Get client data from ir node output
 lazy_tensors::ComputationClient::DataPtr GetData(ir::Output out);
 
+// Create a new lazy tensor with the same metadata of the input tensor (with
+// possible overrides), and the new IR value.
+LazyTensor CreateFrom(const LazyTensor& self, ir::Value ir_value);
+
 }  // namespace mnm_backend
 }  // namespace bridge
 }  // namespace torch_lazy_tensors
