@@ -113,7 +113,7 @@ python3 -m pip install build/pip/public/pytorch/*.whl --force-reinstall
 # Switch to another place to make sure Python doesn't load torch in the current directory.
 cd $HOME
 # You should see the path under site-packages or dist-packages instead of the source folder.
-python3 -c "import torch; print(torch.__file__)" 
+python3 -c "import torch; print(torch.__file__)"
 ```
 
 ### 5. Build Meta/TVM
@@ -188,8 +188,6 @@ export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
 export CC=clang-8
 export CXX=clang++-8
 export BUILD_CPP_TESTS=0
-export PYTORCH_SOURCE_PATH=`pwd`
-export LTC_SOURCE_PATH=${PYTORCH_SOURCE_PATH}/lazy_tensor_core
 ```
 
 ```

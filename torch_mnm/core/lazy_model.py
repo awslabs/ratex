@@ -2,11 +2,8 @@
 # pylint: disable=invalid-name, protected-access, c-extension-no-member, too-many-nested-blocks
 import torch
 
-import lazy_tensor_core
-
-
 from mnm import distributed as dist
-from .. import _TORCHMNMC
+import _TORCHMNMC
 
 REDUCE_SUM = "sum"
 REDUCE_MUL = "mul"
@@ -44,11 +41,11 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
 
     if isinstance(inputs, torch.Tensor):
         token = _TORCHMNMC._mnm_create_token(inputs.device.type)
-        result = lazy_tensor_core._LAZYC._ltc_all_reduce(reduce_type, inputs, token, scale, groups)
+        result = _TORCHMNMC._ltc_all_reduce(reduce_type, inputs, token, scale, groups)
         results = [result[0]]
     else:
         token = _TORCHMNMC._mnm_create_token(inputs[0].device.type)
-        _ = lazy_tensor_core._LAZYC._ltc_all_reduce_inplace(
+        _ = _TORCHMNMC._ltc_all_reduce_inplace(
             reduce_type, inputs, token, scale, groups
         )
         results = inputs
