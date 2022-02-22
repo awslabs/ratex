@@ -14,6 +14,8 @@ if [ -z $PYTORCH_SOURCE_PATH ]; then
   exit 1
 fi
 
+pip3 install filelock
+
 echo "Building torch_mnm wheels..."
 rm -rf ./build/pip/public/torch_mnm
 python3 setup.py bdist_wheel -d ./build/pip/public/torch_mnm

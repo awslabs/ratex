@@ -113,11 +113,17 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
     if (options_.cache_enabled) {
       static auto query = registry::GetPackedFunc("torch_mnm.utils.cache.query");
       static auto create_entry = registry::GetPackedFunc("torch_mnm.utils.cache.create_entry");
+      static auto acquire_lock =
+          registry::GetPackedFunc("torch_mnm.utils.cache.acquire_cache_entry_lock");
+      static auto release_lock =
+          registry::GetPackedFunc("torch_mnm.utils.cache.release_cache_entry_lock");
 
       const auto& key = CompileCacheKey(ins);
+      acquire_lock(key);
       std::string dirname = query(key).operator std::string();
       if (PathExist(dirname)) {
         // Cache Hit
+        release_lock(key);
         std::string compute_file = dirname + "/compute.json";
         std::string json = Load(compute_file);
         results.push_back(CompileDeSerialize(json));
@@ -128,6 +134,7 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
         std::string json = CompileSerialize(res);
         SaveArtifacts(dirname, json);
         results.push_back(res);
+        release_lock(key);
       }
     } else {
       results.push_back(Compile(ins));

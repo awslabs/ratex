@@ -191,7 +191,7 @@ export BUILD_CPP_TESTS=0
 ```
 
 ```
-python3 -m pip install glob2
+python3 -m pip install glob2 filelock
 rm -rf ./build/pip/public/torch_mnm
 python3 setup.py bdist_wheel -d ./build/pip/public/torch_mnm
 python3 -m pip install ./build/pip/public/torch_mnm/*.whl --force-reinstall --no-deps

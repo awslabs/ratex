@@ -1,7 +1,7 @@
 """Utilitis of RAZOR Persistent Cache.
 TODO: Implement the cache in C++ in the future if we need to cache something in C++.
 """
-# pylint: disable=unspecified-encoding, protected-access, too-many-instance-attributes
+# pylint: disable=unspecified-encoding, protected-access, too-many-instance-attributes, abstract-class-instantiated
 from collections import OrderedDict
 from pathlib import Path
 import json
@@ -9,8 +9,8 @@ import logging
 import hashlib
 import os
 import shutil
-import multiprocessing
 import time
+from filelock import FileLock
 
 import tvm
 
@@ -40,20 +40,7 @@ class Cache:
     DEFAULT_VALUE_FILE = "_cache_value_file"
     TIMESTAMP_FILE = "timestamp"
 
-    class ProcessSafeWrapper:
-        """A thread-safe wrapper of a lock."""
-
-        def __init__(self):
-            self.lock = multiprocessing.Lock()
-
-        def __enter__(self):
-            self.lock.acquire()
-
-        def __exit__(self, *args):
-            self.lock.release()
-
     def __init__(self, persist_dir, capacity=None):
-        self.process_safe_wrapper = self.ProcessSafeWrapper()
         self.persist_path = None
         self.enable = False
 
@@ -61,12 +48,13 @@ class Cache:
             self.persist_path = Path(persist_dir)
             self.enable = True
 
-        with self.process_safe_wrapper:
-            if self.enable and not self.persist_path.exists():
-                self.persist_path.mkdir(parents=True)
+        if self.enable:
+            self.persist_path.mkdir(parents=True, exist_ok=True)
+            self.file_lock = FileLock(self.persist_path / (self.KEY_FILE + ".lock"))
 
         self.capacity = capacity if capacity is not None else float("inf")
         self.entries = OrderedDict()
+        self.entry_locks = {}
 
         self.keys = self.load_cache_keys() if self.enable else {}
         self.hits = 0
@@ -105,6 +93,7 @@ class Cache:
     def evict_all(self):
         """Evict all entries"""
         self.entries = OrderedDict()
+        self.entry_locks = {}
 
     @staticmethod
     def get_persist_token(key):
@@ -137,13 +126,16 @@ class Cache:
         if not self.enable:
             return None
 
-        # Miss in the persistent cache.
-        if key not in self.keys:
-            logger.debug("Cache miss in persistent cache: %s", str(key))
-            self.misses += 1
-            return None
+        with self.file_lock:
+            # Load the cache keys file to sync with other processes
+            self.keys.update(self.load_cache_keys())
 
-        with self.process_safe_wrapper:
+            # Miss in the persistent cache.
+            if key not in self.keys:
+                logger.debug("Cache miss in persistent cache: %s", str(key))
+                self.misses += 1
+                return None
+
             # Cache hit.
             if key in self.entries:
                 logger.debug("Cache hit: %s", str(key))
@@ -203,7 +195,7 @@ class Cache:
         entry_path = self.create_entry(key)
         entry_file = entry_path / self.DEFAULT_VALUE_FILE
 
-        with self.process_safe_wrapper:
+        with self.file_lock:
             logger.debug("Commit %s to persistent cache", str(key))
 
             # Write the value to a file.
@@ -231,7 +223,7 @@ class Cache:
         if not self.enable:
             return None
 
-        with self.process_safe_wrapper:
+        with self.file_lock:
             logger.debug("Create a key entry for %s", str(key))
             token = self.get_persist_token(key)
             entry_path = self.get_persist_path(token, check_exist=False)
@@ -279,11 +271,11 @@ class Cache:
 
         prunted_keys = []
 
-        with self.process_safe_wrapper:
+        with self.file_lock:
             logger.debug("Prune persistent cache entries that are older than %d days", days)
 
             # Clean all in-memory cache entries.
-            self.entries = OrderedDict()
+            self.evict_all()
 
             for key, token in self.keys.items():
                 entry_dir = self.get_persist_path(token)
@@ -316,6 +308,30 @@ class Cache:
             # Update the pruned key table.
             self.save_cache_keys()
         return prunted_keys
+
+    def acquire_cache_entry_lock(self, key):
+        """Aquire a lock to an entry by given the key.
+
+        Parameters
+        ----------
+        key: Hashable
+            The hashable cache key.
+        """
+        token = self.get_persist_token(key)
+        if key not in self.entry_locks:
+            self.entry_locks[key] = FileLock(self.persist_path / (token + ".lock"))
+        self.entry_locks[key].acquire()
+
+    def release_cache_entry_lock(self, key):
+        """Release a lock to an entry by given the key.
+
+        Parameters
+        ----------
+        key: Hashable
+            The hashable cache key.
+        """
+        assert key in self.entry_locks
+        self.entry_locks[key].release()
 
 
 cache = Cache(PERSIST_DIR)
@@ -353,6 +369,18 @@ def create_entry(key):
 def get_persist_token(key):
     """A helper function to create a token for the given key in C++."""
     return cache.get_persist_token(normalize(key))
+
+
+@tvm._ffi.register_func("torch_mnm.utils.cache.acquire_cache_entry_lock")
+def acquire_cache_entry_lock(key):
+    """Acquire the lock associated with the entry"""
+    cache.acquire_cache_entry_lock(normalize(key))
+
+
+@tvm._ffi.register_func("torch_mnm.utils.cache.release_cache_entry_lock")
+def release_cache_entry_lock(key):
+    """Release the lock associated with the entry"""
+    cache.release_cache_entry_lock(normalize(key))
 
 
 def copy_cache(src_cache, tgt_cache, days):
