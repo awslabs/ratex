@@ -38,6 +38,7 @@ python3 -m pip install astunparse numpy ninja pyyaml mkl mkl-include setuptools 
                        typing_extensions future glob2 pygithub boto3
 python3 -m pip install datasets==1.15.1
 python3 -m pip install transformers==4.3
+python3 -m pip install torchvision --no-deps
 
 if [[ "$1" == "gpu" ]]; then
     python3 -m pip install torch==1.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html

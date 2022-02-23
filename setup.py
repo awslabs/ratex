@@ -32,8 +32,6 @@ from setuptools import setup, find_packages, distutils
 from torch.utils.cpp_extension import BuildExtension, CppExtension
 import distutils.ccompiler
 import distutils.command.clean
-import warnings
-import glob
 import inspect
 import multiprocessing
 import multiprocessing.pool
