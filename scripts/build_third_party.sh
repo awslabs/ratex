@@ -49,6 +49,7 @@ fi
 echo "Building Meta/TVM..."
 pushd .
 cd third_party/meta/
+bash ./scripts/src_codegen/run_all.sh
 mkdir -p build
 cp cmake/config.cmake build/
 cd build

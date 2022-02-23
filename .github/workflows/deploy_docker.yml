@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
+  build:
     if: github.repository == 'meta-project/torch_mnm'
     runs-on: self-hosted
     steps:
