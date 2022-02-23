@@ -80,7 +80,7 @@ def _summarize_fn_tracker():
     os.remove(_tmp_fname)
 
 
-# These needs to be called before the _LAZYC module is loaded.
+# These needs to be called before the _TORCHMNMC module is loaded.
 _setup_default_env()
 _setup_grpc()
 _setup_ltc_flags()

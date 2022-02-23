@@ -1,39 +1,42 @@
-import os
+from unittest.mock import patch
 
 import pytest
 import torch
 import torch.nn as nn
-
-import torch_mnm
-from torch_mnm.testing import compile_only
-from torch_mnm.core.lazy_model import all_reduce, all_gather
-
 import mnm
+import torch_mnm
 from mnm import distributed as dist
+from torch_mnm.core.lazy_model import all_gather, all_reduce
+from torch_mnm.testing import compile_model
 
 
+@patch("mnm.distributed.get_context")
 @pytest.mark.parametrize("world_size", [1, 4])
-def test_allreduce(world_size):
-    """
-    Test of tracing and lowering allreduce op.
-    """
+def test_allreduce(mock_get_context, world_size):
+    """Test of tracing and lowering allreduce op."""
 
-    dctx = dist.get_context()
-    dctx.rank = 0
-    dctx.size = world_size
-
-    class Test(nn.Module):
+    # Mock the dist context.
+    class MockContext:
         def __init__(self):
-            super(Test, self).__init__()
+            self.enable_data_parallel = False
+            self.zero_opt_level = 0
+            self.size = world_size
+            self.rank = 0
+
+    mock_get_context.return_value = MockContext()
+
+    class Model(nn.Module):
+        def __init__(self):
+            super(Model, self).__init__()
 
         def forward(self, x):
-            out = all_reduce("sum", x, scale=1.0 / dctx.size)
+            out = all_reduce("sum", x, scale=1.0 / world_size)
             return out
 
     shape = [1, 1, 28, 28]
     x = torch.randn(*shape)
 
-    module = compile_only(Test(), [x], jit_script=False)
+    module = compile_model(Model(), [x], jit_script=False)
 
     text = mnm._ffi.ir.AsText(module)
     assert text.count("_allreduce") == 1
@@ -42,13 +45,11 @@ def test_allreduce(world_size):
 
 
 def test_allgather():
-    """
-    Test of tracing and lowering allgather op.
-    """
+    """Test of tracing and lowering allgather op."""
 
-    class Test(nn.Module):
+    class Model(nn.Module):
         def __init__(self):
-            super(Test, self).__init__()
+            super(Model, self).__init__()
 
         def forward(self, x):
             out = all_gather(x, dim=0)
@@ -60,7 +61,7 @@ def test_allgather():
     shape = [1, 1, 28, 28]
     x = torch.randn(*shape)
 
-    module = compile_only(Test(), [x], jit_script=False)
+    module = compile_model(Model(), [x], jit_script=False)
 
     text = mnm._ffi.ir.AsText(module)
     ret_type = module["main"].ret_type

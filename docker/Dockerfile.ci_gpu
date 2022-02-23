@@ -1,36 +1,42 @@
-FROM metaprojdev/meta:ci_gpu-v0.20
+FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
 
-# Deal with Python symbols.
-RUN rm /usr/bin/python /usr/bin/python-config
-RUN ln -s /usr/bin/python3 /usr/bin/python
-RUN ln -s /usr/bin/python3-config /usr/bin/python-config
-RUN ln -s /usr/lib/x86_64-linux-gnu/libpython3.6m.so /usr/lib/libpython3.6m.so
+# Install basic dependencies.
+RUN apt-get update --fix-missing
+COPY install/ubuntu_install_core.sh /install/ubuntu_install_core.sh
+RUN bash /install/ubuntu_install_core.sh
+
+# Install Python packages.
+COPY install/ubuntu_install_python.sh /install/ubuntu_install_python.sh
+RUN bash /install/ubuntu_install_python.sh gpu
+
+# Install LLVM.
+COPY install/ubuntu_install_llvm.sh /install/ubuntu_install_llvm.sh
+RUN bash /install/ubuntu_install_llvm.sh
 
 # Install MKL.
 COPY install/install_mkl.sh install/install_mkl.sh
 RUN bash /install/install_mkl.sh
 
-# Clone PyTorch.
-RUN git clone https://github.com/pytorch/pytorch.git --recursive
+# AWS Batch setup
+COPY batch/entry.sh /batch/entry.sh
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y awscli
+RUN pip3 install --upgrade awscli
 
-# Install required Python packages.
-RUN python3 -m pip install -U --force-reinstall pip
-RUN cd pytorch && python3 -m pip install -r requirements.txt
-RUN python3 -m pip install pytest astunparse numpy ninja pyyaml
-RUN python3 -m pip install mkl mkl-include setuptools cmake cffi
-RUN python3 -m pip install typing_extensions future six requests dataclasses
-RUN python3 -m pip install glob2 decorator scipy pillow pygithub
-RUN python3 -m pip install datasets==1.15.1
-RUN python3 -m pip install transformers==4.3
+# Environment variables
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV C_INCLUDE_PATH=/usr/local/cuda/include:${C_INCLUDE_PATH}
+ENV CPLUS_INCLUDE_PATH=/usr/local/cuda/include:${CPLUS_INCLUDE_PATH}
+ENV LIBRARY_PATH=/usr/local/cuda/lib64:${LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 # Build PyTorch from source.
-COPY install/build_torch.sh pytorch/build_torch.sh
-RUN cd pytorch && git checkout lazy_tensor_staging \
-               && git checkout 0e8776b4d45a243df6e8499d070e2df89dcad1f9 \
-               && git submodule update --recursive
-RUN cd pytorch && bash build_torch.sh
+COPY install/build_torch.sh /install/build_torch.sh
+RUN bash /install/build_torch.sh
+ENV PYTORCH_SOURCE_PATH=/pytorch
 
-# Build LazyTensorCore.
-COPY install/build_ltc.sh pytorch/build_ltc.sh
-RUN cd pytorch && bash build_ltc.sh
+# Install docker
+RUN apt-get install -y docker.io
 
+# To prevent `black` command line errors caused by ASCII encoding
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8

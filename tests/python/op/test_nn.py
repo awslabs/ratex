@@ -1,5 +1,3 @@
-import copy
-
 import pytest
 import torch
 import torch.nn as nn
@@ -9,9 +7,9 @@ from torch_mnm.testing import verify_step
 
 
 def test_conv():
-    class Test(nn.Module):
+    class Model(nn.Module):
         def __init__(self):
-            super(Test, self).__init__()
+            super().__init__()
             self.conv = nn.Conv2d(
                 in_channels=1, out_channels=6, kernel_size=5, padding=2, bias=False
             )
@@ -22,13 +20,13 @@ def test_conv():
 
     shape = [1, 1, 28, 28]
     x = torch.randn(*shape)
-    verify_step(Test(), [x])
+    verify_step(Model(), [x])
 
 
 def test_linear():
-    class Test(nn.Module):
+    class Model(nn.Module):
         def __init__(self):
-            super(Test, self).__init__()
+            super().__init__()
             self.linear = nn.Linear(120, 84)
 
         def forward(self, x):
@@ -37,13 +35,13 @@ def test_linear():
 
     shape = [32, 120]
     x = torch.randn(*shape)
-    verify_step(Test(), [x])
+    verify_step(Model(), [x])
 
 
 def test_sum():
-    class Test(nn.Module):
+    class Model(nn.Module):
         def __init__(self):
-            super(Test, self).__init__()
+            super().__init__()
 
         def forward(self, x):
             out = torch.sum(x)
@@ -51,13 +49,13 @@ def test_sum():
 
     shape = [32, 120]
     x = torch.randn(*shape)
-    verify_step(Test(), [x], jit_script=False)
+    verify_step(Model(), [x], jit_script=False)
 
 
 def test_pad():
-    class Test(nn.Module):
+    class Model(nn.Module):
         def __init__(self):
-            super(Test, self).__init__()
+            super().__init__()
 
         def forward(self, x):
             pad = (1, 2, 3, 4, 5, 6)
@@ -66,7 +64,7 @@ def test_pad():
 
     shape = [32, 120, 20]
     x = torch.randn(*shape)
-    verify_step(Test(), [x], jit_script=False)
+    verify_step(Model(), [x], jit_script=False)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
+"""The functional implementation of optimizers."""
+# pylint: disable=too-many-arguments, too-many-locals
+from typing import List
 import math
 
 import torch
 from torch import Tensor
-from typing import List, Optional
 
 from . import utils
 

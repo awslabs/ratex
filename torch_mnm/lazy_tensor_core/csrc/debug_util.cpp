@@ -109,7 +109,7 @@ std::string DebugUtil::GetTensorsGraphInfo(lazy_tensors::Span<const LazyTensor> 
 
 void DebugUtil::SaveTensorsGraphInfo(const char* name, lazy_tensors::Span<const LazyTensor> tensors,
                                      const std::vector<size_t>* indices, GraphFormat format) {
-  static const std::string save_file =
+  const std::string save_file =
       lazy_tensors::sys_util::GetEnvOrdinalPath("LTC_SAVE_TENSORS_FILE", "");
   if (!save_file.empty()) {
     static std::mutex lock;

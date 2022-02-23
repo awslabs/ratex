@@ -16,7 +16,7 @@ namespace {
 
 struct LTCGuardImpl : public c10::impl::DeviceGuardImplInterface {
   at::DeviceType type() const override {
-    return at::DeviceType::XLA;
+    return at::DeviceType::Lazy;
   }
 
   c10::Device exchangeDevice(c10::Device device) const override {
@@ -48,12 +48,12 @@ struct LTCGuardImpl : public c10::impl::DeviceGuardImplInterface {
   }
 };
 
-C10_REGISTER_GUARD_IMPL(XLA, LTCGuardImpl);
+C10_REGISTER_GUARD_IMPL(Lazy, LTCGuardImpl);
 
 }  // namespace
 
 LTCTensorImpl::LTCTensorImpl(LazyTensor tensor)
-    : c10::TensorImpl(c10::DispatchKeySet{c10::DispatchKey::XLA, c10::DispatchKey::AutogradXLA},
+    : c10::TensorImpl(c10::DispatchKeySet{c10::DispatchKey::Lazy, c10::DispatchKey::AutogradLazy},
                       GetTypeMeta(tensor), bridge::LtcDeviceToAtenDevice(tensor.GetDevice())),
       tensor_(std::move(tensor)) {
   is_non_overlapping_and_dense_ = false;

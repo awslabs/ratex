@@ -1,25 +1,22 @@
 import os
-import tempfile
 import re
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import torch
 import torch.optim as optim
 
-import tvm
 import torch_mnm
+import tvm
+from torch_mnm.testing import TorchLeNet, fake_image_dataset, train
+from torch_mnm.testing import with_dumped_tensor_file, with_temp_cache
 from torch_mnm.utils.cache import Cache
-from torch_mnm.testing import TorchLeNet, fake_image_dataset, train, with_temp_cache
-
-# For this whole cache test we want to dump LTC IR file and test
-# torch_mnm cache functionality without LTC cache interference
-LTC_FILE = "ltc_file.txt"
-os.environ["LTC_SAVE_TENSORS_FILE"] = LTC_FILE
-os.environ["COMPILATION_CACHE_SIZE"] = "0"
 
 
 def test_cache():
-    with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="razor_test_") as temp_dir:
         # Test cache miss and commit.
         cache = Cache(temp_dir)
 
@@ -63,31 +60,30 @@ def test_cache():
 
 @with_temp_cache
 def test_compile_cache():
-    from torch_mnm.utils.cache import cache
     from torch_mnm.jit.script import JIT_CACHE
+    from torch_mnm.utils.cache import cache
 
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
     model = TorchLeNet()
 
-    train("xla", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
+    JIT_CACHE.clear()
+
+    train("lazy", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
     assert cache.misses == 2 and cache.hits == 0
 
     # Clear the JIT cache to force compile
     JIT_CACHE.clear()
 
-    train("xla", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
+    train("lazy", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
     assert cache.misses == 2 and cache.hits == 1
 
 
 @with_temp_cache
 def test_convert_module_to_meta_cache():
-    from torch_mnm.utils.cache import cache
-
     # it cannot be accessed with torch_mnm.jit.script.convert_module_to_meta
     from torch_mnm.jit.script import convert_module_to_meta
-
-    model = TorchLeNet()
+    from torch_mnm.utils.cache import cache
 
     args = [torch.rand(1, 1, 28, 28, dtype=torch.float32)]
     shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
@@ -126,19 +122,18 @@ def test_convert_module_to_meta_cache():
 
 
 @with_temp_cache
+@with_dumped_tensor_file
 def test_convert_module_to_meta_cache_ltc_trace():
-    """
-    This test is to test if the LTC IR is the same before and after JIT compile hits.
-    """
-    from torch_mnm.utils.cache import cache
+    """This is to test if the LTC IR is the same before and after JIT compile hits."""
     from torch_mnm.jit.script import JIT_CACHE
+    from torch_mnm.utils.cache import cache
 
     batch_size = 16
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
     model = TorchLeNet()
 
     train(
-        "xla",
+        "lazy",
         model,
         dataset,
         optimizer=optim.SGD,
@@ -147,7 +142,8 @@ def test_convert_module_to_meta_cache_ltc_trace():
         trim=True,
     )
 
-    with open(LTC_FILE, "r") as file:
+    ltc_file = os.environ["LTC_SAVE_TENSORS_FILE"]
+    with open(ltc_file, "r") as file:
         hashes_before_hit = [l for l in file if re.search("Hashes", l)]
         # Last two are hashes for the model and the optimizer
         hashes_before_hit = hashes_before_hit[-2:]
@@ -157,7 +153,7 @@ def test_convert_module_to_meta_cache_ltc_trace():
     JIT_CACHE.clear()
 
     train(
-        "xla",
+        "lazy",
         model,
         dataset,
         optimizer=optim.SGD,
@@ -166,7 +162,7 @@ def test_convert_module_to_meta_cache_ltc_trace():
         trim=True,
     )
 
-    with open(LTC_FILE, "r") as file:
+    with open(ltc_file, "r") as file:
         hashes_after_hit = [l for l in file if re.search("Hashes", l)]
         # Last two are hashes for the model and the optimizer
         hashes_after_hit = hashes_after_hit[-2:]

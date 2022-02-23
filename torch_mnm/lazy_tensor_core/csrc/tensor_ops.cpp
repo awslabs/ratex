@@ -155,13 +155,13 @@ LazyTensor Softplus(const LazyTensor& input, const at::Scalar& beta, const at::S
 }
 
 LazyTensor SoftplusBackward(const LazyTensor& grad_output, const LazyTensor& input,
-                            const at::Scalar& beta, const at::Scalar& threshold,
-                            const LazyTensor& output) {
+                            const at::Scalar& beta, const at::Scalar& threshold) {
   LazyTensor scaled_input = LazyTensor::mul(input, beta);
-  LazyTensor z = LazyTensor::exp(LazyTensor::mul(output, beta));
+  LazyTensor z = LazyTensor::exp(scaled_input);
+  LazyTensor one_vec = LazyTensor::full_like(z, 1, z.GetDevice(), z.dtype());
   return LazyTensor::where(
       LazyTensor::gt(scaled_input, threshold), grad_output,
-      LazyTensor::mul(grad_output, LazyTensor::div(LazyTensor::sub(z, 1, 1), z)));
+      LazyTensor::mul(grad_output, LazyTensor::div(z, LazyTensor::add(z, one_vec, 1))));
 }
 
 LazyTensor Select(const LazyTensor& input, lazy_tensors::int64 dim, lazy_tensors::int64 index) {

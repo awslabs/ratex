@@ -12,7 +12,7 @@
 #     build with -O0 and -g (debug symbols)
 #
 #   TORCH_MNM_VERSION
-#     specify the version of PyTorch/XLA, rather than the hard-coded version
+#     specify the version, rather than the hard-coded version
 #     in this file; used when we're building binaries for distribution
 #
 #   VERSIONED_MNM_BUILD
@@ -69,9 +69,9 @@ def get_git_head_sha(base_dir):
     mnm_git_sha = (
         subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=base_dir).decode("ascii").strip()
     )
-    if os.path.isdir(os.path.join(base_dir, "..", ".git")):
+    if os.path.isdir(os.path.join(pytorch_source_dir, ".git")):
         torch_git_sha = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=os.path.join(base_dir, ".."))
+            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=pytorch_source_dir)
             .decode("ascii")
             .strip()
         )
@@ -116,12 +116,6 @@ def generate_mnm_aten_code(base_dir):
     if subprocess.call(generate_code_cmd, env=dict(os.environ, PTDIR=str(pytorch_source_dir))) != 0:
         print("Failed to generate ATEN bindings: {}".format(generate_code_cmd), file=sys.stderr)
         sys.exit(1)
-
-
-def apply_patches():
-    apply_patches_cmd = [os.path.join(base_dir, "scripts", "apply_patches.sh")]
-    if subprocess.call(apply_patches_cmd, env=dict(os.environ, PTDIR=str(pytorch_source_dir))) != 0:
-        warnings.warn("Failed to apply patches: {}".format(apply_patches_cmd))
 
 
 def build_extra_libraries(base_dir, build_mode=None):
@@ -220,15 +214,11 @@ build_mode = _get_build_mode()
 if build_mode not in ["clean"]:
     # Generate version info (lazy_xla.__version__).
     create_version_files(base_dir, version, mnm_git_sha, torch_git_sha)
-    # Apply code patches for PyTorch
-    # FIXME: This patch is used to codegen the ATen ops to fallback torch_mnm unsupported ops.
-    # This can be removed once against to PyTorch master branch that has the CPU fallback support.
-    apply_patches()
     # Generate the code before globbing!
     generate_mnm_aten_code(base_dir)
 
 # Only include necessary abseil files.
-absl_files = list(
+source_files = list(
     set(glob2.glob("third_party/abseil-cpp/absl/**/*.cc"))
     - set(glob2.glob("third_party/abseil-cpp/absl/**/*_test.cc"))
     - set(glob2.glob("third_party/abseil-cpp/absl/**/*_testing.cc"))
@@ -240,8 +230,6 @@ absl_files = list(
     - set(glob2.glob("third_party/abseil-cpp/absl/**/mutex_nonprod.cc"))
     - set(glob2.glob("third_party/abseil-cpp/absl/**/gaussian_distribution_gentables.cc"))
 )
-
-source_files = absl_files
 
 # Add torch_mnm files.
 source_files += (

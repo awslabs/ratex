@@ -438,7 +438,7 @@ void LazyTensor::Async::Wait() {
 }
 
 LazyTensor LazyTensor::Create(const at::Tensor& tensor, const Device& device) {
-  LTC_CHECK_NE(tensor.device().type(), at::kXLA);
+  LTC_CHECK_NE(tensor.device().type(), at::kLazy);
   LazyTensor xtensor(tensor, device);
   DeviceContextArena::Get()->RegisterTensor(xtensor.data_ptr());
   return xtensor;
@@ -1434,8 +1434,7 @@ LazyTensor::CompilationResult LazyTensor::Compile(const std::vector<LazyTensor>&
                                                   lazy_tensors::Span<const std::string> devices,
                                                   const SyncTensorCollection& coll,
                                                   PostOrderData* po_data) {
-  static const bool enable_aliasing =
-      lazy_tensors::sys_util::GetEnvBool("ENABLE_PARAM_ALIASING", false);
+  const bool enable_aliasing = lazy_tensors::sys_util::GetEnvBool("ENABLE_PARAM_ALIASING", false);
   auto lowering_ctx = ir::LoweringContext::Create(
       "SyncTensorsGraph", coll.device, po_data->post_order, std::move(po_data->emission_map));
   for (auto index : coll.indices) {

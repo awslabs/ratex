@@ -1,24 +1,23 @@
 """Common utilities for testing."""
-# pylint: disable=too-many-locals, unused-import, too-many-arguments, protected-access, unspecified-encoding
+# pylint: disable=too-many-locals, unused-import, too-many-arguments, protected-access
 import copy
 import functools
 import logging
+import os
 import random
 import sys
-import os
-import tempfile
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import numpy as np
-
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torch import optim
+from torch import nn, optim
 
 import mnm
 import torch_mnm
 from torch_mnm.utils.cache import Cache, cache
-
 from ..lazy_tensor_core.core import lazy_model as lm
 
 
@@ -61,7 +60,7 @@ def default_logger():
     return new_logger
 
 
-logger = default_logger()
+logger = default_logger() # pylint: disable=invalid-name
 
 
 def with_seed(seed=None):
@@ -139,10 +138,53 @@ def with_temp_cache(orig_test):
 
     @functools.wraps(orig_test)
     def wrapper(*args, **kwargs):
-        with tempfile.TemporaryDirectory(prefix="torch_mnm_test_") as temp_dir:
+        # Backup the original cache.
+        persist_path = str(cache.persist_path)
+
+        with TemporaryDirectory(prefix="razor_test_") as temp_dir:
             # Hook persistent cache to a temporary one
             Cache.__init__(cache, temp_dir)
-            orig_test(*args, **kwargs)
+            ret = orig_test(*args, **kwargs)
+
+        # Recover the cache.
+        Cache.__init__(cache, persist_path)
+        return ret
+
+    return wrapper
+
+
+def with_dumped_tensor_file(orig_test):
+    """A decorator for test functions to dump tensor files for verification."""
+
+    @functools.wraps(orig_test)
+    def wrapper(*args, **kwargs):
+        with TemporaryDirectory(prefix="razor_test_") as temp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "COMPILATION_CACHE_SIZE": "0",
+                    "LTC_SAVE_TENSORS_FILE": str(Path(temp_dir) / "ltc_file.txt"),
+                },
+            ):
+                return orig_test(*args, **kwargs)
+
+    return wrapper
+
+
+def dryrun_dumped_ir_file(orig_test):
+    """Dry run and dump the IR file for verification."""
+
+    @functools.wraps(orig_test)
+    def wrapper(*args, **kwargs):
+        with TemporaryDirectory(prefix="razor_test_") as temp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "TORCH_MNM_DRY_RUN": "true",
+                    "TORCH_MNM_SAVE_IR_FILE": str(Path(temp_dir) / "module.json"),
+                },
+            ):
+                return orig_test(*args, **kwargs)
 
     return wrapper
 
@@ -191,7 +233,7 @@ def train(
     # this doesn't match nn.NLLLoss() exactly, but close...
     criterion = lambda pred, true: -torch.sum(pred * true) / true.size(0)
     optimizer = optimizer(model.parameters(), **optimizer_params)
-    if device == "xla":
+    if device == "lazy":
         model = torch_mnm.jit.script(model)
 
     for epoch in range(num_epochs):
@@ -221,12 +263,12 @@ def train(
     return results
 
 
-def verify(xla_results, cpu_results, tol=1e-5):
+def verify(lazy_results, cpu_results, tol=1e-5):
     """Verify the series of losses."""
-    print("xla_losses = ", xla_results)
+    print("lazy_losses = ", lazy_results)
     print("cpu_losses = ", cpu_results)
-    for xla, cpu in zip(xla_results, cpu_results):
-        torch.testing.assert_close(xla, cpu, atol=tol, rtol=tol)
+    for lazy, cpu in zip(lazy_results, cpu_results):
+        torch.testing.assert_close(lazy, cpu, atol=tol, rtol=tol)
 
 
 def run_step(device, model_origin, args, jit_script=True):
@@ -235,34 +277,39 @@ def run_step(device, model_origin, args, jit_script=True):
 
     Parameters
     ----------
-    device : device to run on
+    device : str
+        Device to run on
 
-    model_origin : The original PyTorch model
+    model_origin : torch.nn.Module
+        The original PyTorch model
 
-    args : args of the model
+    args : List[torch.Tensor]
+        Args of the model
 
-    jit_script : If jit_script is set False, the graph will be traced using LTC-to-mnm lowering
-    instead of mnm.frontend.from_pytorch in jit.script and it is used to evaluate lowering the ops
-    without backward
+    jit_script :
+        If False, the graph will be traced directly instead of leveraging TorchScript
+        and AutoDiff. This is used to evaluate lowering the ops without backward.
     """
     model = copy.deepcopy(model_origin)
     model = model.to(device, dtype=torch.float32)
-    if device == "xla" and jit_script:
+    if device == "lazy" and jit_script:
         model = torch_mnm.jit.script(model)
     args = [arg.to(device) for arg in args]
-    return model(*args).to("cpu")
+    out = model(*args)
+    out = out.to("cpu")
+    return out
 
 
 def verify_step(model, args, jit_script=True):
-    """Verify the results between CPU and XLA"""
+    """Verify the results between CPU and Lazy"""
     torch.testing.assert_close(
-        run_step("cpu", model, args), run_step("xla", model, args, jit_script)
+        run_step("cpu", model, args), run_step("lazy", model, args, jit_script)
     )
 
 
-def compile_only(model_origin, args, jit_script=True):
+def compile_model(model_origin, args, jit_script=True):
     """
-    LTC Trace and compile the model, return the compiled module
+    Trace and compile the model without execution.
 
     Parameters
     ----------
@@ -281,25 +328,18 @@ def compile_only(model_origin, args, jit_script=True):
     ------
     module : mnm.Module
       Compiled meta module
-
     """
-    meta_ir_file = "module.json"
-    os.environ["TORCH_MNM_DRY_RUN"] = "true"
-    os.environ["TORCH_MNM_SAVE_IR_FILE"] = meta_ir_file
 
-    model = copy.deepcopy(model_origin)
-    model = model.to("xla", dtype=torch.float32)
-    if jit_script:
-        model = torch_mnm.jit.script(model)
-    args = [arg.to("xla") for arg in args]
-    model(*args).to("cpu")
+    def _compile(model_origin, args, jit_script):
+        meta_ir_file = os.environ["TORCH_MNM_SAVE_IR_FILE"]
+        run_step("lazy", model_origin, args, jit_script)
 
-    with open(meta_ir_file, "r") as module_file:
-        module_json = module_file.read()
-        module = mnm.ir.serialization.LoadJSON(module_json)
+        with open(meta_ir_file) as module_file:
+            module_json = module_file.read()
+            module = mnm.ir.serialization.LoadJSON(module_json)
+        return module
 
-    os.remove(meta_ir_file)
-    return module
+    return dryrun_dumped_ir_file(_compile)(model_origin, args, jit_script)
 
 
 def numpy(x):

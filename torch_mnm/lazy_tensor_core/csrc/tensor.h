@@ -435,11 +435,11 @@ class LazyTensor {
                              lazy_tensors::int64 dim1, lazy_tensors::int64 dim2);
 
   static LazyTensor div(const LazyTensor& input, const LazyTensor& other,
-                        const c10::optional<std::string>& rounding_mode = c10::nullopt,
+                        const c10::optional<c10::string_view>& = c10::nullopt,
                         c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   static LazyTensor div(const LazyTensor& input, const at::Scalar& other);
   static void div_(LazyTensor& input, const LazyTensor& other,
-                   const c10::optional<std::string>& rounding_mode = c10::nullopt);
+                   const c10::optional<c10::string_view>& rounding_mode = c10::nullopt);
   static void div_(LazyTensor& input, const at::Scalar& other);
 
   // A generalized contraction between tensors of arbitrary dimension defined by
@@ -922,8 +922,7 @@ class LazyTensor {
   static LazyTensor softplus(const LazyTensor& input, const at::Scalar& beta,
                              const at::Scalar& threshold);
   static LazyTensor softplus_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                      const at::Scalar& beta, const at::Scalar& threshold,
-                                      const LazyTensor& output);
+                                      const at::Scalar& beta, const at::Scalar& threshold);
 
   static LazyTensor softshrink(const LazyTensor& input, const at::Scalar& lambda);
   static LazyTensor softshrink_backward(const LazyTensor& grad_out, const LazyTensor& input,

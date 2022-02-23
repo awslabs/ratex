@@ -11,8 +11,7 @@ namespace ops {
 
 class LogSoftmaxBackwardUseIn : public Node {
  public:
-  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output, lazy_tensors::int64 dim,
-                          const Value& self);
+  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output, lazy_tensors::int64 dim);
 
   NodePtr Clone(OpList operands) const override;
 

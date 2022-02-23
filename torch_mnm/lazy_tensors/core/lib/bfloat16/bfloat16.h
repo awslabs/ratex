@@ -7,9 +7,13 @@
 namespace lazy_tensors {
 
 struct bfloat16 {
-  explicit bfloat16(const float v) { LTC_LOG(FATAL) << "Not implemented yet."; }
+  explicit bfloat16(const float v) {
+    LTC_LOG(FATAL) << "Not implemented yet.";
+  }
 
-  explicit operator float() const { LTC_LOG(FATAL) << "Not implemented yet."; }
+  explicit operator float() const {
+    LTC_LOG(FATAL) << "Not implemented yet.";
+  }
 
   explicit operator unsigned long() const {
     LTC_LOG(FATAL) << "Not implemented yet.";

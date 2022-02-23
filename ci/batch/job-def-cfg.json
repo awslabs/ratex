@@ -1,0 +1,4 @@
+{
+    "docker": "ci-job-razor-docker",
+    "GPU": "ci-job-razor-gpu"
+}

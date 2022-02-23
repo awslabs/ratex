@@ -1,0 +1,37 @@
+name: Build and push CI image
+
+on:
+  # TODO: Setup a schedule to trigger this workflow nightly.
+  workflow_dispatch:
+
+jobs:
+  lint:
+    if: github.repository == 'meta-project/razor'
+    runs-on: self-hosted
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+      - name: Checkout repository
+        # No need to checkout submodules because we only need the script.
+        uses: actions/checkout@v2
+      - name: Build and push docker image
+        # Build the image and push it with tag "nightly". It will be retagged to "latest"
+        # by a follow-up workflow that runs unit tests with this image.
+        run: |
+          echo "Building image..."
+          python3 -m pip install argparse boto3
+          python3 ./ci/batch/submit-job.py \
+            --job-type docker \
+            --image metaprojdev/razor:ci_gpu-latest \
+            --name ci-razor-docker-test \
+            --job-queue ci-cpu-queue \
+            --job-def-cfg ./ci/batch/job-def-cfg.json \
+            --entry-script /batch/entry.sh \
+            --source-ref ${{ github.ref }} \
+            --repo ${{ github.repository }} \
+            --wait \
+            --command "bash ./ci/batch/cli.sh update_docker nightly"

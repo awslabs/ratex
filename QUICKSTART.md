@@ -19,14 +19,13 @@ And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
 
 Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md
 
-#### 1.1 Clone a copy of the PyTorch repo and switch to the lazy_tensor_staging branch
+#### 1.1 Clone a copy of the PyTorch repo
 
 ```
 git clone git@github.com:pytorch/pytorch.git --recursive
 cd pytorch
-git checkout lazy_tensor_staging
-git checkout 0e8776b4d45a243df6e8499d070e2df89dcad1f9
-git submodule update --recursive
+git submodule sync
+git submodule update --init --recursive --jobs 0
 ```
 
 #### 1.2 Clone a copy of the torch_mnm (this repo)
@@ -36,6 +35,8 @@ git clone git@github.com:meta-project/torch_mnm.git --recursive
 ```
 
 #### 1.3 Create a Python virtual environment (optional but recommanded)
+
+Note that PyTorch now requires Python 3.7+. If your system has Python 3.7-, it is recommended to use Conda.
 
 This is recommended if you already have a PyTorch deployed and you don't want to
 mess up your current PyTorch use cases.
@@ -51,7 +52,17 @@ source env/bin/activate
 
 * Option 2: conda
 
-Please refer to https://github.com/meta-project/meta/blob/master/docs/wiki/Recommended-Development-Environment.md.
+```
+conda create --name py37_torch python=3.7
+conda activate py37_torch
+conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing
+conda install -c pytorch magma-cuda113
+
+python3 -m pip install scikit-build==0.11.1
+python3 -m pip install six numpy cython decorator scipy tornado typed_ast orderedset antlr4-python3-runtime attrs requests Pillow packaging psutil dataclasses pycparser pydot
+
+export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
+```
 
 ### 4. Build PyTorch
 
@@ -70,11 +81,6 @@ export CC=clang-8
 export CXX=clang++-8
 export BUILD_CPP_TESTS=0
 export DEBUG=0
-export XRT_DEVICE_MAP="CPU:0;/job:localservice/replica:0/task:0/device:XLA_CPU:0"
-export XRT_WORKERS="localservice:0;grpc://localhost:51011"
-export XLA_DEBUG=0
-export XLA_CUDA=0
-export FORCE_NNC=true
 export TORCH_HOME="$(pwd)"
 export USE_CUDA=0 # We will use our own CUDA backend so we turn off the one in PyTorch.
 export USE_MKL=1 # To accelerate mode tracing.

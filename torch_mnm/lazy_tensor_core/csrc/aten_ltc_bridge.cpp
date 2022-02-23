@@ -220,7 +220,7 @@ c10::optional<Device> GetLtcDevice(const at::TensorOptions& tensor_options) {
 }
 
 c10::optional<Device> GetLtcDevice(const c10::Device& device) {
-  if (device.type() != at::kXLA) {
+  if (device.type() != at::kLazy) {
     return c10::nullopt;
   }
   return AtenDeviceToLtcDevice(device);
@@ -234,7 +234,7 @@ c10::optional<Device> GetLtcDevice(const c10::optional<c10::Device>& device) {
 }
 
 Device AtenDeviceToLtcDevice(const c10::Device& device) {
-  LTC_CHECK_EQ(device.type(), at::kXLA) << device;
+  LTC_CHECK_EQ(device.type(), at::kLazy) << device;
   int ordinal = device.has_index() ? device.index() : -1;
   if (ordinal < 0) {
     c10::Device current_device = GetCurrentAtenDevice();
@@ -249,11 +249,11 @@ Device AtenDeviceToLtcDevice(const c10::Device& device) {
 }
 
 c10::Device LtcDeviceToAtenDevice(const Device& device) {
-  return c10::Device(at::kXLA, AtenLtcDeviceMapper::Get()->GetDeviceOrdinal(device));
+  return c10::Device(at::kLazy, AtenLtcDeviceMapper::Get()->GetDeviceOrdinal(device));
 }
 
 std::string ToLtcString(const c10::Device& device) {
-  return absl::StrCat("xla:", device.index());
+  return absl::StrCat("lazy:", device.index());
 }
 
 c10::Device AtenDefaultDevice() {
@@ -275,7 +275,7 @@ c10::Device GetCurrentAtenDevice() {
 
 at::Tensor LtcToAtenTensor(LazyTensor ltc_tensor, const at::TensorOptions& tensor_options) {
   if (tensor_options.has_device()) {
-    LTC_CHECK_NE(tensor_options.device().type(), at::kXLA);
+    LTC_CHECK_NE(tensor_options.device().type(), at::kLazy);
   }
   at::Tensor tensor = ltc_tensor.ToTensor(/*detached=*/false);
   // We need to copy the tensor since it is cached within the LazyTensor, and

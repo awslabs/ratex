@@ -1,7 +1,7 @@
 """Utilitis of RAZOR Persistent Cache.
 TODO: Implement the cache in C++ in the future if we need to cache something in C++.
 """
-# pylint: disable=unspecified-encoding, protected-access, too-many-instance-attributes, abstract-class-instantiated
+# pylint: disable=protected-access, too-many-instance-attributes, abstract-class-instantiated
 from collections import OrderedDict
 from pathlib import Path
 import json
@@ -14,7 +14,7 @@ from filelock import FileLock
 
 import tvm
 
-logger = logging.getLogger("Cache")
+logger = logging.getLogger("Cache") # pylint: disable=invalid-name
 
 # The path of the persistent cache.
 PERSIST_DIR = os.environ.get("RAZOR_CACHE_DIR", Path.home() / ".torch_mnm_cache")
@@ -41,7 +41,7 @@ class Cache:
     TIMESTAMP_FILE = "timestamp"
 
     def __init__(self, persist_dir, capacity=None):
-        self.persist_path = None
+        self.persist_path = ""
         self.enable = False
 
         if persist_dir != "":
@@ -334,7 +334,7 @@ class Cache:
         self.entry_locks[key].release()
 
 
-cache = Cache(PERSIST_DIR)
+cache = Cache(PERSIST_DIR) # pylint: disable=invalid-name
 
 
 def normalize(key):

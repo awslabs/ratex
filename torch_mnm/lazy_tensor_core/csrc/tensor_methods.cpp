@@ -1007,7 +1007,7 @@ LazyTensor LazyTensor::diagonal(const LazyTensor& input, lazy_tensors::int64 off
 }
 
 LazyTensor LazyTensor::div(const LazyTensor& input, const LazyTensor& other,
-                           const c10::optional<std::string>& rounding_mode,
+                           const c10::optional<c10::string_view>& rounding_mode,
                            c10::optional<at::ScalarType> logical_element_type) {
   at::ScalarType scalar_type = at::typeMetaToScalarType(c10::get_default_dtype());
   lazy_tensors::PrimitiveType input_type = input.shape().get().element_type();
@@ -1053,7 +1053,7 @@ LazyTensor LazyTensor::div(const LazyTensor& input, const at::Scalar& other) {
 }
 
 void LazyTensor::div_(LazyTensor& input, const LazyTensor& other,
-                      const c10::optional<std::string>& rounding_mode) {
+                      const c10::optional<c10::string_view>& rounding_mode) {
   at::ScalarType scalar_type = at::typeMetaToScalarType(c10::get_default_dtype());
   ir::Value input_value = GetFloatingIrValue(input, scalar_type);
   ir::Value other_value = GetFloatingIrValue(other, scalar_type);
@@ -2302,9 +2302,8 @@ LazyTensor LazyTensor::softplus(const LazyTensor& input, const at::Scalar& beta,
 }
 
 LazyTensor LazyTensor::softplus_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                         const at::Scalar& beta, const at::Scalar& threshold,
-                                         const LazyTensor& output) {
-  return tensor_ops::SoftplusBackward(grad_output, input, beta, threshold, output);
+                                         const at::Scalar& beta, const at::Scalar& threshold) {
+  return tensor_ops::SoftplusBackward(grad_output, input, beta, threshold);
 }
 
 LazyTensor LazyTensor::softshrink(const LazyTensor& input, const at::Scalar& lambda) {

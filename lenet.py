@@ -56,7 +56,7 @@ def train(device, model, image_datasets):
     num_epochs = 10
     best_acc = 0.0
     unscripted = model
-    if device == "xla":
+    if device == "lazy":
         model = torch_mnm.jit.script(model)
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
@@ -102,7 +102,7 @@ def infer(device, model, image_datasets):
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
     best_acc = 0.0
 
-    if device == "xla":
+    if device == "lazy":
         model = torch_mnm.jit.script(model)
     running_loss = 0.0
     running_corrects = 0
@@ -123,37 +123,42 @@ def infer(device, model, image_datasets):
     print("{} Loss: {:.4f} Acc: {:.4f}".format("val", epoch_loss, epoch_acc))
 
 
-model_mnm = TorchLeNet()
-model_cpu = copy.deepcopy(model_mnm)
-data_transforms = {
-    "train": transforms.Compose(
-        [
-            transforms.CenterCrop(28),
-            transforms.ToTensor(),
-        ]
-    ),
-    "val": transforms.Compose(
-        [
-            transforms.CenterCrop(28),
-            transforms.ToTensor(),
-        ]
-    ),
-}
-image_datasets = {
-    x: datasets.FakeData(
-        size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
-    )
-    for x in ["train", "val"]
-}
-print("mnm starts...")
-train("xla", model_mnm, image_datasets)
-print("cpu starts...")
-train("cpu", model_cpu, image_datasets)
+def main():
+    model_mnm = TorchLeNet()
+    model_cpu = copy.deepcopy(model_mnm)
+    data_transforms = {
+        "train": transforms.Compose(
+            [
+                transforms.CenterCrop(28),
+                transforms.ToTensor(),
+            ]
+        ),
+        "val": transforms.Compose(
+            [
+                transforms.CenterCrop(28),
+                transforms.ToTensor(),
+            ]
+        ),
+    }
+    image_datasets = {
+        x: datasets.FakeData(
+            size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
+        )
+        for x in ["train", "val"]
+    }
+    print("mnm starts...")
+    train("lazy", model_mnm, image_datasets)
+    print("cpu starts...")
+    train("cpu", model_cpu, image_datasets)
 
-# print("mnm starts...")
-# infer("mnm", model_mnm, image_datasets)
-# print("cpu starts...")
-# infer("cpu", model_cpu, image_datasets)
+    # print("mnm starts...")
+    # infer("mnm", model_mnm, image_datasets)
+    # print("cpu starts...")
+    # infer("cpu", model_cpu, image_datasets)
 
-# statistics
-print(metrics.metrics_report())
+    # statistics
+    print(metrics.metrics_report())
+
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,5 @@
 """Adam optimizer"""
+# pylint: disable=too-many-arguments, too-many-locals
 import math
 from importlib import import_module
 
@@ -6,7 +7,6 @@ import torch
 from mnm import distributed as dist
 
 from . import _functional as F
-from . import utils
 from .optimizer import Optimizer
 
 class Adam(Optimizer):
@@ -39,23 +39,30 @@ class Adam(Optimizer):
         https://openreview.net/forum?id=ryQu7f-RZ
     """
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False, mark_step=False):
-        if not 0.0 <= lr:
+    def __init__(
+        self,
+        params,
+        lr=1e-3,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=0,
+        amsgrad=False,
+        mark_step=False,
+    ):
+        if lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
+        if eps < 0.0:
             raise ValueError("Invalid epsilon value: {}".format(eps))
         if not 0.0 <= betas[0] < 1.0:
             raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        if not 0.0 <= weight_decay:
+        if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         # TODO(@hzfan): support amsgrad
-        if not amsgrad is False:
-            raise NotImplementedError("amsgrad==True is not yet supported")
-        defaults = dict(lr=lr, betas=betas, eps=eps,
-                        weight_decay=weight_decay, amsgrad=amsgrad)
+        if amsgrad is not False:
+            raise NotImplementedError("amsgrad=True is not yet supported")
+        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         super(Adam, self).__init__(params, defaults)
         # Distributed configs
         dctx = dist.get_context()
@@ -67,7 +74,7 @@ class Adam(Optimizer):
     def __setstate__(self, state):
         super(Adam, self).__setstate__(state)
         for group in self.param_groups:
-            group.setdefault('amsgrad', False)
+            group.setdefault("amsgrad", False)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -83,35 +90,44 @@ class Adam(Optimizer):
                 loss = closure()
 
         for group in self.param_groups:
-            beta1, beta2 = group['betas']
+            beta1, beta2 = group["betas"]
 
-            for p in group['params']:
-                if p.grad is not None:
-                    param_with_grad_global = p
-                    if p.grad.is_sparse:
-                        raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
+            for param in group["params"]:
+                if param.grad is not None:
+                    param_with_grad_global = param
+                    if param.grad.is_sparse:
+                        raise RuntimeError(
+                            "Adam does not support sparse gradients, "
+                            "please consider SparseAdam instead"
+                        )
 
-                    state = self.state[p]
+                    state = self.state[param]
                     # Lazy state initialization
                     if len(state) == 0:
-                        state['step'] = 0
+                        state["step"] = 0
+                        # pylint: disable=line-too-long
                         # FIXME: lowering zeros_like to ltc triggers compile error
                         # state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                         # state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
-                        if self._need_partition(p):
-                            state['exp_avg'] = self._create_partitioned_buffer(p)
-                            state['exp_avg_sq'] = self._create_partitioned_buffer(p)
+                        # pylint: enable=line-too-long
+                        if self._need_partition(param):
+                            state["exp_avg"] = self._create_partitioned_buffer(param)
+                            state["exp_avg_sq"] = self._create_partitioned_buffer(param)
                         else:
-                            state['exp_avg'] = torch.zeros(p.data.size(), dtype=p.data.dtype).to(device=p.data.device)
-                            state['exp_avg_sq'] = torch.zeros(p.data.size(), dtype=p.data.dtype).to(device=p.data.device)
+                            state["exp_avg"] = torch.zeros(
+                                param.data.size(), dtype=param.data.dtype
+                            ).to(device=param.data.device)
+                            state["exp_avg_sq"] = torch.zeros(
+                                param.data.size(), dtype=param.data.dtype
+                            ).to(device=param.data.device)
 
-                    exp_avg = state['exp_avg']
-                    exp_avg_sq = state['exp_avg_sq']
+                    exp_avg = state["exp_avg"]
+                    exp_avg_sq = state["exp_avg_sq"]
                     assert exp_avg.shape == exp_avg_sq.shape
-                    param_with_grad_local = self._partition(p.data, exp_avg)
-                    grad = self._partition(p.grad, exp_avg)
-                    state['step'] += 1
-                    state_step = state['step']
+                    param_with_grad_local = self._partition(param.data, exp_avg)
+                    grad = self._partition(param.grad, exp_avg)
+                    state["step"] += 1
+                    state_step = state["step"]
 
                     updated_param_with_grad_local = F.adam(
                         [param_with_grad_local],
@@ -120,19 +136,23 @@ class Adam(Optimizer):
                         [exp_avg_sq],
                         [],
                         [state_step],
-                        amsgrad=group['amsgrad'],
+                        amsgrad=group["amsgrad"],
                         beta1=beta1,
                         beta2=beta2,
-                        lr=group['lr'],
-                        weight_decay=group['weight_decay'],
-                        eps=group['eps']
+                        lr=group["lr"],
+                        weight_decay=group["weight_decay"],
+                        eps=group["eps"],
                     )
 
                     if self._need_partition(param_with_grad_global):
                         # This line will be eventually replaced by allgather,
                         # so the index doesn't matter
-                        index = torch.zeros(updated_param_with_grad_local.size(), dtype=torch.int64).to(device=updated_param_with_grad_local.device)
-                        param_with_grad_global.scatter_(dim=0, index=index, src=updated_param_with_grad_local)
+                        index = torch.zeros(
+                            updated_param_with_grad_local.size(), dtype=torch.int64
+                        ).to(device=updated_param_with_grad_local.device)
+                        param_with_grad_global.scatter_(
+                            dim=0, index=index, src=updated_param_with_grad_local
+                        )
                         index = None
                     else:
                         param_with_grad_global[:] = updated_param_with_grad_local

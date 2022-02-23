@@ -16,11 +16,13 @@ from ..value import ValueToHandle
 from ..utils.utils import ltc_timed
 from ..utils.cache import cache as persist_cache
 
+# pylint: disable=invalid-name
 logger = logging.getLogger("jit.script")
 
 _APIS = mnm._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
+# pylint: enable=invalid-name
 
 TORCH_DTYPES = {
     "int32": torch.int32,
@@ -81,7 +83,8 @@ def get_positional_args(param_names, *args, **kwargs):
 class RelayFunction(torch.autograd.Function):
     """A wrapper of torch.autograd.Function to run on Meta."""
 
-    # pylint: disable=no-self-use, unused-argument, missing-docstring, arguments-differ
+    # pylint: disable=no-self-use, unused-argument, missing-docstring
+    # pylint: disable=arguments-differ, abstract-method
 
     @staticmethod
     def forward(ctx, func, inplace_update_map, *args):
@@ -107,6 +110,22 @@ def asnumpy(x):
     return x.cpu().detach().numpy()
 
 
+def hash_torch_module(module):
+    """Hash a PyTorch module to be MD5.
+
+    Parameters
+    ----------
+    module: torch.nn.Module
+        The module to be hashed.
+
+    Returns
+    -------
+    md5: str
+        The MD5 hash of the module.
+    """
+    return hashlib.md5(str(module).encode(encoding="UTF-8")).hexdigest()
+
+
 def persis_cache_fn(wrapped_func):
     """Persistent cache a Python function. Note that we assume the cached function
     refers to the distributed context, so it values are also a part of the cache key.
@@ -125,7 +144,7 @@ def persis_cache_fn(wrapped_func):
     def wrapper(module, shape_n_dtype, args):
         dctx = dist.get_context()
         cache_key = (
-            hashlib.md5(str(module).encode(encoding="UTF-8")).hexdigest(),
+            hash_torch_module(module),
             str(shape_n_dtype),
             dctx.enable_data_parallel,
             dctx.size,
@@ -179,10 +198,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     """
     dctx = dist.get_context()
     cloned_module = copy.deepcopy(module)
-    cache_key = (
-        hashlib.md5(str(cloned_module).encode(encoding="UTF-8")).hexdigest(),
-        str(shape_n_dtype),
-    )
+    cache_key = (hash_torch_module(cloned_module), str(shape_n_dtype))
     cached_model_path = persist_cache.query(cache_key)
 
     # Cache miss. Add new entries to the cache and directly let from_pytorch write the
@@ -253,13 +269,12 @@ def script(module: torch.nn.Module):
     }
 
     @ltc_timed("MNMTrace")
-    def func(*args, **kwargs):
-        # TODO: eliminate shape_dict
+    def wrapper(*args, **kwargs):
         # TODO: use torch.jit.script
         assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
         assert not kwargs, "Do not support kwargs yet"
         shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
-        cache_key = str(shape_n_dtype)
+        cache_key = (hash_torch_module(module), str(shape_n_dtype))
         if cache_key in JIT_CACHE:
             # Cache hit.
             func, param_names, inplace_update_map = JIT_CACHE[cache_key]
@@ -282,7 +297,7 @@ def script(module: torch.nn.Module):
                     params[t_name] = torch.zeros(
                         mnm_params_shape[name],
                         dtype=TORCH_DTYPES.get(mnm_params_dtype[name], "float32"),
-                    ).to("xla")
+                    ).to("lazy")
                     logger.warning(
                         "%s parameter has been converted from mnm.array to torch.Tensor.", name
                     )
@@ -292,4 +307,4 @@ def script(module: torch.nn.Module):
         positional_args = get_positional_args(param_names, *args, **params)
         return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
-    return func
+    return wrapper

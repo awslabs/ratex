@@ -1,13 +1,12 @@
 #!/usr/bin
-# 1. Please make sure you are at the PyTorch folder when running this script.
-# 2. Before building PyTorch, please make sure the PyTorch is configured
-#    to the lazy tensor core branch:
-#      git checkout lazy_tensor_staging
-#      git checkout 0e8776b4d45a243df6e8499d070e2df89dcad1f9
-#      git submodule update --recursive
 set -ex
 
-TORCH_DIR=`pwd`
+git clone https://github.com/pytorch/pytorch.git --recursive
+cd pytorch
+git submodule sync
+git submodule update --recursive
+
+python3 -m pip install -r requirements.txt
 
 # Environment settings
 export CMAKE_C_COMPILER_LAUNCHER=ccache
@@ -17,16 +16,11 @@ export CC=clang-8
 export CXX=clang++-8
 export BUILD_CPP_TESTS=0
 export DEBUG=0
-export XRT_DEVICE_MAP="CPU:0;/job:localservice/replica:0/task:0/device:XLA_CPU:0"
-export XRT_WORKERS="localservice:0;grpc://localhost:51011"
-export XLA_DEBUG=0
-export XLA_CUDA=0
-export FORCE_NNC=true
 export TORCH_HOME="$(pwd)"
 
 # Disable to workaround the error as reported in
 # https://github.com/pytorch/pytorch/issues/41673
-export USE_NINJA=OFF
+#export USE_NINJA=OFF
 
 # Disable CUDA in PyTorch
 export USE_CUDA=0

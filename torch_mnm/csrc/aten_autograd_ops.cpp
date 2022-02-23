@@ -1,9 +1,13 @@
+#include <ATen/Operators.h>
+#include <ATen/native/CPUFallback.h>
+
 #include "torch_mnm/csrc/aten_autograd_ops.h"
 
 #include "lazy_tensor_core/csrc/aten_ltc_bridge.h"
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensor_core/csrc/torch_util.h"
-#include "torch_mnm/csrc/aten_mnm_type_default.h"
+#include "torch_mnm/csrc/LazyNativeFunctions.h"
+#include "torch_mnm/csrc/aten_cpu_fallback.h"
 
 namespace torch_lazy_tensors {
 namespace aten_autograd_ops {
@@ -20,8 +24,8 @@ torch::Tensor MaxPool2dAutogradFunction::forward(torch::autograd::AutogradContex
   ctx->saved_data["ceil_mode"] = ceil_mode;
   // Lowering when ceil_mode or dilation is set not supported yet.
   if (IsNonTrivialDilation(dilation)) {
-    auto results = AtenMNMTypeDefault::max_pool2d_with_indices(self, kernel_size, stride, padding,
-                                                               dilation, ceil_mode);
+    auto results = FALLBACK_ATEN_OP(max_pool2d_with_indices, self, kernel_size, stride, padding,
+                                    dilation, ceil_mode);
     ctx->save_for_backward({self, std::get<1>(results)});
     return std::get<0>(results);
   }
@@ -45,8 +49,8 @@ torch::autograd::variable_list MaxPool2dAutogradFunction::backward(
   torch::Tensor grad;
   if (IsNonTrivialDilation(dilation)) {
     auto indices = saved[1];
-    grad = AtenMNMTypeDefault::max_pool2d_with_indices_backward(
-        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode, indices);
+    grad = FALLBACK_ATEN_OP(max_pool2d_with_indices_backward, grad_output[0], self, kernel_size,
+                            stride, padding, dilation, ceil_mode, indices);
   }
   grad = bridge::AtenFromLtcTensor(LazyTensor::max_pool_nd_backward(
       bridge::GetLtcTensor(grad_output[0]), bridge::GetLtcTensor(self),
@@ -70,8 +74,8 @@ torch::Tensor MaxPool3dAutogradFunction::forward(torch::autograd::AutogradContex
   ctx->saved_data["ceil_mode"] = ceil_mode;
   // Lowering when ceil_mode or dilation is set not supported yet.
   if (IsNonTrivialDilation(dilation)) {
-    auto results = AtenMNMTypeDefault::max_pool3d_with_indices(self, kernel_size, stride, padding,
-                                                               dilation, ceil_mode);
+    auto results = FALLBACK_ATEN_OP(max_pool3d_with_indices, self, kernel_size, stride, padding,
+                                    dilation, ceil_mode);
     ctx->save_for_backward({self, std::get<1>(results)});
     return std::get<0>(results);
   }
@@ -95,8 +99,8 @@ torch::autograd::variable_list MaxPool3dAutogradFunction::backward(
   torch::Tensor grad;
   if (IsNonTrivialDilation(dilation)) {
     auto indices = saved[1];
-    grad = AtenMNMTypeDefault::max_pool3d_with_indices_backward(
-        grad_output[0], self, kernel_size, stride, padding, dilation, ceil_mode, indices);
+    grad = FALLBACK_ATEN_OP(max_pool3d_with_indices_backward, grad_output[0], self, kernel_size,
+                            stride, padding, dilation, ceil_mode, indices);
   }
   grad = bridge::AtenFromLtcTensor(LazyTensor::max_pool_nd_backward(
       bridge::GetLtcTensor(grad_output[0]), bridge::GetLtcTensor(self),

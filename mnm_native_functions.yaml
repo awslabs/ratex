@@ -1,4 +1,4 @@
-backend: XLA
+backend: Lazy
 cpp_namespace: torch_lazy_tensors
 supported:
   - _local_scalar_dense
@@ -52,6 +52,7 @@ supported:
   - convolution_overrideable
   - convolution_backward_overrideable
   - _copy_from
+  - _copy_from_and_resize
   - cos
   - cos_
   - cosh

@@ -46,6 +46,6 @@ echo "---------clang-format log----------"
 cat /tmp/$$.clang-format.txt
 echo ""
 if grep --quiet -E "diff" < /tmp/$$.clang-format.txt; then
-    echo "clang-format lint error found. Consider running scripts/lint/run-clang-format.sh to fix them."
+    echo "clang-format lint error found. Consider running scripts/lint/git-clang-format.sh -i origin/main to fix them."
     exit 1
 fi

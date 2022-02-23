@@ -3,4 +3,4 @@
 	url = git@github.com:meta-project/meta
 [submodule "third_party/abseil-cpp"]
 	path = third_party/abseil-cpp
-	url = git@github.com:abseil/abseil-cpp
+	url = https://github.com/abseil/abseil-cpp.git

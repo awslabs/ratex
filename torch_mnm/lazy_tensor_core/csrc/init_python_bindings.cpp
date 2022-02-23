@@ -585,11 +585,12 @@ void InitLtcBindings(py::module m) {
 
 }  // namespace torch_lazy_tensors
 
-PYBIND11_MODULE(_LAZYC, m) {
-  try {
-    torch::utils::cuda_lazy_init();
-  } catch (const python_error&) {
-    // Do nothing, CUDA not available.
-  }
-  torch_lazy_tensors::InitLtcBindings(m);
-}
+// This is removed and InitLtcBindings is invoked in torch_mnm/csrc/init_python_bindings.cpp.
+// PYBIND11_MODULE(_LAZYC, m) {
+//   try {
+//     torch::utils::cuda_lazy_init();
+//   } catch (const python_error&) {
+//     // Do nothing, CUDA not available.
+//   }
+//   torch_lazy_tensors::InitLtcBindings(m);
+// }

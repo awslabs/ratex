@@ -10,9 +10,9 @@ __pycache__/
 
 # Auto-generated
 torch_mnm/version.py
-torch_mnm/csrc/aten_mnm_type.h
-torch_mnm/csrc/aten_mnm_type_default.cpp
-torch_mnm/csrc/aten_mnm_type_default.h
+torch_mnm/csrc/RegisterLazy.cpp
+torch_mnm/csrc/RegisterAutogradLazy.cpp
+torch_mnm/csrc/LazyNativeFunctions.h
 torch_mnm/csrc/version.cpp
 
 # Distribution / packaging

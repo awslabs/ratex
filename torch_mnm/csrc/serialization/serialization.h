@@ -16,8 +16,8 @@ using LTCProgramShape = lazy_tensors::ProgramShape;
 using LTCGenericComputationMNM = compiler::mnm_backend::GenericComputationMNM;
 using LTCComputation = lazy_tensors::ComputationClient::Computation;
 using LTCBaseComputation = torch_mnm::BaseComputationClient::BaseComputation;
-using lazy_tensors::PrimitiveType;
 using lazy_tensors::int64;
+using lazy_tensors::PrimitiveType;
 
 class GenericComputationMNMNode : public Object {
  public:
@@ -36,8 +36,8 @@ class GenericComputationMNMNode : public Object {
 
   bool SEqualReduce(const GenericComputationMNMNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
-    return equal(computation, other->computation) && equal(model_states, other->model_states)
-        && equal(alias, other->alias);
+    return equal(computation, other->computation) && equal(model_states, other->model_states) &&
+           equal(alias, other->alias);
   }
 
   void SHashReduce(SHashReducer hash_reduce) const {
@@ -76,8 +76,8 @@ class ShapeNode : public Object {
 
   bool SEqualReduce(const ShapeNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
-    return equal(element_type, other->element_type) && equal(dimensions, other->dimensions)
-        && equal(element_shapes, other->element_shapes);
+    return equal(element_type, other->element_type) && equal(dimensions, other->dimensions) &&
+           equal(element_shapes, other->element_shapes);
   }
 
   void SHashReduce(SHashReducer hash_reduce) const {
@@ -116,8 +116,8 @@ class ProgramShapeNode : public Object {
 
   bool SEqualReduce(const ProgramShapeNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
-    return equal(parameters, other->parameters) && equal(parameter_names, other->parameter_names)
-        && equal(result, other->result);
+    return equal(parameters, other->parameters) && equal(parameter_names, other->parameter_names) &&
+           equal(result, other->result);
   }
 
   void SHashReduce(SHashReducer hash_reduce) const {
@@ -156,8 +156,8 @@ class ComputationNode : public Object {
 
   bool SEqualReduce(const ComputationNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
-    return equal(computation, other->computation) && equal(program_shape, other->program_shape)
-        && equal(devices, other->devices);
+    return equal(computation, other->computation) && equal(program_shape, other->program_shape) &&
+           equal(devices, other->devices);
   }
 
   void SHashReduce(SHashReducer hash_reduce) const {
@@ -216,6 +216,6 @@ class BaseComputation : public Computation {
 
   TVM_DEFINE_OBJECT_REF_METHODS(BaseComputation, Computation, BaseComputationNode);
 };
-  
+
 }  // namespace serialization
 }  // namespace torch_lazy_tensors

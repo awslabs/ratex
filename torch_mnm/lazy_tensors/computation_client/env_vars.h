@@ -9,8 +9,6 @@ extern const char* const kEnvNumGpu;
 extern const char* const kEnvNumCpu;
 extern const char* const kEnvLocalWorker;
 extern const char* const kEnvTpuConfig;
-extern const char* const kEnvDeviceMap;
-extern const char* const kEnvWorkers;
 extern const char* const kEnvMeshService;
 extern const char* const kEnvWorldSize;
 extern const char* const kEnvMpDevice;

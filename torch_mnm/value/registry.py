@@ -1,4 +1,5 @@
 """Value registry."""
+# pylint: disable=invalid-name
 from mnm._lib import _APIS, _get_apis
 
 # Reload APIs to ensure functions from torch_mnm are included
