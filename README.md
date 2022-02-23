@@ -1,5 +1,8 @@
 # PyTorch/RAF
 
+[![CI-UnitTest](https://github.com/meta-project/torch_mnm/actions/workflows/ci_unit_test.yml/badge.svg)](https://github.com/meta-project/torch_mnm/actions/workflows/ci_unit_test.yml)
+![CI-Lass-Pass](https://img.shields.io/endpoint?url=https://meta-public.s3.us-west-2.amazonaws.com/razor-ci-badge-last-pass.json)
+
 It aims to bridge torch models and RAF backends as follows. This repo is a POC.
 
 ```

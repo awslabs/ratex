@@ -97,7 +97,7 @@ jobs:
       - name: Checkout repository
         # No need to checkout submodules because we only need the script.
         uses: actions/checkout@v2
-      - name: Test
+      - name: Lint-Build-Test
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
           if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
@@ -118,7 +118,7 @@ jobs:
             --wait \
             --command "bash ./ci/batch/cli.sh compile ${{ needs.check_status.outputs.job_tag }} &&
               bash ./ci/batch/cli.sh lint && bash ./ci/batch/cli.sh unit_test GPU &&
-              bash ./ci/batch/cli.sh unit_test CPU"
+              bash ./ci/batch/cli.sh unit_test CPU && bash ./ci/batch/cli.sh update_ci_badge"
 
   update_docker_tag:
     needs: [check_status, unit_tests]
@@ -126,12 +126,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
       - name: Update Docker Image Tag
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
@@ -144,5 +138,3 @@ jobs:
           docker pull metaprojdev/razor:ci_gpu-nightly
           docker tag metaprojdev/razor:ci_gpu-nightly metaprojdev/razor:ci_gpu-latest
           docker push metaprojdev/razor:ci_gpu-latest
-          TORCH_VERSION=$(docker run --rm metaprojdev/razor:ci_gpu-latest python3 -c "import torch; print(torch.__version__)")
-          echo "PyTorch version: ${TORCH_VERSION}"

@@ -85,6 +85,21 @@ function unit_test() {
     return 0
 }
 
+# Update CI badge
+function update_ci_badge() {
+    RAZOR_VERSION=$(git rev-parse --short HEAD)
+    echo "Razor version: ${RAZOR_VERSION}"
+    TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)")
+    echo "PyTorch version: ${TORCH_VERSION}"
+    echo "{
+    \"schemaVersion\": 1,
+    \"label\": \"CI-Last-Success\",
+    \"message\": \"$RAZOR_VERSION (PyTorch $TORCH_VERSION)\",
+    \"color\": \"blue\"
+}" > razor-ci-badge-last-pass.json
+    aws s3 cp razor-ci-badge-last-pass.json s3://meta-public/razor-ci-badge-last-pass.json
+}
+
 # Run the function from command line.
 if declare -f "$1" > /dev/null
 then

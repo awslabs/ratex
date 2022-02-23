@@ -45,3 +45,8 @@ make -j
 make install
 popd
 
+# update symbolic links
+for t in `ls -d -- /usr/bin/{gcc,gcc-[0-9+],g++,g++-[0-9+],clang,clang-[0-9+],clang++-[0-9+]}`; do
+    ln -fvs /usr/local/bin/ccache /usr/local/bin/$(basename $t);
+done
+
