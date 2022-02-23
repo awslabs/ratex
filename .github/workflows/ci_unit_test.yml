@@ -118,7 +118,7 @@ jobs:
             --wait \
             --command "bash ./ci/batch/cli.sh compile ${{ needs.check_status.outputs.job_tag }} &&
               bash ./ci/batch/cli.sh lint && bash ./ci/batch/cli.sh unit_test GPU &&
-              bash ./ci/batch/cli.sh unit_test CPU && bash ./ci/batch/cli.sh update_ci_badge"
+              bash ./ci/batch/cli.sh update_ci_badge"
 
   update_docker_tag:
     needs: [check_status, unit_tests]
