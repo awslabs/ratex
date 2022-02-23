@@ -8,8 +8,9 @@ import torch
 
 from mnm import distributed as dist
 
+from .optimizer import Optimizer
 
-class SGD(torch.optim.Optimizer):
+class SGD(Optimizer):
     """distributed SGD optimizer."""
 
     def __init__(self, params, lr=0.1, momentum=0, mark_step=False):

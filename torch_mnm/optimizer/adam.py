@@ -7,8 +7,9 @@ from mnm import distributed as dist
 
 from . import _functional as F
 from . import utils
+from .optimizer import Optimizer
 
-class Adam(torch.optim.Optimizer):
+class Adam(Optimizer):
     r"""Implements Adam algorithm.
 
     It has been proposed in `Adam: A Method for Stochastic Optimization`_.
