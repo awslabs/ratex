@@ -14,7 +14,7 @@ defaults:
 
 jobs:
   check_status:
-    if: github.repository == 'meta-project/razor'
+    if: github.repository == 'meta-project/torch_mnm'
     runs-on: self-hosted
     outputs:
       trigger: ${{ steps.job_info.outputs.trigger }}
@@ -74,7 +74,7 @@ jobs:
 
   unit_tests:
     needs: [check_status]
-    if: github.repository == 'meta-project/razor'
+    if: github.repository == 'meta-project/torch_mnm'
     runs-on: self-hosted
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
@@ -122,7 +122,7 @@ jobs:
 
   update_docker_tag:
     needs: [check_status, unit_tests]
-    if: github.repository == 'meta-project/razor'
+    if: github.repository == 'meta-project/torch_mnm'
     runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1

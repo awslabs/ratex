@@ -6,7 +6,7 @@ on:
 
 jobs:
   lint:
-    if: github.repository == 'meta-project/razor'
+    if: github.repository == 'meta-project/torch_mnm'
     runs-on: self-hosted
     steps:
       - name: Configure AWS Credentials
