@@ -10,6 +10,7 @@ from mnm import distributed as dist
 
 from .optimizer import Optimizer
 
+
 class SGD(Optimizer):
     """distributed SGD optimizer."""
 

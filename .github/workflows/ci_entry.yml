@@ -14,7 +14,7 @@ defaults:
     shell: bash
 
 jobs:
-  lint:
+  entry:
     if: github.repository == 'meta-project/torch_mnm'
     runs-on: ubuntu-latest
     steps:

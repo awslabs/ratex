@@ -45,9 +45,7 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
         results = [result[0]]
     else:
         token = _TORCHMNMC._mnm_create_token(inputs[0].device.type)
-        _ = _TORCHMNMC._ltc_all_reduce_inplace(
-            reduce_type, inputs, token, scale, groups
-        )
+        _ = _TORCHMNMC._ltc_all_reduce_inplace(reduce_type, inputs, token, scale, groups)
         results = inputs
 
     return results[0] if isinstance(inputs, torch.Tensor) else results

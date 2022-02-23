@@ -49,7 +49,7 @@ def test_sum():
 
     shape = [32, 120]
     x = torch.randn(*shape)
-    verify_step(Model(), [x], jit_script=False)
+    verify_step(Model(), [x], jit_script=False, tol=5e-4)
 
 
 def test_pad():

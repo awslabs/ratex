@@ -9,6 +9,7 @@ from mnm import distributed as dist
 from . import _functional as F
 from .optimizer import Optimizer
 
+
 class Adam(Optimizer):
     r"""Implements Adam algorithm.
 

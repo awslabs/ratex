@@ -60,7 +60,7 @@ def default_logger():
     return new_logger
 
 
-logger = default_logger() # pylint: disable=invalid-name
+logger = default_logger()  # pylint: disable=invalid-name
 
 
 def with_seed(seed=None):
@@ -300,10 +300,10 @@ def run_step(device, model_origin, args, jit_script=True):
     return out
 
 
-def verify_step(model, args, jit_script=True):
+def verify_step(model, args, jit_script=True, tol=1e-5):
     """Verify the results between CPU and Lazy"""
     torch.testing.assert_close(
-        run_step("cpu", model, args), run_step("lazy", model, args, jit_script)
+        run_step("cpu", model, args), run_step("lazy", model, args, jit_script), rtol=tol, atol=tol
     )
 
 

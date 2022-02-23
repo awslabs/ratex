@@ -14,7 +14,7 @@ from filelock import FileLock
 
 import tvm
 
-logger = logging.getLogger("Cache") # pylint: disable=invalid-name
+logger = logging.getLogger("Cache")  # pylint: disable=invalid-name
 
 # The path of the persistent cache.
 PERSIST_DIR = os.environ.get("RAZOR_CACHE_DIR", Path.home() / ".torch_mnm_cache")
@@ -334,7 +334,7 @@ class Cache:
         self.entry_locks[key].release()
 
 
-cache = Cache(PERSIST_DIR) # pylint: disable=invalid-name
+cache = Cache(PERSIST_DIR)  # pylint: disable=invalid-name
 
 
 def normalize(key):

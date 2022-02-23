@@ -119,6 +119,7 @@ def test_traced_lans_simple():
 @with_seed(0)
 def test_traced_lans(config):
     # pylint: disable=too-many-locals
+    tol = 5e-4
     t_device = "cpu"
     m_device = "cuda"  # lans kernel only available on cuda
     iter_size = config[0]
@@ -150,11 +151,11 @@ def test_traced_lans(config):
         t_loss = t_model(t_x, t_y)
         t_loss.backward(t_dy)
         t_optimizer.step()
-        check(m_model.conv1.w, t_model.conv1.weight, rtol=1e-4, atol=1e-4)
-        check(m_model.linear1.w, t_model.linear1.weight, rtol=1e-4, atol=1e-4)
-        check(m_model.linear1.b, t_model.linear1.bias, rtol=1e-4, atol=1e-4)
-        check(m_model.bn1.w, t_model.bn1.weight, rtol=1e-4, atol=1e-4)
-        check(m_model.bn1.b, t_model.bn1.bias, rtol=1e-4, atol=1e-4)
+        check(m_model.conv1.w, t_model.conv1.weight, rtol=tol, atol=tol)
+        check(m_model.linear1.w, t_model.linear1.weight, rtol=tol, atol=tol)
+        check(m_model.linear1.b, t_model.linear1.bias, rtol=tol, atol=tol)
+        check(m_model.bn1.w, t_model.bn1.weight, rtol=tol, atol=tol)
+        check(m_model.bn1.b, t_model.bn1.bias, rtol=tol, atol=tol)
 
 
 if __name__ == "__main__":

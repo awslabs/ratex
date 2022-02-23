@@ -8,19 +8,22 @@ from torch import Tensor
 
 from . import utils
 
-def adam(params: List[Tensor],
-         grads: List[Tensor],
-         exp_avgs: List[Tensor],
-         exp_avg_sqs: List[Tensor],
-         max_exp_avg_sqs: List[Tensor],
-         state_steps: List[int],
-         *,
-         amsgrad: bool,
-         beta1: float,
-         beta2: float,
-         lr: float,
-         weight_decay: float,
-         eps: float):
+
+def adam(
+    params: List[Tensor],
+    grads: List[Tensor],
+    exp_avgs: List[Tensor],
+    exp_avg_sqs: List[Tensor],
+    max_exp_avg_sqs: List[Tensor],
+    state_steps: List[int],
+    *,
+    amsgrad: bool,
+    beta1: float,
+    beta2: float,
+    lr: float,
+    weight_decay: float,
+    eps: float
+):
     r"""Functional API that performs Adam algorithm computation.
 
     See :class:`~torch.optim.Adam` for details.
@@ -49,13 +52,14 @@ def adam(params: List[Tensor],
             # Maintains the maximum of all 2nd moment running avg. till now
             torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
             # Use the max. for normalizing running avg. of gradient
-            denom = (max_exp_avg_sqs[i].sqrt() /
-                utils.tensor_like(math.sqrt(bias_correction2), max_exp_avg_sqs[i])).add_(
-                utils.tensor_like(eps, max_exp_avg_sqs[i]))
+            denom = (
+                max_exp_avg_sqs[i].sqrt()
+                / utils.tensor_like(math.sqrt(bias_correction2), max_exp_avg_sqs[i])
+            ).add_(utils.tensor_like(eps, max_exp_avg_sqs[i]))
         else:
-            denom = (exp_avg_sq.sqrt()
-                / utils.tensor_like(math.sqrt(bias_correction2), exp_avg_sq)).add_(
-                utils.tensor_like(eps, exp_avg_sq))
+            denom = (
+                exp_avg_sq.sqrt() / utils.tensor_like(math.sqrt(bias_correction2), exp_avg_sq)
+            ).add_(utils.tensor_like(eps, exp_avg_sq))
 
         step_size = lr / bias_correction1
 
