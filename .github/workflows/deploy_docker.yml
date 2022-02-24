@@ -35,3 +35,18 @@ jobs:
             --repo ${{ github.repository }} \
             --wait \
             --command "bash ./ci/batch/cli.sh update_docker nightly"
+      - name: Save push event job info
+        # Dump the job information for running CI.
+        run: |
+          mkdir job_info
+          echo "0" > job_info/skip.txt
+          echo "docker" > job_info/trigger.txt
+          echo "Ref: ${{ github.ref }}"
+          echo "Repo: ${{ github.repository }}"
+          echo "${{ github.ref }}" > job_info/ref.txt
+          echo "${{ github.repository }}" > job_info/repo.txt
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          path: job_info
+          retention-days: 3

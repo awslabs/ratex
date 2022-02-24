@@ -91,13 +91,8 @@ function update_ci_badge() {
     echo "Razor version: ${RAZOR_VERSION}"
     TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)")
     echo "PyTorch version: ${TORCH_VERSION}"
-    echo "{
-    \"schemaVersion\": 1,
-    \"label\": \"CI-Last-Success\",
-    \"message\": \"$RAZOR_VERSION (PyTorch $TORCH_VERSION)\",
-    \"color\": \"blue\"
-}" > razor-ci-badge-last-pass.json
-    aws s3 cp razor-ci-badge-last-pass.json s3://meta-public/razor-ci-badge-last-pass.json
+    echo "$RAZOR_VERSION (PyTorch $TORCH_VERSION)" > razor-ci-badge-last-pass.txt
+    aws s3 cp razor-ci-badge-last-pass.txt s3://ci-razor/razor-ci-badge-last-pass.txt
 }
 
 # Run the function from command line.
