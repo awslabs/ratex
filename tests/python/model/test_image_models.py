@@ -25,7 +25,6 @@ def test_lenet_cifar10(optimizer):
     verify(lazy_results, cpu_results, tol=1e-3)
 
 
-@pytest.mark.skip(reason="Blocked by https://github.com/pytorch/pytorch/pull/73197")
 @pytest.mark.parametrize("amp", [False, True])
 @with_seed(0)
 def test_resnet18_imagenet(amp):
