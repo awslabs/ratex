@@ -1,4 +1,4 @@
-name: Build and push CI image
+name: CI-ImageBuild
 
 on:
   # TODO: Setup a schedule to trigger this workflow nightly.

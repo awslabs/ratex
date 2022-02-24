@@ -53,7 +53,8 @@ bash ./scripts/src_codegen/run_all.sh
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
-cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ -D CMAKE_BUILD_TYPE=$BUILD_TYPE \
+echo "set(CMAKE_BUILD_TYPE ${BUILD_TYPE})" >> config.cmake
+cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ \
       -D MNM_USE_CUDA=$USE_CUDA -D MNM_CUDA_ARCH=$CUDA_ARCH -D MNM_USE_CUBLAS=$USE_CUBLAS \
       -D MNM_USE_CUDNN=$USE_CUDNN -D USE_CUTLASS=$USE_CUTLASS ..
 make -j${BUILD_MAX_JOBS}
