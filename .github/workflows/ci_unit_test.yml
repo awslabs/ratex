@@ -118,7 +118,7 @@ jobs:
             --wait \
             --command "bash ./ci/batch/cli.sh compile ${{ needs.check_status.outputs.job_tag }} &&
               bash ./ci/batch/cli.sh lint && bash ./ci/batch/cli.sh unit_test GPU &&
-              bash ./ci/batch/cli.sh update_ci_badge"
+              bash ./ci/batch/cli.sh update_ci_badge ${{ needs.check_status.outputs.pr }}"
       - name: Download new CI Badge
         id: badge
         # Download the latest CI badge from S3
