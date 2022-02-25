@@ -12,9 +12,9 @@
 
 namespace torch_lazy_tensors {
 
-class MNMModelState {
+class RAFModelState {
  public:
-  static MNMModelState* Get();
+  static RAFModelState* Get();
 
   bool IsModelState(const LazyTensor& tensor);
   void AddModelState(const LazyTensor& tensor);
@@ -27,6 +27,6 @@ class MNMModelState {
   std::unordered_set<lazy_tensors::int64> model_state_;
 };
 
-MNMModelState* GetMNMModelState();
+RAFModelState* GetRAFModelState();
 
 }  // namespace torch_lazy_tensors

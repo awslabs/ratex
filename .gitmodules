@@ -1,6 +1,6 @@
-[submodule "third_party/meta"]
-	path = third_party/meta
-	url = git@github.com:meta-project/meta
 [submodule "third_party/abseil-cpp"]
 	path = third_party/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp.git
+[submodule "third_party/raf"]
+	path = third_party/raf
+	url = git@github.com:meta-project/meta.git

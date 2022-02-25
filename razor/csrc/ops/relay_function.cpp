@@ -4,9 +4,9 @@
  */
 
 #include "razor/csrc/ops/relay_function.h"
-#include "razor/csrc/ops/mnm_ops.h"
+#include "razor/csrc/ops/raf_ops.h"
 #include "razor/csrc/compiler/utils.h"
-#include "client/mnm_computation_client.h"
+#include "client/raf_computation_client.h"
 
 #include "absl/strings/str_join.h"
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
@@ -16,22 +16,22 @@
 #include "lazy_tensor_core/csrc/ops/device_data.h"
 #include "lazy_tensors/computation_client/util.h"
 
-#include "mnm/value.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
+#include "raf/value.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
 
 namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-using namespace mnm::value;
-using namespace mnm::pass;
-using namespace mnm::ir;
+using namespace raf::value;
+using namespace raf::pass;
+using namespace raf::ir;
 
 lazy_tensors::Shape InferRelayFunction(const Expr& func) {
   Expr f = InferType(func);
   auto fty = Downcast<FuncType>(f->checked_type());
-  return compiler::mnm_backend::ToLTCShape(fty->ret_type);
+  return compiler::raf_backend::ToLTCShape(fty->ret_type);
 }
 
 lazy_tensors::Shape GetShape(const Expr& func) {
@@ -40,7 +40,7 @@ lazy_tensors::Shape GetShape(const Expr& func) {
 }
 
 RelayFunction::RelayFunction(const Expr& func)
-    : Node(mnm_relay_function, GetShape(func), /*num_outputs=*/1, /*hash_seed=*/202), func_(func) {
+    : Node(raf_relay_function, GetShape(func), /*num_outputs=*/1, /*hash_seed=*/202), func_(func) {
 }
 
 NodePtr RelayFunction::Clone(OpList operands) const {
@@ -48,7 +48,7 @@ NodePtr RelayFunction::Clone(OpList operands) const {
 }
 
 RelayFunction* RelayFunction::Cast(const Node* node) {
-  return NodeCast<RelayFunction>(node, mnm_relay_function);
+  return NodeCast<RelayFunction>(node, raf_relay_function);
 }
 
 }  // namespace ops

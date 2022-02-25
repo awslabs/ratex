@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "razor/csrc/aten_mnm_bridge.h"
-#include "razor/csrc/mnm_model_state.h"
+#include "razor/csrc/aten_raf_bridge.h"
+#include "razor/csrc/raf_model_state.h"
 
 #include "client/base_computation_client.h"
 
@@ -14,7 +14,7 @@
 
 namespace torch_lazy_tensors {
 namespace bridge {
-namespace mnm_backend {
+namespace raf_backend {
 
 using namespace ir;
 
@@ -34,7 +34,7 @@ lazy_tensors::ComputationClient::DataPtr GetData(Output out) {
 
 c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor) {
   c10::optional<LazyTensor> lazy_tensor = ::torch_lazy_tensors::bridge::TryGetLtcTensor(tensor);
-  if (lazy_tensor && GetMNMModelState()->IsModelState(*lazy_tensor)) {
+  if (lazy_tensor && GetRAFModelState()->IsModelState(*lazy_tensor)) {
     Value value = lazy_tensor->GetIrValue();
     lazy_tensors::ComputationClient::DataPtr data = GetData(value);
     static_cast<razor::BaseComputationClient::BaseData*>(data.get())->is_param = true;
@@ -44,7 +44,7 @@ c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor) {
 
 LazyTensor GetLtcTensor(const at::Tensor& tensor) {
   LazyTensor lazy_tensor = ::torch_lazy_tensors::bridge::GetLtcTensor(tensor);
-  if (GetMNMModelState()->IsModelState(lazy_tensor)) {
+  if (GetRAFModelState()->IsModelState(lazy_tensor)) {
     Value value = lazy_tensor.GetIrValue();
     lazy_tensors::ComputationClient::DataPtr data = GetData(value);
     static_cast<razor::BaseComputationClient::BaseData*>(data.get())->is_param = true;
@@ -80,6 +80,6 @@ LazyTensor CreateFrom(const LazyTensor& self, ir::Value ir_value) {
   return LazyTensor::Create(std::move(ir_value), self.GetDevice(), self.dtype_optional());
 }
 
-}  // namespace mnm_backend
+}  // namespace raf_backend
 }  // namespace bridge
 }  // namespace torch_lazy_tensors

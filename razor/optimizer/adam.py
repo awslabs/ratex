@@ -7,7 +7,7 @@ import math
 from importlib import import_module
 
 import torch
-from mnm import distributed as dist
+from raf import distributed as dist
 
 from . import _functional as F
 from .optimizer import Optimizer

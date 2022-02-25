@@ -4,9 +4,9 @@
  */
 
 #include "razor/csrc/ops/relay_expr.h"
-#include "razor/csrc/ops/mnm_ops.h"
+#include "razor/csrc/ops/raf_ops.h"
 #include "razor/csrc/compiler/utils.h"
-#include "client/mnm_computation_client.h"
+#include "client/raf_computation_client.h"
 
 #include "absl/strings/str_join.h"
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
@@ -16,17 +16,17 @@
 #include "lazy_tensor_core/csrc/ops/device_data.h"
 #include "lazy_tensors/computation_client/util.h"
 
-#include "mnm/value.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
+#include "raf/value.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
 
 namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-using namespace mnm::value;
-using namespace mnm::pass;
-using namespace mnm::ir;
+using namespace raf::value;
+using namespace raf::pass;
+using namespace raf::ir;
 
 lazy_tensors::Shape InferRelayExpr(const std::vector<Value>& inputs) {
   return inputs[0].shape();
@@ -38,7 +38,7 @@ lazy_tensors::int64 GetNumOutputs(const std::vector<Value>& inputs) {
 }
 
 RelayExpr::RelayExpr(const std::vector<Value>& inputs)
-    : Node(mnm_relay_expr, inputs, /*num_outputs=*/GetNumOutputs(inputs), 0) {
+    : Node(raf_relay_expr, inputs, /*num_outputs=*/GetNumOutputs(inputs), 0) {
   SetShapeDeferred([&]() { return InferRelayExpr(inputs); });
 }
 

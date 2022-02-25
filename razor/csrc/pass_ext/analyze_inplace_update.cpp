@@ -10,14 +10,14 @@
  * argument indices that share the same memory (inplace update).
  */
 #include <unordered_map>
-#include "mnm/op.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
+#include "raf/op.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
 
-namespace mnm {
+namespace raf {
 
 namespace pass {
 
@@ -25,8 +25,8 @@ using PackedVarIdxMap = Map<Integer, Integer>;
 
 namespace analyze_inplace_update {
 
-using namespace mnm::ir;
-using namespace mnm::op;
+using namespace raf::ir;
+using namespace raf::op;
 
 /*!
  * \brief Find the output tuple index that corresponds to the input argument. Note that this pass
@@ -83,7 +83,7 @@ PackedVarIdxMap InplaceUpdateAnalysis(const IRModule& mod) {
   return analyze_inplace_update::InplaceUpdateAnalyzer()(func);
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.InplaceUpdateAnalysis").set_body_typed(InplaceUpdateAnalysis);
+RAF_REGISTER_GLOBAL("raf.pass_.InplaceUpdateAnalysis").set_body_typed(InplaceUpdateAnalysis);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

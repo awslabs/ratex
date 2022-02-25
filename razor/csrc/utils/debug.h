@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include <mnm/registry.h>
+#include <raf/registry.h>
 
 namespace razor {
 
 void PrintStack() {
-  static auto print_stack = mnm::registry::GetPackedFunc("razor.utils.print_stack");
+  static auto print_stack = raf::registry::GetPackedFunc("razor.utils.print_stack");
   print_stack();
 }
 

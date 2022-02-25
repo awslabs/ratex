@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import mnm
+import raf
 import pytest
 import torch.optim as optim
 import torchvision
@@ -46,7 +46,7 @@ def test_resnet18_imagenet(amp):
     verify(lazy_results, cpu_results, tol=1e-3)
 
 
-@patch("mnm.distributed.get_context")
+@patch("raf.distributed.get_context")
 @with_temp_cache
 @dryrun_dumped_ir_file
 def test_compile_lenet_dp(mock_get_context):
@@ -77,9 +77,9 @@ def test_compile_lenet_dp(mock_get_context):
     meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
     with open(meta_ir_file) as module_file:
         module_json = module_file.read()
-        module = mnm.ir.serialization.LoadJSON(module_json)
+        module = raf.ir.serialization.LoadJSON(module_json)
 
-    text = mnm.ir.AsText(module)
+    text = raf.ir.AsText(module)
     assert text.count("_allreduce") == 8
 
 

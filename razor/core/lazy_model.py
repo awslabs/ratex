@@ -5,7 +5,7 @@
 # pylint: disable=invalid-name, protected-access, c-extension-no-member, too-many-nested-blocks
 import torch
 
-from mnm import distributed as dist
+from raf import distributed as dist
 import _RAZORC
 
 REDUCE_SUM = "sum"
@@ -43,11 +43,11 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
         groups = [list(range(0, dctx.size))]
 
     if isinstance(inputs, torch.Tensor):
-        token = _RAZORC._mnm_create_token(inputs.device.type)
+        token = _RAZORC._raf_create_token(inputs.device.type)
         result = _RAZORC._ltc_all_reduce(reduce_type, inputs, token, scale, groups)
         results = [result[0]]
     else:
-        token = _RAZORC._mnm_create_token(inputs[0].device.type)
+        token = _RAZORC._raf_create_token(inputs[0].device.type)
         _ = _RAZORC._ltc_all_reduce_inplace(reduce_type, inputs, token, scale, groups)
         results = inputs
 
@@ -72,7 +72,7 @@ def all_gather(value, dim=0, groups=None):
     dctx = dist.get_context()
     if groups is None:
         groups = [list(range(0, dctx.size))]
-    result = _RAZORC._mnm_all_gather(value, dim, groups)
+    result = _RAZORC._raf_all_gather(value, dim, groups)
     return result
 
 

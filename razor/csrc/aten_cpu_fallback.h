@@ -10,12 +10,12 @@
 
 namespace torch_lazy_tensors {
 
-void mnm_cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
+void raf_cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack);
 
 #define FALLBACK_ATEN_OP(op_name, args...) \
-  at::native::call_fallback_fn<&mnm_cpu_fallback, ATEN_OP(op_name)>::call(args)
+  at::native::call_fallback_fn<&raf_cpu_fallback, ATEN_OP(op_name)>::call(args)
 
-class AtenMNMTypeDefault {
+class AtenRAFTypeDefault {
  public:
   static at::Tensor& add_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha);
   static at::Tensor& bernoulli_(at::Tensor& self, const at::Tensor& p,

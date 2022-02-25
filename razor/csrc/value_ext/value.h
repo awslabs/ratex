@@ -6,10 +6,10 @@
 #pragma once
 
 #include "tvm/ir/module.h"
-#include "mnm/ir.h"
-#include "mnm/value.h"
+#include "raf/ir.h"
+#include "raf/value.h"
 
-namespace mnm {
+namespace raf {
 namespace value {
 
 /*!
@@ -26,16 +26,16 @@ class ClosureValueExtObj final : public ValueObj {
     v->Visit("_mod", &mod);
   }
 
-  static constexpr const char* _type_key = "mnm.value.ClosureValueExt";
-  MNM_FINAL_OBJECT(ClosureValueExtObj, ValueObj);
+  static constexpr const char* _type_key = "raf.value.ClosureValueExt";
+  RAF_FINAL_OBJECT(ClosureValueExtObj, ValueObj);
 };
 
 /*! \brief reference to closure value extension */
 class ClosureValueExt final : public Value {
  public:
   static ClosureValueExt make(ir::Map<ir::Var, Value> env, ir::IRModule mod, ir::GlobalVar gvar);
-  MNM_OBJECT_REF(ClosureValueExt, Value, ClosureValueExtObj);
+  RAF_OBJECT_REF(ClosureValueExt, Value, ClosureValueExtObj);
 };
 
 }  // namespace value
-}  // namespace mnm
+}  // namespace raf

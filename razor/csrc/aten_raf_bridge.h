@@ -9,7 +9,7 @@
 
 namespace torch_lazy_tensors {
 namespace bridge {
-namespace mnm_backend {
+namespace raf_backend {
 
 c10::optional<LazyTensor> TryGetLtcTensor(const at::Tensor& tensor);
 
@@ -27,6 +27,6 @@ lazy_tensors::ComputationClient::DataPtr GetData(ir::Output out);
 // possible overrides), and the new IR value.
 LazyTensor CreateFrom(const LazyTensor& self, ir::Value ir_value);
 
-}  // namespace mnm_backend
+}  // namespace raf_backend
 }  // namespace bridge
 }  // namespace torch_lazy_tensors

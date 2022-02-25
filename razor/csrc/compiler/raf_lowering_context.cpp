@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/compiler/raf_lowering_context.h"
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -16,22 +16,22 @@
 
 #include "./utils.h"
 
-#include "mnm/ir.h"
-#include "mnm/value.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
+#include "raf/ir.h"
+#include "raf/value.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
 
 namespace torch_lazy_tensors {
 namespace compiler {
-namespace mnm_backend {
+namespace raf_backend {
 
-using namespace mnm::ir;
-using namespace mnm::value;
-using namespace mnm::pass;
-using namespace mnm::binding;
-using mnm::pass::extract_binding::ExtractBinding;
+using namespace raf::ir;
+using namespace raf::value;
+using namespace raf::pass;
+using namespace raf::binding;
+using raf::pass::extract_binding::ExtractBinding;
 
-lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GenericComputationMNM::GetProgramShape() const {
+lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GenericComputationRAF::GetProgramShape() const {
   Function func = Downcast<Function>(InferType(computation_));
   FuncType ty = Downcast<FuncType>(func->checked_type());
   std::vector<Shape> parameters;
@@ -46,23 +46,23 @@ lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GenericComputationMNM::GetPro
   return lazy_tensors::ProgramShape(parameters, parameter_names, result);
 }
 
-lazy_tensors::Shape MNMLoweringContext::GetResultShape(size_t index) const {
+lazy_tensors::Shape RAFLoweringContext::GetResultShape(size_t index) const {
   Var root = GetResult(index);
   Expr body = InferType(ExtractBinding(root, GetParams()));
   return ToLTCShape(body->checked_type());
 }
 
-size_t MNMLoweringContext::AddResult(const ir::Output& output) {
+size_t RAFLoweringContext::AddResult(const ir::Output& output) {
   return AddResult(GetOutputOp(output));
 }
 
-size_t MNMLoweringContext::AddResult(const Var& op) {
+size_t RAFLoweringContext::AddResult(const Var& op) {
   root_tuple_.push_back(op);
   return root_tuple_.size() - 1;
 }
 
 lazy_tensors::StatusOr<std::shared_ptr<lazy_tensors::GenericComputation>>
-MNMLoweringContext::Build() {
+RAFLoweringContext::Build() {
   Tuple tup(Array<Expr>(root_tuple_.begin(), root_tuple_.end()));
   Var root = root_tuple_.size() > 1 ? BindSymbol(tup) : root_tuple_[0];
   std::vector<Var> params = GetParams();
@@ -71,10 +71,10 @@ MNMLoweringContext::Build() {
   Array<Var> free_vars = FreeVars(func);
   LTC_CHECK(free_vars.size() == 0U);
   return std::shared_ptr<lazy_tensors::GenericComputation>(
-      new GenericComputationMNM(func, model_states_, alias_));
+      new GenericComputationRAF(func, model_states_, alias_));
 }
 
-std::vector<Var> MNMLoweringContext::GetParams() const {
+std::vector<Var> RAFLoweringContext::GetParams() const {
   std::vector<Var> params;
   for (const auto& data : parameters_) {
     lazy_tensors::client::Data::OpaqueHandle handle = data->GetOpaqueHandle();
@@ -83,11 +83,11 @@ std::vector<Var> MNMLoweringContext::GetParams() const {
   return params;
 }
 
-void MNMLoweringContext::LowerNodeToResult(const ir::Node* node) {
+void RAFLoweringContext::LowerNodeToResult(const ir::Node* node) {
   AddResult(LowerNode(node));
 }
 
-Var MNMLoweringContext::GetOutputOp(const ir::Output& output) {
+Var RAFLoweringContext::GetOutputOp(const ir::Output& output) {
   auto it = emitted_outputs_.find(output);
   if (it == emitted_outputs_.end()) {
     auto post_order = ir::Util::ComputePostOrder(output.node, &emit_status_);
@@ -98,14 +98,14 @@ Var MNMLoweringContext::GetOutputOp(const ir::Output& output) {
     // At this point the outpout better be present, otherwise there is an issue
     // with the lowering code.
     it = emitted_outputs_.find(output);
-    LTC_CHECK(it != emitted_outputs_.end()) << "No MNM operation emitted for output: " << output;
+    LTC_CHECK(it != emitted_outputs_.end()) << "No RAF operation emitted for output: " << output;
   }
   return it->second;
 }
 
-Var MNMLoweringContext::LowerNode(const ir::Node* node) {
+Var RAFLoweringContext::LowerNode(const ir::Node* node) {
   Var result;
-  result = LowerNodeToMNM(node, this);
+  result = LowerNodeToRAF(node, this);
   // TODO(@hzfan): catch lowering error and report
   if (node->num_outputs() > 1) {
     for (size_t i = 0; i < node->num_outputs(); ++i) {
@@ -117,21 +117,21 @@ Var MNMLoweringContext::LowerNode(const ir::Node* node) {
   return result;
 }
 
-Var MNMLoweringContext::GetResult(size_t index) const {
+Var RAFLoweringContext::GetResult(size_t index) const {
   return root_tuple_.at(index);
 }
 
-void MNMLoweringContext::AssignOutputOp(const ir::Output& output, const mnm::ir::Var& op) {
+void RAFLoweringContext::AssignOutputOp(const ir::Output& output, const raf::ir::Var& op) {
   emitted_outputs_[output] = op;
 }
 
-Var MNMLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client::Data>& data) {
+Var RAFLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client::Data>& data) {
   lazy_tensors::client::Data::OpaqueHandle handle = data->GetOpaqueHandle();
   auto it = parameters_map_.find(handle);
   if (it == parameters_map_.end()) {
     std::vector<int64_t> shape;
     DType dtype;
-    std::tie(shape, dtype) = ToMNMShape(data->shape());
+    std::tie(shape, dtype) = ToRAFShape(data->shape());
     Array<PrimExpr> arr_shape;
     for (const auto& s : shape) {
       arr_shape.push_back(Integer(s));
@@ -148,7 +148,7 @@ Var MNMLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client:
   return it->second.param;
 }
 
-void MNMLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
+void RAFLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
                                     lazy_tensors::int64 param_number,
                                     const lazy_tensors::ShapeIndex& param_index) {
   // std::cout << "SetUpAlias" << std::endl;
@@ -169,7 +169,7 @@ void MNMLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index
   alias_[param_number] = output_index[0];
 }
 
-}  // namespace mnm_backend
+}  // namespace raf_backend
 }  // namespace compiler
 
 namespace ir {
@@ -177,12 +177,12 @@ namespace ir {
 std::unique_ptr<LoweringContext> LoweringContext::Create(
     const std::string& name, Device device, lazy_tensors::Span<const Node* const> post_order,
     Util::EmissionMap emit_status) {
-  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(name, device, post_order,
+  return std::make_unique<compiler::raf_backend::RAFLoweringContext>(name, device, post_order,
                                                                      emit_status);
 }
 
 std::unique_ptr<LoweringContext> LoweringContext::Create(const std::string& name, Device device) {
-  return std::make_unique<compiler::mnm_backend::MNMLoweringContext>(name, device);
+  return std::make_unique<compiler::raf_backend::RAFLoweringContext>(name, device);
 }
 
 }  // namespace ir

@@ -5,28 +5,28 @@
 
 #pragma once
 
-#include "mnm/ir.h"
+#include "raf/ir.h"
 
-#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/compiler/raf_lowering_context.h"
 #include "client/base_computation_client.h"
 
 namespace torch_lazy_tensors {
 namespace serialization {
 
 using namespace tvm;
-using namespace mnm::ir;
+using namespace raf::ir;
 
 using LTCShape = lazy_tensors::Shape;
 using LTCProgramShape = lazy_tensors::ProgramShape;
-using LTCGenericComputationMNM = compiler::mnm_backend::GenericComputationMNM;
+using LTCGenericComputationRAF = compiler::raf_backend::GenericComputationRAF;
 using LTCComputation = lazy_tensors::ComputationClient::Computation;
 using LTCBaseComputation = razor::BaseComputationClient::BaseComputation;
 using lazy_tensors::int64;
 using lazy_tensors::PrimitiveType;
 
-class GenericComputationMNMNode : public Object {
+class GenericComputationRAFNode : public Object {
  public:
-  /*! \brief the mnm function to be compiled */
+  /*! \brief the raf function to be compiled */
   Expr computation;
   /*! \brief the parameters of computation_ that represent model states */
   Array<Var> model_states;
@@ -39,7 +39,7 @@ class GenericComputationMNMNode : public Object {
     v->Visit("alias", &alias);
   }
 
-  bool SEqualReduce(const GenericComputationMNMNode* other, SEqualReducer equal) const {
+  bool SEqualReduce(const GenericComputationRAFNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
     return equal(computation, other->computation) && equal(model_states, other->model_states) &&
            equal(alias, other->alias);
@@ -52,19 +52,19 @@ class GenericComputationMNMNode : public Object {
     hash_reduce(alias);
   }
 
-  static constexpr const char* _type_key = "razor.GenericComputationMNM";
+  static constexpr const char* _type_key = "razor.GenericComputationRAF";
   static constexpr const bool _type_has_method_sequal_reduce = true;
   static constexpr const bool _type_has_method_shash_reduce = true;
-  TVM_DECLARE_FINAL_OBJECT_INFO(GenericComputationMNMNode, Object);
+  TVM_DECLARE_FINAL_OBJECT_INFO(GenericComputationRAFNode, Object);
 };
 
-class GenericComputationMNM : public ObjectRef {
+class GenericComputationRAF : public ObjectRef {
  public:
-  TVM_DLL GenericComputationMNM(LTCGenericComputationMNM);
+  TVM_DLL GenericComputationRAF(LTCGenericComputationRAF);
 
-  operator LTCGenericComputationMNM() const;
+  operator LTCGenericComputationRAF() const;
 
-  TVM_DEFINE_OBJECT_REF_METHODS(GenericComputationMNM, ObjectRef, GenericComputationMNMNode);
+  TVM_DEFINE_OBJECT_REF_METHODS(GenericComputationRAF, ObjectRef, GenericComputationRAFNode);
 };
 
 class ShapeNode : public Object {
@@ -149,7 +149,7 @@ class ProgramShape : public ObjectRef {
 
 class ComputationNode : public Object {
  public:
-  GenericComputationMNM computation;
+  GenericComputationRAF computation;
   ProgramShape program_shape;
   Array<String> devices;
 

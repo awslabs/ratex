@@ -9,12 +9,12 @@ import logging
 
 import _RAZORC
 import torch
-import mnm
+import raf
 import tvm
-from mnm import distributed as dist
-from mnm._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
+from raf import distributed as dist
+from raf._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
 
-from .._lib import mnm
+from .._lib import raf
 from ..value import ValueToHandle
 from ..utils.utils import ltc_timed
 from ..utils.cache import cache as persist_cache
@@ -22,9 +22,9 @@ from ..utils.cache import cache as persist_cache
 # pylint: disable=invalid-name
 logger = logging.getLogger("jit.script")
 
-_APIS = mnm._lib._get_apis()
-InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
-CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
+_APIS = raf._lib._get_apis()
+InplaceUpdateAnalysis = _APIS.get("raf.pass_.InplaceUpdateAnalysis", None)
+CanonicalizeParamsForRAZOR = _APIS.get("raf.pass_.CanonicalizeParamsForRAZOR", None)
 # pylint: enable=invalid-name
 
 TORCH_DTYPES = {
@@ -44,7 +44,7 @@ def to_torch_name(name):
     return name
 
 
-def to_mnm_name(name):
+def to_raf_name(name):
     """Transform the parameter naming style to Meta."""
     return "model_" + name.replace(".", "_")
 
@@ -70,7 +70,7 @@ def get_positional_args(param_names, *args, **kwargs):
     """
     ret = []
     i = 0
-    mnm_kwargs = {to_mnm_name(k): v for k, v in kwargs.items()}
+    mnm_kwargs = {to_raf_name(k): v for k, v in kwargs.items()}
     for name in param_names:
         if name in mnm_kwargs:
             param = mnm_kwargs[name]
@@ -91,15 +91,15 @@ class RelayFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, func, inplace_update_map, *args):
-        handle = ValueToHandle(mnm._core.value.ClosureValue({}, func))
-        t_func = _RAZORC._mnm_to_tensor(handle)
-        result = _RAZORC._mnm_invoke_relay(t_func, args, inplace_update_map)
+        handle = ValueToHandle(raf._core.value.ClosureValue({}, func))
+        t_func = _RAZORC._raf_to_tensor(handle)
+        result = _RAZORC._raf_invoke_relay(t_func, args, inplace_update_map)
         ctx.bwd = result[1]
         return result[0]
 
     @staticmethod
     def backward(ctx, grad_output):
-        ret = _RAZORC._mnm_invoke_relay(ctx.bwd, [grad_output], {})
+        ret = _RAZORC._raf_invoke_relay(ctx.bwd, [grad_output], {})
 
         # Each value in the return tuple is a gradient corresponding to the forward input,
         # so the first 2 must be None, because the forward func and inplace_update_map don't
@@ -163,14 +163,14 @@ def persis_cache_fn(wrapped_func):
 
         def loader(value):
             func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = unpack(
-                mnm.ir.load_json(value)
+                raf.ir.load_json(value)
             )
             # mnm_params_shape is tuple instead of list
             mnm_params_shape = {k: tuple(v) for k, v in mnm_params_shape.items()}
             return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
 
         def saver(value):
-            return mnm.ir.save_json(value)
+            return raf.ir.save_json(value)
 
         value = persist_cache.query(cache_key, loader=loader)
         if value is None:
@@ -196,7 +196,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
 
     Returns
     -------
-    ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, mnm.array]]
+    ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
     dctx = dist.get_context()
@@ -214,7 +214,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
         cached_model_file = cached_model_path / "model.pt"
         cached_hash_file = cached_model_path / "model.hash"
 
-    model = mnm.frontend.from_pytorch(
+    model = raf.frontend.from_pytorch(
         cloned_module,
         {"input0": shape_n_dtype},
         model_file=cached_model_file,
@@ -227,7 +227,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
-    record = model._internal(mnm.array(asnumpy(args[0].clone())))
+    record = model._internal(raf.array(asnumpy(args[0].clone())))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
     if dctx.enable_data_parallel:
@@ -291,7 +291,7 @@ def script(module: torch.nn.Module):
                 mnm_params_dtype,
             ) = convert_module_to_meta(module, shape_n_dtype, args)
             # Convert missing args
-            params_keys = [to_mnm_name(k) for k in params.keys()]
+            params_keys = [to_raf_name(k) for k in params.keys()]
             for name in param_names:
                 if name == "input0":
                     continue
@@ -302,7 +302,7 @@ def script(module: torch.nn.Module):
                         dtype=TORCH_DTYPES.get(mnm_params_dtype[name], "float32"),
                     ).to("lazy")
                     logger.warning(
-                        "%s parameter has been converted from mnm.array to torch.Tensor.", name
+                        "%s parameter has been converted from raf.array to torch.Tensor.", name
                     )
             # Updated cached function, param_names, and inplace update map
             JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)

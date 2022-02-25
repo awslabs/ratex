@@ -140,7 +140,7 @@ Note that you can also compile Meat with other configurations, such as
 CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
 
 ```
-cd third_party/meta/
+cd third_party/raf/
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
@@ -153,23 +153,23 @@ Troubleshootings:
 
 * If you encounter the following error, try link /usr/local/cuda to /usr/local/cuda-10.2 instead of /usr/local/cuda-10.0 .
 ```
-razor/third_party/meta/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
+razor/third_party/raf/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
 ```
 
 #### 5.2 Build/Install Meta/TVM wheels (under `razor/`)
 
 ```
 export BASE_DIR=`pwd`
-cd third_party/meta/3rdparty/tvm/python
+cd third_party/raf/3rdparty/tvm/python
 rm -rf ../build/pip/public/tvm_latest
-TVM_LIBRARY_PATH=${BASE_DIR}/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
+TVM_LIBRARY_PATH=${BASE_DIR}/third_party/raf/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
 python3 -m pip install ../build/pip/public/tvm_latest/*.whl --upgrade --force-reinstall --no-deps
 cd -
 
-cd third_party/meta/python
-rm -rf ../build/pip/public/mnm
-python3 setup.py bdist_wheel -d ../build/pip/public/mnm
-python3 -m pip install ../build/pip/public/mnm/*.whl --upgrade --force-reinstall --no-deps
+cd third_party/raf/python
+rm -rf ../build/pip/public/raf
+python3 setup.py bdist_wheel -d ../build/pip/public/raf
+python3 -m pip install ../build/pip/public/raf/*.whl --upgrade --force-reinstall --no-deps
 ```
 
 #### 5.3 Test Build
@@ -178,7 +178,7 @@ Again, you should see the paths under site-packages or dist-packages instead of 
 
 ```
 python3 -c "import tvm"
-python3 -c "import mnm"
+python3 -c "import raf"
 ```
 
 ### 6. Build PyTorch/RAF
@@ -239,14 +239,14 @@ python3 lenet.py
 Expected output (loss may vary):
 
 ```
-mnm starts...
+raf starts...
 Epoch 0/9
 ----------
 One or more operators have not been tuned. Please tune your model for better performance. Use DEBUG logging level to see more details.
-[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
 train Loss: 0.0701
 Epoch 1/9
 ----------

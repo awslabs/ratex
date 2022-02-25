@@ -8,16 +8,16 @@
 #include <type_traits>
 #include <vector>
 
-#include "mnm/ir.h"
+#include "raf/ir.h"
 
-#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/compiler/raf_lowering_context.h"
 #include "razor/csrc/serialization/serialization.h"
 
 namespace torch_lazy_tensors {
 namespace serialization {
 
 using namespace tvm;
-using namespace mnm::ir;
+using namespace raf::ir;
 
 template <typename T, typename S>
 T ToTVMFromLTC(const S& source);

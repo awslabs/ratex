@@ -40,7 +40,7 @@ class ltc_timed:  # pylint: disable=invalid-name
         self.start = time.time()
 
     def __exit__(self, *args):
-        _RAZORC._mnm_ltc_timed_metric(self.name, 1e9 * (time.time() - self.start))
+        _RAZORC._raf_ltc_timed_metric(self.name, 1e9 * (time.time() - self.start))
 
     def __call__(self, func):
         @functools.wraps(func)
@@ -53,7 +53,7 @@ class ltc_timed:  # pylint: disable=invalid-name
 
 def ltc_counter(name, value=1):
     """A wrapper to add a counter sample to metric report."""
-    _RAZORC._mnm_ltc_counter_metric(name, value)
+    _RAZORC._raf_ltc_counter_metric(name, value)
 
 
 @tvm._ffi.register_func("razor.utils.print_stack")

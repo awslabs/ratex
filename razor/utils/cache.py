@@ -349,9 +349,9 @@ def normalize(key):
         return tuple((normalize(k), normalize(key[k])) for k in keys)
     if isinstance(key, tvm.tir.expr.ConstExpr):
         return key.value
-    # FIXME: mnm.ir.AsText(key) segfaults, because we do not have may_share field
+    # FIXME: raf.ir.AsText(key) segfaults, because we do not have may_share field
     # if isinstance(key, tvm.relay.Expr):
-    #     return hashlib.md5(mnm.ir.AsText(key).encode(encoding="UTF-8")).hexdigest()
+    #     return hashlib.md5(raf.ir.AsText(key).encode(encoding="UTF-8")).hexdigest()
     return hashlib.md5(str(key).encode(encoding="UTF-8")).hexdigest()
 
 

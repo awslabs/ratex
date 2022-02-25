@@ -11,9 +11,9 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-class MNMAllGather : public Node {
+class RAFAllGather : public Node {
  public:
-  MNMAllGather(lazy_tensors::Span<const Value> operands, lazy_tensors::int64 dim,
+  RAFAllGather(lazy_tensors::Span<const Value> operands, lazy_tensors::int64 dim,
                std::vector<std::vector<lazy_tensors::int64>> groups);
 
   std::string ToString() const override;

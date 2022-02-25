@@ -7,8 +7,8 @@
 
 #include "lazy_tensor_core/csrc/compiler/backend_impl_interface.h"
 #include "lazy_tensor_core/csrc/tensor_util.h"
-#include "razor/csrc/compiler/mnm_lowering_context.h"
-#include "razor/csrc/compiler/mnm_node_lowering.h"
+#include "razor/csrc/compiler/raf_lowering_context.h"
+#include "razor/csrc/compiler/raf_node_lowering.h"
 #include "razor/csrc/compiler/backend_registry.h"
 
 namespace torch_lazy_tensors {
@@ -17,22 +17,22 @@ namespace compiler {
 class BaseBackendImpl : public BackendImplInterface {
  public:
   std::unique_ptr<NodeLowering> CreateNodeLowering(ir::LoweringContext* loctx) const override {
-    return CreateMNMNodeLowering(loctx);
+    return CreateRAFNodeLowering(loctx);
   }
 
   NodeLowering* GetNodeLowering() const override {
-    return GetMNMNodeLowering();
+    return GetRAFNodeLowering();
   }
 
   std::unique_ptr<ir::LoweringContext> CreateLoweringContext(
       const std::string& name, Device device, lazy_tensors::Span<const ir::Node* const> post_order,
       ir::Util::EmissionMap emit_status) const override {
-    return std::make_unique<mnm_backend::MNMLoweringContext>(name, device, post_order, emit_status);
+    return std::make_unique<raf_backend::RAFLoweringContext>(name, device, post_order, emit_status);
   }
 
   std::unique_ptr<ir::LoweringContext> CreateLoweringContext(const std::string& name,
                                                              Device device) const override {
-    return std::make_unique<mnm_backend::MNMLoweringContext>(name, device);
+    return std::make_unique<raf_backend::RAFLoweringContext>(name, device);
   }
 
   std::vector<std::string> GetCompilationDevices(

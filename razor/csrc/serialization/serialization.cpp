@@ -10,30 +10,30 @@
 namespace torch_lazy_tensors {
 namespace serialization {
 
-using namespace mnm::ir;
+using namespace raf::ir;
 
-GenericComputationMNM::GenericComputationMNM(LTCGenericComputationMNM x) {
-  ObjectPtr<GenericComputationMNMNode> n = make_object<GenericComputationMNMNode>();
+GenericComputationRAF::GenericComputationRAF(LTCGenericComputationRAF x) {
+  ObjectPtr<GenericComputationRAFNode> n = make_object<GenericComputationRAFNode>();
   n->computation = x.computation();
   n->model_states = ToTVMFromLTC<Array<Var>>(x.model_states());
   n->alias = ToTVMFromLTC<Map<Integer, Integer>>(x.alias());
   data_ = std::move(n);
 }
 
-GenericComputationMNM::operator LTCGenericComputationMNM() const {
-  return LTCGenericComputationMNM{
+GenericComputationRAF::operator LTCGenericComputationRAF() const {
+  return LTCGenericComputationRAF{
       get()->computation,
-      ToLTCFromTVM<std::unordered_set<mnm::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>>(
+      ToLTCFromTVM<std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>>(
           get()->model_states),
       ToLTCFromTVM<std::unordered_map<int64_t, int64_t>>(get()->alias)};
 }
 
-TVM_REGISTER_NODE_TYPE(GenericComputationMNMNode);
+TVM_REGISTER_NODE_TYPE(GenericComputationRAFNode);
 
 TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
-    .set_dispatch<GenericComputationMNMNode>([](const ObjectRef& ref, ReprPrinter* p) {
-      auto* node = static_cast<const GenericComputationMNMNode*>(ref.get());
-      p->stream << "GenericComputationMNMNode(" << node->computation << ", " << node->model_states
+    .set_dispatch<GenericComputationRAFNode>([](const ObjectRef& ref, ReprPrinter* p) {
+      auto* node = static_cast<const GenericComputationRAFNode*>(ref.get());
+      p->stream << "GenericComputationRAFNode(" << node->computation << ", " << node->model_states
                 << ", " << node->alias << ")";
     });
 
@@ -87,15 +87,15 @@ TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
 
 Computation::Computation(LTCComputation x) {
   ObjectPtr<ComputationNode> n = make_object<ComputationNode>();
-  n->computation = *static_cast<LTCGenericComputationMNM*>(x.computation());
+  n->computation = *static_cast<LTCGenericComputationRAF*>(x.computation());
   n->program_shape = x.program_shape();
   n->devices = ToTVMFromLTC<Array<String>>(x.devices());
   data_ = std::move(n);
 }
 
 Computation::operator LTCComputation() const {
-  return LTCComputation{std::make_shared<LTCGenericComputationMNM>(
-                            get()->computation.operator LTCGenericComputationMNM()),
+  return LTCComputation{std::make_shared<LTCGenericComputationRAF>(
+                            get()->computation.operator LTCGenericComputationRAF()),
                         ToLTCFromTVM<LTCProgramShape>(get()->program_shape),
                         ToLTCFromTVM<std::vector<std::string>>(get()->devices)};
 }
@@ -111,7 +111,7 @@ TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
 
 BaseComputation::BaseComputation(LTCBaseComputation x) {
   ObjectPtr<BaseComputationNode> n = make_object<BaseComputationNode>();
-  n->computation = *static_cast<LTCGenericComputationMNM*>(x.computation());
+  n->computation = *static_cast<LTCGenericComputationRAF*>(x.computation());
   n->program_shape = x.program_shape();
   n->devices = ToTVMFromLTC<Array<String>>(x.devices());
   n->alias = ToTVMFromLTC<Map<Integer, Integer>>(x.alias);
@@ -119,8 +119,8 @@ BaseComputation::BaseComputation(LTCBaseComputation x) {
 }
 
 BaseComputation::operator LTCBaseComputation() const {
-  return LTCBaseComputation(std::make_shared<LTCGenericComputationMNM>(
-                                get()->computation.operator LTCGenericComputationMNM()),
+  return LTCBaseComputation(std::make_shared<LTCGenericComputationRAF>(
+                                get()->computation.operator LTCGenericComputationRAF()),
                             ToLTCFromTVM<LTCProgramShape>(get()->program_shape),
                             ToLTCFromTVM<std::vector<std::string>>(get()->devices),
                             ToLTCFromTVM<std::unordered_map<int64_t, int64_t>>(get()->alias));

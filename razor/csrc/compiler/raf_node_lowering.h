@@ -10,8 +10,8 @@
 namespace torch_lazy_tensors {
 namespace compiler {
 
-NodeLowering* GetMNMNodeLowering();
-std::unique_ptr<NodeLowering> CreateMNMNodeLowering(ir::LoweringContext* loctx);
+NodeLowering* GetRAFNodeLowering();
+std::unique_ptr<NodeLowering> CreateRAFNodeLowering(ir::LoweringContext* loctx);
 
 }  // namespace compiler
 }  // namespace torch_lazy_tensors

@@ -5,7 +5,7 @@
 
 namespace razor {
 
-extern const char MNM_GITREV[];
+extern const char RAF_GITREV[];
 extern const char TORCH_GITREV[];
 
 }  // namespace razor

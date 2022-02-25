@@ -11,20 +11,20 @@
  * such as in-place updated running mean and variance have to be removed from its parameters.
  */
 #include <unordered_map>
-#include "mnm/op.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
+#include "raf/op.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
 
-namespace mnm {
+namespace raf {
 
 namespace pass {
 namespace canonicalize_params_for_razor {
 
-using namespace mnm::ir;
-using namespace mnm::op;
+using namespace raf::ir;
+using namespace raf::op;
 
 template <typename T>
 using StdSet = std::unordered_set<T, ObjectPtrHash, ObjectPtrEqual>;
@@ -146,8 +146,8 @@ Pass CanonicalizeParamsForRAZOR() {
       1, "CanonicalizeParamsForRAZOR", {});
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.CanonicalizeParamsForRAZOR")
+RAF_REGISTER_GLOBAL("raf.pass_.CanonicalizeParamsForRAZOR")
     .set_body_typed(CanonicalizeParamsForRAZOR);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

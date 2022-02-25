@@ -6,8 +6,8 @@
 #pragma once
 #include "lazy_tensors/computation_client/computation_client.h"
 #include "lazy_tensors/computation_client/client_data.h"
-#include "mnm/value.h"
-#include "mnm/ir.h"
+#include "raf/value.h"
+#include "raf/ir.h"
 
 namespace razor {
 
@@ -156,7 +156,7 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
   virtual ComputationPtr Compile(CompileInstance instance) = 0;
 
-  virtual mnm::ObjectRef CompileCacheKey(CompileInstance instance);
+  virtual raf::ObjectRef CompileCacheKey(CompileInstance instance);
 
   virtual std::string CompileSerialize(ComputationPtr instance) {
     LTC_LOG(FATAL) << "Serialization not implemented. Cached compilation should be disabled";

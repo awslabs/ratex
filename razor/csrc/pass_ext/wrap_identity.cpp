@@ -6,24 +6,24 @@
 /*!
  * Copyright (c) 2021 by Contributors
  * \file src/pass/wrap_identity.cc
- * \brief Wrap identity output values with mnm.op.copy
+ * \brief Wrap identity output values with raf.op.copy
  */
 #include <unordered_map>
 #include <tvm/node/structural_equal.h>
 #include <tvm/node/structural_hash.h>
-#include "mnm/op.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
+#include "raf/op.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
 
-namespace mnm {
+namespace raf {
 
 namespace binding {
 
-using namespace mnm::ir;
-using namespace mnm::value;
+using namespace raf::ir;
+using namespace raf::value;
 
 TensorValue MakeOnes(Device to_dev);
 
@@ -32,8 +32,8 @@ TensorValue MakeOnes(Device to_dev);
 namespace pass {
 namespace wrap_identity {
 
-using namespace mnm::ir;
-using namespace mnm::op;
+using namespace raf::ir;
+using namespace raf::op;
 
 class IdentityWrapper : ExprMutator {
  public:
@@ -41,7 +41,7 @@ class IdentityWrapper : ExprMutator {
   }
 
   Expr VisitExpr_(const VarNode* node) {
-    const static Op copy = Op::Get("mnm.op.copy");
+    const static Op copy = Op::Get("raf.op.copy");
     if (params_.find(GetRef<Var>(node)) != params_.end()) {
       Var v1 = MakeVar("copy" + std::to_string(cnt_++), {});
       return ll_->Push(v1, Call(copy, {GetRef<Var>(node)}));
@@ -55,7 +55,7 @@ class IdentityWrapper : ExprMutator {
       // Function is not in ANF
       if (func->body.as<RelayConstantNode>()) {
         Expr body = LetList::With([&](LetList* ll) {
-          const static Op copy = Op::Get("mnm.op.copy");
+          const static Op copy = Op::Get("raf.op.copy");
           Var v = MakeVar("copy" + std::to_string(cnt_++), {});
           return ll->Push(v, Call(copy, {func->body}));
         });
@@ -96,10 +96,10 @@ Pass WrapIdentity() {
                                                                              PassContext pc) {
     return Downcast<Function>(wrap_identity::IdentityWrapper()(f));
   };
-  return CreateMNMFunctionPass(pass_func, 1, "WrapIdentity", {});
+  return CreateRAFFunctionPass(pass_func, 1, "WrapIdentity", {});
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.WrapIdentity").set_body_typed(WrapIdentity);
+RAF_REGISTER_GLOBAL("raf.pass_.WrapIdentity").set_body_typed(WrapIdentity);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

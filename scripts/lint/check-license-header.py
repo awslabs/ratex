@@ -15,6 +15,9 @@ Examples:
  - Compare against upstream/main: python3 scripts/lint/check_license_header.py upstream/main
 """
 
+IGNORE_FILES = ["LICENSE", "README.md", ".gitignore", ".gitmodules"]
+IGNORE_FILE_EXTS = [".png", ".txt"]
+
 
 def copyright_line(line):
     # Following two items are intentionally break apart
@@ -29,7 +32,7 @@ def copyright_line(line):
 
 
 def check_license(fname):
-    if fname in [".gitignore", "LICENSE"]:
+    if fname in IGNORE_FILES:
         return True
 
     # Skip 3rdparty change.
@@ -37,12 +40,7 @@ def check_license(fname):
         return True
 
     # Skip ignorable files.
-    if (
-        fname.find("README") != -1
-        or fname.endswith(".png")
-        or fname.endswith(".txt")
-        or fname.find("LICENSE") != -1
-    ):
+    if any([fname.endswith(ext) for ext in IGNORE_FILE_EXTS]):
         return True
 
     has_license_header = False

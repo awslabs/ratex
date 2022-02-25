@@ -6,13 +6,13 @@
 /*!
  * Copyright (c) 2021 by Contributors
  * \file pass.h
- * \brief Customized MNM passes
+ * \brief Customized RAF passes
  */
 #pragma once
 
-#include "mnm/pass.h"
+#include "raf/pass.h"
 
-namespace mnm {
+namespace raf {
 namespace pass {
 
 /*!
@@ -22,7 +22,7 @@ namespace pass {
 Pass EliminateClosure();
 
 /*!
- * \brief Wrap identity output values with mnm.op.copy
+ * \brief Wrap identity output values with raf.op.copy
  * \return The pass.
  */
 Pass WrapIdentity();
@@ -56,4 +56,4 @@ Pass InplaceUpdateByAlias(ir::Map<tvm::Integer, tvm::Integer> alias_map);
 Pass PartitionOptimStatus();
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

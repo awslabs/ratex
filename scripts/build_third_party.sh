@@ -49,37 +49,40 @@ if [ "$USE_CUDA" = "ON" ]; then
   USE_CUDNN="ON"
 fi
 
-echo "Building Meta/TVM..."
+echo "Building RAF/TVM..."
 pushd .
-cd third_party/meta/
+cd third_party/raf/
 bash ./scripts/src_codegen/run_all.sh
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
 echo "set(CMAKE_BUILD_TYPE ${BUILD_TYPE})" >> config.cmake
-cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ \
-      -D MNM_USE_CUDA=$USE_CUDA -D MNM_CUDA_ARCH=$CUDA_ARCH -D MNM_USE_CUBLAS=$USE_CUBLAS \
-      -D MNM_USE_CUDNN=$USE_CUDNN -D USE_CUTLASS=$USE_CUTLASS ..
+echo "set(RAF_USE_CUDA $USE_CUDA)" >> config.cmake
+echo "set(RAF_CUDA_ARCH $CUDA_ARCH)" >> config.cmake
+echo "set(RAF_USE_CUBLAS $USE_CUBLAS)" >> config.cmake
+echo "set(RAF_USE_CUDNN $USE_CUDNN)" >> config.cmake
+echo "set(USE_CUTLASS $USE_CUTLASS)" >> config.cmake
+cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ ..
 make -j${BUILD_MAX_JOBS}
 popd
 
-echo "Building Meta/TVM wheels..."
+echo "Building RAF/TVM wheels..."
 pushd .
-cd third_party/meta/3rdparty/tvm/python
+cd third_party/raf/3rdparty/tvm/python
 rm -rf ../build/pip/public/tvm_latest
-TVM_LIBRARY_PATH=${BASE_DIR}/third_party/meta/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
+TVM_LIBRARY_PATH=${BASE_DIR}/third_party/raf/build/lib python3 setup.py bdist_wheel -d ../build/pip/public/tvm_latest
 python3 -m pip install ../build/pip/public/tvm_latest/*.whl --upgrade --force-reinstall --no-deps
 popd
 pushd .
-cd third_party/meta/python
-rm -rf ../build/pip/public/mnm
-python3 setup.py bdist_wheel -d ../build/pip/public/mnm
-python3 -m pip install ../build/pip/public/mnm/*.whl --upgrade --force-reinstall --no-deps
+cd third_party/raf/python
+rm -rf ../build/pip/public/raf
+python3 setup.py bdist_wheel -d ../build/pip/public/raf
+python3 -m pip install ../build/pip/public/raf/*.whl --upgrade --force-reinstall --no-deps
 popd
 
 echo "Testing..."
 pushd .
 cd $HOME
 python3 -c "import tvm"
-python3 -c "import mnm"
+python3 -c "import raf"
 popd

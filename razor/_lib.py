@@ -6,5 +6,5 @@
 import os
 import sys
 
-import mnm
+import raf
 import tvm

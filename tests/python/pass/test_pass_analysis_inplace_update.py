@@ -3,23 +3,23 @@
 
 import pytest
 
-from razor._lib import mnm
+from razor._lib import raf
 import tvm
 from tvm import relay
-from mnm.ir import ScopeBuilder
+from raf.ir import ScopeBuilder
 
-_APIS = mnm._lib._get_apis()
-InplaceUpdateAnalysis = _APIS.get("mnm.pass_.InplaceUpdateAnalysis", None)
+_APIS = raf._lib._get_apis()
+InplaceUpdateAnalysis = _APIS.get("raf.pass_.InplaceUpdateAnalysis", None)
 
 
 def test_basic():
-    relu_op = mnm._ffi.op.GetOp("mnm.op.relu")
-    add_op = mnm._ffi.op.GetOp("mnm.op.add")
-    null = mnm.ir.const(None)
+    relu_op = raf._ffi.op.GetOp("raf.op.relu")
+    add_op = raf._ffi.op.GetOp("raf.op.add")
+    null = raf.ir.const(None)
 
     def get_mod():
-        data_1 = mnm.ir.var("p1", shape=(16, 16))
-        data_2 = mnm.ir.var("p2", shape=(16, 16))
+        data_1 = raf.ir.var("p1", shape=(16, 16))
+        data_2 = raf.ir.var("p2", shape=(16, 16))
 
         sb = ScopeBuilder()
         a_1 = sb.let("a1", relay.Call(relu_op, [data_1]))

@@ -149,13 +149,13 @@ def main():
         )
         for x in ["train", "val"]
     }
-    print("mnm starts...")
+    print("raf starts...")
     train("lazy", model_mnm, image_datasets)
     print("cpu starts...")
     train("cpu", model_cpu, image_datasets)
 
-    # print("mnm starts...")
-    # infer("mnm", model_mnm, image_datasets)
+    # print("raf starts...")
+    # infer("raf", model_mnm, image_datasets)
     # print("cpu starts...")
     # infer("cpu", model_cpu, image_datasets)
 

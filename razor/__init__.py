@@ -21,9 +21,9 @@ from .utils import cache
 
 try:
     from .version import __version__ as __version__
-    from .version import __mnm_gitrev__ as __mnm_gitrev__
+    from .version import __raf_gitrev__ as __raf_gitrev__
     from .version import __torch_gitrev__ as __torch_gitrev__
 except:  # pylint: disable=bare-except
     __version__ = "dev"
-    __mnm_gitrev__ = "unknown"
+    __raf_gitrev__ = "unknown"
     __torch_gitrev__ = "unkonwn"

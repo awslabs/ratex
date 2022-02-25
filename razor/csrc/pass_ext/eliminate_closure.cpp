@@ -11,20 +11,20 @@
 #include <unordered_map>
 #include <tvm/node/structural_equal.h>
 #include <tvm/node/structural_hash.h>
-#include "mnm/op.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
-#include "mnm/value.h"
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
+#include "raf/op.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
+#include "raf/value.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
 
-namespace mnm {
+namespace raf {
 
 namespace binding {
 
-using namespace mnm::ir;
-using namespace mnm::value;
+using namespace raf::ir;
+using namespace raf::value;
 
 TensorValue MakeOnes(Device to_dev);
 
@@ -33,8 +33,8 @@ TensorValue MakeOnes(Device to_dev);
 namespace pass {
 namespace eliminate_closure {
 
-using namespace mnm::ir;
-using namespace mnm::op;
+using namespace raf::ir;
+using namespace raf::op;
 
 class ClosureEliminator {
  public:
@@ -55,10 +55,10 @@ class ClosureEliminator {
     } else if (ty.as<TensorTypeNode>()) {
       return x;
     } else if (ty.as<FuncTypeNode>()) {
-      const static auto& ones = Op::Get("mnm.op.ones");
-      return ll_->Push(Call(ones, {MakeConstant(mnm::value::TupleValue::make({})),
-                                   MakeConstant(mnm::value::StringValue::make("float32")),
-                                   MakeConstant(mnm::value::StringValue::make("cpu"))}));
+      const static auto& ones = Op::Get("raf.op.ones");
+      return ll_->Push(Call(ones, {MakeConstant(raf::value::TupleValue::make({})),
+                                   MakeConstant(raf::value::StringValue::make("float32")),
+                                   MakeConstant(raf::value::StringValue::make("cpu"))}));
     }
     LOG(FATAL) << "Unsupported type: " << ty;
   }
@@ -104,7 +104,7 @@ Pass EliminateClosure() {
       1, "EliminateClosure", {});
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.EliminateClosure").set_body_typed(EliminateClosure);
+RAF_REGISTER_GLOBAL("raf.pass_.EliminateClosure").set_body_typed(EliminateClosure);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

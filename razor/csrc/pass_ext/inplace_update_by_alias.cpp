@@ -9,21 +9,21 @@
  * \brief Mutate the IR to attach in-place update information according to the given alias map.
  */
 #include <unordered_map>
-#include "mnm/op.h"
-#include "mnm/ir.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
+#include "raf/op.h"
+#include "raf/ir.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
 
-namespace mnm {
+namespace raf {
 
 namespace pass {
 
 namespace inplace_update_by_alias {
 
-using namespace mnm::ir;
-using namespace mnm::op;
+using namespace raf::ir;
+using namespace raf::op;
 
 /*!
  * \brief Mutate the IR to attach in-place update information according to the given alias map.
@@ -36,12 +36,12 @@ class InplaceUpdater {
   }
 
   Expr UpdateCall(int out_idx, const Expr& expr, const Var& param) {
-    static auto add_op = Op::Get("mnm.op.add");
-    static auto subtract_op = Op::Get("mnm.op.subtract");
+    static auto add_op = Op::Get("raf.op.add");
+    static auto subtract_op = Op::Get("raf.op.subtract");
 
     if (!expr->IsInstance<CallNode>()) {
       LOG(WARNING) << "Output." << out_idx
-                   << " is not binded to a call node: " << mnm::ir::AsText(expr);
+                   << " is not binded to a call node: " << raf::ir::AsText(expr);
       return expr;
     }
 
@@ -49,7 +49,7 @@ class InplaceUpdater {
     auto op_node = call->op.as<OpNode>();
     if (!op_node) {
       LOG(WARNING) << "Output." << out_idx
-                   << " is not binded to an op: " << mnm::ir::AsText(call->op);
+                   << " is not binded to an op: " << raf::ir::AsText(call->op);
       return expr;
     }
 
@@ -59,7 +59,7 @@ class InplaceUpdater {
     }
 
     LOG(WARNING) << "Output." << out_idx
-                 << " is not binded to an op with inplace update: " << mnm::ir::AsText(op);
+                 << " is not binded to an op with inplace update: " << raf::ir::AsText(op);
     return expr;
   }
 
@@ -128,7 +128,7 @@ Pass InplaceUpdateByAlias(ir::Map<tvm::Integer, tvm::Integer> alias_map) {
       1, "InplaceUpdateByAlias", {});
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.InplaceUpdateByAlias").set_body_typed(InplaceUpdateByAlias);
+RAF_REGISTER_GLOBAL("raf.pass_.InplaceUpdateByAlias").set_body_typed(InplaceUpdateByAlias);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

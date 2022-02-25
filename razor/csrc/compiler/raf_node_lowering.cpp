@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "./mnm_node_lowering.h"
+#include "./raf_node_lowering.h"
 
 #include <c10/util/BFloat16.h>
 
@@ -125,55 +125,55 @@
 #include "razor/csrc/ops/relay_expr.h"
 #include "razor/csrc/ops/relay_function.h"
 #include "razor/csrc/ops/log_softmax_backward_use_in.h"
-#include "razor/csrc/ops/mnm_ops.h"
+#include "razor/csrc/ops/raf_ops.h"
 
-#include "./mnm_lowering_context.h"
-#include "./mnm_shape_infer.h"
+#include "./raf_lowering_context.h"
+#include "./raf_shape_infer.h"
 #include "./utils.h"
 
-#include "mnm/ir.h"
-#include "mnm/ir_ext.h"
-#include "mnm/value.h"
-#include "mnm/binding.h"
-#include "mnm/pass.h"
-#include "meta/src/op/regs/schema2value.h"
-#include "meta/src/common/shape_utils.h"
+#include "raf/ir.h"
+#include "raf/ir_ext.h"
+#include "raf/value.h"
+#include "raf/binding.h"
+#include "raf/pass.h"
+#include "raf/src/op/regs/schema2value.h"
+#include "raf/src/common/shape_utils.h"
 
 namespace torch_lazy_tensors {
 namespace compiler {
 namespace {
 
-using namespace mnm_backend;
-using namespace mnm;
-using namespace mnm::tensor;
-using namespace mnm::ir;
-using namespace mnm::value;
-using namespace mnm::binding;
-using namespace mnm::pass;
-using mnm::op::regs::schema2value::Bool;
-using mnm::op::regs::schema2value::Double;
-using mnm::op::regs::schema2value::Int;
-using mnm::op::regs::schema2value::String;
-using mnm::op::regs::schema2value::TupleInt;
-using mnm::pass::extract_binding::ExtractBinding;
+using namespace raf_backend;
+using namespace raf;
+using namespace raf::tensor;
+using namespace raf::ir;
+using namespace raf::value;
+using namespace raf::binding;
+using namespace raf::pass;
+using raf::op::regs::schema2value::Bool;
+using raf::op::regs::schema2value::Double;
+using raf::op::regs::schema2value::Int;
+using raf::op::regs::schema2value::String;
+using raf::op::regs::schema2value::TupleInt;
+using raf::pass::extract_binding::ExtractBinding;
 
 #define DECLARE_OP(name) Var Lower##name(const ir::Node* node)
 #define DECLARE_OP2(name) Var Lower##name(const ir::ops::name* node)
 
-class MNMNodeLowering : public NodeLowering {
+class RAFNodeLowering : public NodeLowering {
  public:
-  MNMNodeLowering(ir::LoweringContext* loctx) : NodeLowering(loctx) {
+  RAFNodeLowering(ir::LoweringContext* loctx) : NodeLowering(loctx) {
   }
 
   bool Lower(const ir::Node* node) override;
 
   lazy_tensors::Shape Infer(const ir::Node* node) override;
 
-  mnm_backend::MNMLoweringContext* loctx() {
-    return static_cast<mnm_backend::MNMLoweringContext*>(loctx_);
+  raf_backend::RAFLoweringContext* loctx() {
+    return static_cast<raf_backend::RAFLoweringContext*>(loctx_);
   }
 
-  Var LowerToMNM(const ir::Node* node);
+  Var LowerToRAF(const ir::Node* node);
 
  private:
   std::tuple<Var, Var> BinaryOpMatchTypes(const ir::Output& a, const ir::Output& b);
@@ -224,7 +224,7 @@ class MNMNodeLowering : public NodeLowering {
   DECLARE_OP2(ConstantPadNd);
   DECLARE_OP2(Scatter);
   DECLARE_OP2(AllReduce);
-  DECLARE_OP2(MNMAllGather);
+  DECLARE_OP2(RAFAllGather);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -239,14 +239,14 @@ class MNMNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
-  lazy_tensors::Shape InferMNMAllGather(const ir::ops::MNMAllGather* node);
+  lazy_tensors::Shape InferRAFAllGather(const ir::ops::RAFAllGather* node);
 };
 
 #undef DECLARE_OP2
 #undef DECLARE_OP
 
-bool MNMNodeLowering::Lower(const ir::Node* node) {
-  Var ops = LowerToMNM(node);
+bool RAFNodeLowering::Lower(const ir::Node* node) {
+  Var ops = LowerToRAF(node);
   if (node->num_outputs() > 1) {
     for (size_t i = 0; i < node->num_outputs(); ++i) {
       loctx()->AssignOutputOp(ir::Output(node, i), BindSymbol(TupleGetItem(ops, i)));
@@ -267,7 +267,7 @@ bool MNMNodeLowering::Lower(const ir::Node* node) {
     return Lower##name(ir::NodeCast<ir::ops::name>(node, ir::OpKind(sym))); \
   }
 
-Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
+Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
   switch (node->op().op) {
     HANDLE_GENERIC_OP(Add, at::aten::add)
     HANDLE_GENERIC_OP(Sub, at::aten::sub)
@@ -331,20 +331,20 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
       if (node->op() == *ir::ops::ltc_unselect) {
         return LowerUnselect(ir::NodeCast<ir::ops::Unselect>(node, *ir::ops::ltc_unselect));
       }
-      if (node->op() == *ir::ops::mnm_relay_expr) {
-        return LowerRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::mnm_relay_expr));
+      if (node->op() == *ir::ops::raf_relay_expr) {
+        return LowerRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::raf_relay_expr));
       }
-      if (node->op() == *ir::ops::mnm_relay_function) {
+      if (node->op() == *ir::ops::raf_relay_function) {
         return LowerRelayFunction(
-            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::mnm_relay_function));
+            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::raf_relay_function));
       }
-      if (node->op() == *ir::ops::mnm_log_softmax_backward_use_in) {
+      if (node->op() == *ir::ops::raf_log_softmax_backward_use_in) {
         return LowerLogSoftmaxBackwardUseIn(ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
-            node, *ir::ops::mnm_log_softmax_backward_use_in));
+            node, *ir::ops::raf_log_softmax_backward_use_in));
       }
-      if (node->op() == *ir::ops::mnm_all_gather) {
-        return LowerMNMAllGather(
-            ir::NodeCast<ir::ops::MNMAllGather>(node, *ir::ops::mnm_all_gather));
+      if (node->op() == *ir::ops::raf_all_gather) {
+        return LowerRAFAllGather(
+            ir::NodeCast<ir::ops::RAFAllGather>(node, *ir::ops::raf_all_gather));
       }
       if (node->op() == *ir::ops::ltc_cross_replica_sum) {
         return LowerAllReduce(
@@ -359,11 +359,11 @@ Var MNMNodeLowering::LowerToMNM(const ir::Node* node) {
 #undef HANDLE_GENERIC_OP2
 #undef HANDLE_GENERIC_OP
 
-std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, const ir::Output& b) {
+std::tuple<Var, Var> RAFNodeLowering::BinaryOpMatchTypes(const ir::Output& a, const ir::Output& b) {
   using tvm::runtime::DLDataType2String;
   Var op0 = loctx()->GetOutputOp(a), op1 = loctx()->GetOutputOp(b);
-  DType dtype_a = ToMNMDType(a.shape().element_type()),
-        dtype_b = ToMNMDType(b.shape().element_type());
+  DType dtype_a = ToRAFDType(a.shape().element_type()),
+        dtype_b = ToRAFDType(b.shape().element_type());
   LTC_CHECK_EQ(dtype_a.lanes, dtype_b.lanes);
   // Two cases are supported for binary ops:
   // 1. One of the operands is float, and the other is int. In this case int is casted to float
@@ -373,14 +373,14 @@ std::tuple<Var, Var> MNMNodeLowering::BinaryOpMatchTypes(const ir::Output& a, co
       (dtype_a.code == DTypeCode::kBFloat() && dtype_b.code == DTypeCode::kFloat()) ||
       (dtype_a.code == dtype_b.code && dtype_a.bits < dtype_b.bits)) {
     return std::make_tuple(
-        BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
+        BindSymbol(raf::ir::Call(Op::Get("raf.op.cast"),
                                  {op0, MakeConstant(String(DLDataType2String(dtype_b)))})),
         op1);
   } else if ((dtype_a.code == DTypeCode::kFloat() && dtype_b.code == DTypeCode::kInt()) ||
              (dtype_a.code == DTypeCode::kFloat() && dtype_b.code == DTypeCode::kBFloat()) ||
              (dtype_a.code == dtype_b.code && dtype_a.bits > dtype_b.bits)) {
     return std::make_tuple(
-        op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast"),
+        op0, BindSymbol(raf::ir::Call(Op::Get("raf.op.cast"),
                                       {op1, MakeConstant(String(DLDataType2String(dtype_a)))})));
   } else if (dtype_a.code == dtype_b.code && dtype_a.bits == dtype_b.bits) {
     return std::make_tuple(op0, op1);
@@ -413,7 +413,7 @@ ir::Output SimplifyBinaryInputs(const ir::Output& x, const ir::Output& y) {
   return x;
 }
 
-Var MNMNodeLowering::LowerAdd(const ir::Node* node) {
+Var RAFNodeLowering::LowerAdd(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var op0, op1;
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
@@ -421,28 +421,28 @@ Var MNMNodeLowering::LowerAdd(const ir::Node* node) {
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
   if (IsScalar(node->operand(0), 0)) return op1;
   if (IsScalar(node->operand(1), 0)) return op0;
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.add"), {op0, op1, MakeNull(), MakeNull()}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.add"), {op0, op1, MakeNull(), MakeNull()}));
 }
 
-Var MNMNodeLowering::LowerSub(const ir::Node* node) {
+Var RAFNodeLowering::LowerSub(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var op0, op1;
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
   ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.subtract"), {op0, op1, MakeNull(), MakeNull()}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.subtract"), {op0, op1, MakeNull(), MakeNull()}));
 }
 
-Var MNMNodeLowering::LowerDiv(const ir::Node* node) {
+Var RAFNodeLowering::LowerDiv(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var op0, op1;
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
   ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.divide"), {op0, op1}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.divide"), {op0, op1}));
 }
 
-Var MNMNodeLowering::LowerMul(const ir::Node* node) {
+Var RAFNodeLowering::LowerMul(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var op0, op1;
   ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
@@ -450,37 +450,37 @@ Var MNMNodeLowering::LowerMul(const ir::Node* node) {
   std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
   if (IsScalar(node->operand(0), 1)) return op1;
   if (IsScalar(node->operand(1), 1)) return op0;
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.multiply"), {op0, op1}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.multiply"), {op0, op1}));
 }
 
 Var BuildBitwise(const std::vector<Var>& ops, const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   switch (node->op().op) {
     case at::aten::__and__: {
-      return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.logical_and"), {ops[0], ops[1]}));
+      return BindSymbol(raf::ir::Call(Op::Get("raf.op.logical_and"), {ops[0], ops[1]}));
     }
   }
   LTC_LOG(FATAL) << "Invalid bitwise operator: " << node->op();
 }
 
-Var MNMNodeLowering::LowerBitwise(const ir::Node* node) {
+Var RAFNodeLowering::LowerBitwise(const ir::Node* node) {
   Var op0 = loctx()->GetOutputOp(node->operand(0));
   Var op1 = loctx()->GetOutputOp(node->operand(1));
   return BuildBitwise({op0, op1}, node);
 }
 
-Var MNMNodeLowering::LowerDeviceData(const ir::ops::DeviceData* node) {
+Var RAFNodeLowering::LowerDeviceData(const ir::ops::DeviceData* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   return loctx()->GetParameter(node->data());
 }
 
-Var MNMNodeLowering::LowerLogSoftmax(const ir::ops::LogSoftmax* node) {
+Var RAFNodeLowering::LowerLogSoftmax(const ir::ops::LogSoftmax* node) {
   Var input = loctx()->GetOutputOp(node->operand(0));
   Expr dim = MakeConstant(ScalarValue::make((int64_t)node->dim()));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.log_softmax"), {input, dim}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.log_softmax"), {input, dim}));
 }
 
-Var MNMNodeLowering::LowerMaxPoolNd(const ir::ops::MaxPoolNd* node) {
+Var RAFNodeLowering::LowerMaxPoolNd(const ir::ops::MaxPoolNd* node) {
   // TODO(@hzfan): return {result, indices}
   Var input = loctx()->GetOutputOp(node->operand(0));
   Expr kernel = MakeConstant(TupleInt(node->kernel_size()));
@@ -491,13 +491,13 @@ Var MNMNodeLowering::LowerMaxPoolNd(const ir::ops::MaxPoolNd* node) {
   Expr include_pad = MakeConstant(Bool(true));
   Expr layout = MakeConstant(String("NCHW"));
   Var result = BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.max_pool2d"),
+      raf::ir::Call(Op::Get("raf.op.max_pool2d"),
                     {input, kernel, stride, padding, dilation, ceil_mode, include_pad, layout}));
-  Var ret = BindSymbol(mnm::ir::Tuple(Array<Expr>({result, mnm::ir::Tuple(Array<Expr>({}))})));
+  Var ret = BindSymbol(raf::ir::Tuple(Array<Expr>({result, raf::ir::Tuple(Array<Expr>({}))})));
   return ret;
 }
 
-Var MNMNodeLowering::LowerMaxPoolNdBackward(const ir::ops::MaxPoolNdBackward* node) {
+Var RAFNodeLowering::LowerMaxPoolNdBackward(const ir::ops::MaxPoolNdBackward* node) {
   // TODO(@hzfan): max_pool2d_dx needs y
   Var grad_output = loctx()->GetOutputOp(node->operand(0));
   Var input = loctx()->GetOutputOp(node->operand(1));
@@ -507,29 +507,29 @@ Var MNMNodeLowering::LowerMaxPoolNdBackward(const ir::ops::MaxPoolNdBackward* no
   Expr dilation = MakeConstant(TupleInt({1}));
   Expr ceil_mode = MakeConstant(Bool(node->ceil_mode()));
   Expr include_pad = MakeConstant(Bool(true));
-  return BindSymbol(mnm::ir::Call(
-      Op::Get("mnm.op.max_pool2d_dx"),
+  return BindSymbol(raf::ir::Call(
+      Op::Get("raf.op.max_pool2d_dx"),
       {input, grad_output, kernel, stride, padding, dilation, ceil_mode, include_pad}));
 }
 
-Var MNMNodeLowering::LowerRelu(const ir::Node* node) {
+Var RAFNodeLowering::LowerRelu(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.relu"), {x}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.relu"), {x}));
 }
 
-Var MNMNodeLowering::LowerWhere(const ir::Node* node) {
+Var RAFNodeLowering::LowerWhere(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var cond = loctx()->GetOutputOp(node->operand(0));
   Var t_value = loctx()->GetOutputOp(node->operand(1));
   Var f_value = loctx()->GetOutputOp(node->operand(2));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.where"), {cond, t_value, f_value}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.where"), {cond, t_value, f_value}));
 }
 
-Var MNMNodeLowering::LowerSqrt(const ir::Node* node) {
+Var RAFNodeLowering::LowerSqrt(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.sqrt"), {x}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.sqrt"), {x}));
 }
 
 Var BuildSum(const std::vector<Var>& ops, const ir::ops::Sum* node) {
@@ -542,10 +542,10 @@ Var BuildSum(const std::vector<Var>& ops, const ir::ops::Sum* node) {
   Expr keep_reduced_dimension = MakeConstant(TupleInt(keep_reduced_dimension_0));
   Expr exclude = MakeConstant(Bool(false));
   return BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.sum"), {x, dimension, keep_reduced_dimension, exclude}));
+      raf::ir::Call(Op::Get("raf.op.sum"), {x, dimension, keep_reduced_dimension, exclude}));
 }
 
-Var MNMNodeLowering::LowerSum(const ir::ops::Sum* node) {
+Var RAFNodeLowering::LowerSum(const ir::ops::Sum* node) {
   // TODO(@hzfan): handle dtype
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BuildSum({x}, node);
@@ -557,11 +557,11 @@ Var BuildNllLoss(const std::vector<Var>& ops, const NllLossType* node) {
   LTC_CHECK_EQ(ops.size(), 2U);
   Var logits = ops[0];
   Var labels = ops[1];
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.nll_loss"), {labels, logits}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.nll_loss"), {labels, logits}));
 }
 
 template <class NllLossType>
-Var MNMNodeLowering::LowerNllLoss(const NllLossType* node) {
+Var RAFNodeLowering::LowerNllLoss(const NllLossType* node) {
   Var logits = loctx()->GetOutputOp(node->operand(0));
   Var labels = loctx()->GetOutputOp(node->operand(1));
   return BuildNllLoss({logits, labels}, node);
@@ -575,14 +575,14 @@ Var BuildNllLossBackward(const std::vector<Var>& ops, const NllLossBackwardType*
   Var logits = ops[1];
   Var labels = ops[2];
   Var normalized_dy =
-      BindSymbol(mnm::ir::Call(Op::Get("mnm.op.reshape"), {grad_output, MakeConstant(TupleInt({})),
+      BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"), {grad_output, MakeConstant(TupleInt({})),
                                                            MakeConstant(Bool(false))}));
   return BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.nll_loss_dpred"), {normalized_dy, labels, logits}));
+      raf::ir::Call(Op::Get("raf.op.nll_loss_dpred"), {normalized_dy, labels, logits}));
 }
 
 template <class NllLossBackwardType>
-Var MNMNodeLowering::LowerNllLossBackward(const NllLossBackwardType* node) {
+Var RAFNodeLowering::LowerNllLossBackward(const NllLossBackwardType* node) {
   // TODO(@hzfan): handle weight, reduction and ignore_index
   Var grad_output = loctx()->GetOutputOp(node->operand(0));
   Var logits = loctx()->GetOutputOp(node->operand(1));
@@ -602,11 +602,11 @@ Var BuildExpand(const std::vector<Var>& ops, const ir::ops::Expand* node) {
       LTC_CHECK(shape.dimensions(i - offset) == 1 || size[i] == shape.dimensions(i - offset));
     }
   }
-  x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.broadcast_to"), {x, MakeConstant(TupleInt(size))}));
+  x = BindSymbol(raf::ir::Call(Op::Get("raf.op.broadcast_to"), {x, MakeConstant(TupleInt(size))}));
   return x;
 }
 
-Var MNMNodeLowering::LowerExpand(const ir::ops::Expand* node) {
+Var RAFNodeLowering::LowerExpand(const ir::ops::Expand* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BuildExpand({x}, node);
@@ -617,7 +617,7 @@ Var BuildAsStridedViewUpdate(const std::vector<Var>& ops,
   LTC_CHECK_EQ(node->num_outputs(), 1);
   LTC_CHECK_EQ(ops.size(), node->operands().size());
   for (size_t i = 0; i < ops.size(); ++i) {
-    ops[i]->checked_type_ = ToMNMType(node->operand(i).shape());
+    ops[i]->checked_type_ = ToRAFType(node->operand(i).shape());
   }
   // TODO(@hzfan): allow transpose
   for (size_t i = 0; i + 1 < node->stride().size(); ++i) {
@@ -643,7 +643,7 @@ Var BuildAsStridedViewUpdate(const std::vector<Var>& ops,
   return ops[1];
 }
 
-Var MNMNodeLowering::LowerAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node) {
+Var RAFNodeLowering::LowerAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var target = loctx()->GetOutputOp(node->operand(0));
   Var update = loctx()->GetOutputOp(node->operand(1));
@@ -654,7 +654,7 @@ Var BuildAsStrided(const std::vector<Var>& ops, const ir::ops::AsStrided* node) 
   LTC_CHECK_EQ(node->num_outputs(), 1);
   LTC_CHECK_EQ(ops.size(), node->operands().size());
   for (size_t i = 0; i < ops.size(); ++i) {
-    ops[i]->checked_type_ = ToMNMType(node->operand(i).shape());
+    ops[i]->checked_type_ = ToRAFType(node->operand(i).shape());
   }
   // TODO(@hzfan): allow transpose
   for (size_t i = 0; i + 1 < node->stride().size(); ++i) {
@@ -674,26 +674,26 @@ Var BuildAsStrided(const std::vector<Var>& ops, const ir::ops::AsStrided* node) 
   return ops[0];
 }
 
-Var MNMNodeLowering::LowerAsStrided(const ir::ops::AsStrided* node) {
+Var RAFNodeLowering::LowerAsStrided(const ir::ops::AsStrided* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var input = loctx()->GetOutputOp(node->operand(0));
   return BuildAsStrided({input}, node);
 }
 
-Var MNMNodeLowering::LowerRelayExpr(const ir::ops::RelayExpr* node) {
+Var RAFNodeLowering::LowerRelayExpr(const ir::ops::RelayExpr* node) {
   Var func = loctx()->GetOutputOp(node->operand(0));
   std::vector<Expr> ops;
   for (size_t i = 1; i < node->operands().size(); ++i) {
     ops.push_back(loctx()->GetOutputOp(node->operand(i)));
   }
-  return BindSymbol(mnm::ir::Call(func, ops));
+  return BindSymbol(raf::ir::Call(func, ops));
 }
 
-Var MNMNodeLowering::LowerRelayFunction(const ir::ops::RelayFunction* node) {
+Var RAFNodeLowering::LowerRelayFunction(const ir::ops::RelayFunction* node) {
   return BindSymbol(node->func());
 }
 
-Var MNMNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
+Var RAFNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var w = loctx()->GetOutputOp(node->operand(1));
   Expr stride = MakeConstant(TupleInt(node->stride()));
@@ -709,12 +709,12 @@ Var MNMNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOver
   for (const auto& i : output_padding) {
     LTC_CHECK_EQ(i, 0);
   }
-  x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.conv2d"), {x, w, stride, padding, dilation, groups,
+  x = BindSymbol(raf::ir::Call(Op::Get("raf.op.conv2d"), {x, w, stride, padding, dilation, groups,
                                                           layout, kernel_layout, out_layout}));
   if (node->operands().size() == 3) {
     Var bias = loctx()->GetOutputOp(node->operand(2));
     Expr axis = MakeConstant(Int(1));
-    x = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.bias_add"), {x, bias, axis}));
+    x = BindSymbol(raf::ir::Call(Op::Get("raf.op.bias_add"), {x, bias, axis}));
   }
   return x;
 }
@@ -724,22 +724,22 @@ Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
   LTC_CHECK_EQ(ops.size(), 3U);
   Var dy = ops[0], y = ops[1], x = ops[2];
 
-  static auto op_softmax = Op::Get("mnm.op.softmax");
-  static auto op_sum = Op::Get("mnm.op.sum");
-  static auto op_multiply = Op::Get("mnm.op.multiply");
-  static auto op_subtract = Op::Get("mnm.op.subtract");
+  static auto op_softmax = Op::Get("raf.op.softmax");
+  static auto op_sum = Op::Get("raf.op.sum");
+  static auto op_multiply = Op::Get("raf.op.multiply");
+  static auto op_subtract = Op::Get("raf.op.subtract");
 
   const Expr& dim = MakeConstant(Int(node->dim()));
-  Var softmax_y = BindSymbol(mnm::ir::Call(op_softmax, {x, dim}));
+  Var softmax_y = BindSymbol(raf::ir::Call(op_softmax, {x, dim}));
   Expr keep_dims = MakeConstant(ScalarValue::make((int64_t)1));
   Expr exclude = MakeConstant(BoolValue::make(false));
-  Var e_1 = BindSymbol(mnm::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
-  Var e_2 = BindSymbol(mnm::ir::Call(op_multiply, {e_1, softmax_y}));
-  Var e_3 = BindSymbol(mnm::ir::Call(op_subtract, {dy, e_2, MakeNull(), MakeNull()}));
+  Var e_1 = BindSymbol(raf::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
+  Var e_2 = BindSymbol(raf::ir::Call(op_multiply, {e_1, softmax_y}));
+  Var e_3 = BindSymbol(raf::ir::Call(op_subtract, {dy, e_2, MakeNull(), MakeNull()}));
   return e_3;
 }
 
-Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackwardUseIn* node) {
+Var RAFNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackwardUseIn* node) {
   std::vector<Var> ops;
   for (const auto& op : node->operands()) {
     ops.push_back(loctx()->GetOutputOp(op));
@@ -747,36 +747,36 @@ Var MNMNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackw
   return BuildLogSoftmaxBackwardUseIn(ops, node);
 }
 
-Var MNMNodeLowering::LowerPermute(const ir::ops::Permute* node) {
+Var RAFNodeLowering::LowerPermute(const ir::ops::Permute* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   Expr axes = MakeConstant(TupleInt(node->dims()));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.transpose"), {x, axes}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.transpose"), {x, axes}));
 }
 
-Var MNMNodeLowering::LowerMm(const ir::Node* node) {
+Var RAFNodeLowering::LowerMm(const ir::Node* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var y = loctx()->GetOutputOp(node->operand(1));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.matmul"), {x, y}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
 }
 
-Var MNMNodeLowering::LowerAddMatMul(const ir::Node* node) {
+Var RAFNodeLowering::LowerAddMatMul(const ir::Node* node) {
   LTC_CHECK_EQ(node->operands().size(), 3) << "Unexpected number of operands";
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var y = loctx()->GetOutputOp(node->operand(1));
   Var bias = loctx()->GetOutputOp(node->operand(2));
-  Var mm = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.matmul"), {x, y}));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.add"), {mm, bias}));
+  Var mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.add"), {mm, bias}));
 }
 
-Var MNMNodeLowering::LowerAdaptiveAvgPool2d(const ir::ops::AdaptiveAvgPool2d* node) {
+Var RAFNodeLowering::LowerAdaptiveAvgPool2d(const ir::ops::AdaptiveAvgPool2d* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Expr shape = MakeConstant(TupleInt(node->output_size()));
   Expr layout = MakeConstant(String("NCHW"));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.adaptive_avg_pool2d"), {x, shape, layout}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.adaptive_avg_pool2d"), {x, shape, layout}));
 }
 
-Var MNMNodeLowering::LowerGenericSlice(const ir::ops::GenericSlice* node) {
+Var RAFNodeLowering::LowerGenericSlice(const ir::ops::GenericSlice* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   std::vector<lazy_tensors::int64> limit_indices(node->base_indices().begin(),
@@ -788,26 +788,26 @@ Var MNMNodeLowering::LowerGenericSlice(const ir::ops::GenericSlice* node) {
   Expr strides = MakeConstant(TupleInt(std::vector<lazy_tensors::int64>(limit_indices.size(), 1)));
   Expr slice_mode = MakeConstant(String("end"));
   return BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.strided_slice"), {x, begin, end, strides, slice_mode}));
+      raf::ir::Call(Op::Get("raf.op.strided_slice"), {x, begin, end, strides, slice_mode}));
 }
 
-Var MNMNodeLowering::LowerView(const ir::ops::View* node) {
+Var RAFNodeLowering::LowerView(const ir::ops::View* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   Expr shape = MakeConstant(TupleInt(node->output_size()));
   Expr reverse = MakeConstant(Bool(false));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.reshape"), {x, shape, reverse}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"), {x, shape, reverse}));
 }
 
 Var BuildCast(const std::vector<Var>& ops, const ir::ops::Cast* node) {
   // TODO(@hzfan): handle node->stype() and node->dtype()
   using tvm::runtime::DLDataType2String;
   return BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.cast"),
-                    {ops[0], MakeConstant(String(DLDataType2String(ToMNMDType(node->type()))))}));
+      raf::ir::Call(Op::Get("raf.op.cast"),
+                    {ops[0], MakeConstant(String(DLDataType2String(ToRAFDType(node->type()))))}));
 }
 
-Var MNMNodeLowering::LowerCast(const ir::ops::Cast* node) {
+Var RAFNodeLowering::LowerCast(const ir::ops::Cast* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BuildCast({x}, node);
@@ -816,13 +816,13 @@ Var MNMNodeLowering::LowerCast(const ir::ops::Cast* node) {
 #define DEFINE_COMPARISON_OP(name, op)                                    \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
-    ops[0]->checked_type_ = ToMNMType(node->operand(0).shape());          \
-    ops[1]->checked_type_ = ToMNMType(node->operand(1).shape());          \
+    ops[0]->checked_type_ = ToRAFType(node->operand(0).shape());          \
+    ops[1]->checked_type_ = ToRAFType(node->operand(1).shape());          \
     Var op0, op1;                                                         \
     std::tie(op0, op1) = PromoteDType(ops[0], ops[1]);                    \
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op." #op), {op0, op1})); \
+    return BindSymbol(raf::ir::Call(Op::Get("raf.op." #op), {op0, op1})); \
   }                                                                       \
-  Var MNMNodeLowering::Lower##name(const ir::Node* node) {                \
+  Var RAFNodeLowering::Lower##name(const ir::Node* node) {                \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
     Var op0 = loctx()->GetOutputOp(node->operand(0));                     \
     Var op1 = loctx()->GetOutputOp(node->operand(1));                     \
@@ -832,9 +832,9 @@ Var MNMNodeLowering::LowerCast(const ir::ops::Cast* node) {
 #define DEFINE_UNARY_OP(name, op)                                       \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {  \
     LTC_CHECK_EQ(node->num_outputs(), 1);                               \
-    return BindSymbol(mnm::ir::Call(Op::Get("mnm.op." #op), {ops[0]})); \
+    return BindSymbol(raf::ir::Call(Op::Get("raf.op." #op), {ops[0]})); \
   }                                                                     \
-  Var MNMNodeLowering::Lower##name(const ir::Node* node) {              \
+  Var RAFNodeLowering::Lower##name(const ir::Node* node) {              \
     Var x = loctx()->GetOutputOp(node->operand(0));                     \
     return Build##name({x}, node);                                      \
   }
@@ -849,32 +849,32 @@ DEFINE_COMPARISON_OP(Gt, greater)
 #undef DEFINE_COMPARISON_OP
 #undef DEFINE_UNARY_OP
 
-Var MNMNodeLowering::LowerThresholdBackward(const ir::ops::ThresholdBackward* node) {
+Var RAFNodeLowering::LowerThresholdBackward(const ir::ops::ThresholdBackward* node) {
   LTC_LOG(FATAL) << "NotImplementedError";
 }
 
-Var MNMNodeLowering::LowerConstant(const ir::ops::Constant* node) {
-  // TODO(@hzfan): unify LowerConstant for meta/Sunda, meta/CPU, meta/GPU
+Var RAFNodeLowering::LowerConstant(const ir::ops::Constant* node) {
+  // TODO(@hzfan): unify LowerConstant for raf/Sunda, raf/CPU, raf/GPU
   // TODO(@hzfan): embed NeuronTensor into constants directly
   LTC_CHECK_EQ(node->num_outputs(), 1);
   auto device = lazy_tensors::ComputationClient::Get()->GetDefaultDevice();
-  mnm::Device dev = ToMNMDevice(device);
-  int64_t nbytes = mnm::common::shape_utils::BytesCompactTensor(
-      Downcast<TensorType>(ToMNMType(node->value().shape())).as<TensorTypeNode>());
+  raf::Device dev = ToRAFDevice(device);
+  int64_t nbytes = raf::common::shape_utils::BytesCompactTensor(
+      Downcast<TensorType>(ToRAFType(node->value().shape())).as<TensorTypeNode>());
   auto buffer = memory_pool::Memory::Alloc(dev, nbytes);
   DType dtype;
   std::vector<int64_t> shape;
-  std::tie(shape, dtype) = ToMNMShape(node->value().shape());
+  std::tie(shape, dtype) = ToRAFShape(node->value().shape());
   PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes,
                        Device(device));
   auto value = TensorValue::Assemble(dev, dtype, shape, {}, buffer->data, buffer);
   return BindSymbol(MakeConstant(value));
 }
 
-TensorValue MakeTensor(void* data, int64_t* shape, int ndim, mnm::Device to_dev, DType dtype) {
+TensorValue MakeTensor(void* data, int64_t* shape, int ndim, raf::Device to_dev, DType dtype) {
   DLTensor tensor;
   tensor.data = data;
-  tensor.device = mnm::Device(DevType::kCPU(), 0);
+  tensor.device = raf::Device(DevType::kCPU(), 0);
   tensor.dtype = dtype;
   tensor.shape = shape;
   tensor.ndim = ndim;
@@ -887,7 +887,7 @@ TensorValue MakeTensor(void* data, int64_t* shape, int ndim, mnm::Device to_dev,
 }
 
 template <typename T>
-TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev, std::vector<int64> shape) {
+TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<int64> shape) {
   int64 numel = 1;
   for (const auto& x : shape) {
     numel = numel * x;
@@ -896,7 +896,7 @@ TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev, std::vector<in
   std::vector<T> value(numel, scalar);
   DLTensor tensor;
   tensor.data = value.data();
-  tensor.device = mnm::Device(DevType::kCPU(), 0);
+  tensor.device = raf::Device(DevType::kCPU(), 0);
   tensor.dtype = dtype;
   tensor.shape = shape.data();
   tensor.ndim = 0;
@@ -907,20 +907,20 @@ TensorValue MakeScalar(T scalar, DType dtype, mnm::Device to_dev, std::vector<in
   return TensorValue::make(Tensor::FromDLPack(array.ToDLPack()));
 }
 
-Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
+Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   using ir::ops::operator<<;
   using tvm::runtime::DLDataType2String;
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;
-  mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
-  auto mnm_dtype = ToMNMDType(node->shape().element_type());
+  raf::Device dev = ToRAFDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+  auto raf_dtype = ToRAFDType(node->shape().element_type());
   Span<const int64> dimensions = node->shape().dimensions();
 // 1. Switch case based on the LTC dtype.
 // 2. Get the scalar data from PyTorch and convert to the primitive C type.
 // 3. Make a Meta constant expression using the scalar data.
 #define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                            \
   case lazy_tensors::PrimitiveType::LTC_TYPE: {                                               \
-    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), mnm_dtype, dev, \
+    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), raf_dtype, dev, \
                             std::vector<int64>(dimensions.begin(), dimensions.end()));        \
     break;                                                                                    \
   }
@@ -942,7 +942,7 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
     ADD_SCALAR_CASE(F64, Double, double);
     case lazy_tensors::PrimitiveType::BF16: {
       tv = MakeScalar<uint16_t>(c10::BFloat16(static_cast<float>(node->value().toDouble())).x,
-                                mnm_dtype, dev,
+                                raf_dtype, dev,
                                 std::vector<int64>(dimensions.begin(), dimensions.end()));
       break;
     }
@@ -956,38 +956,38 @@ Var MNMNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   // to make it work. Although the dummy cast op will be simplified by SimplifyExpr pass,
   // it is better to avoid dummy ops anyways.
   Var scalar = BindSymbol(
-      mnm::ir::Call(Op::Get("mnm.op.cast"),
-                    {MakeConstant(tv), MakeConstant(String(DLDataType2String(mnm_dtype)))}));
+      raf::ir::Call(Op::Get("raf.op.cast"),
+                    {MakeConstant(tv), MakeConstant(String(DLDataType2String(raf_dtype)))}));
   return scalar;
 }
 
-Var MNMNodeLowering::LowerSelect(const ir::ops::Select* node) {
+Var RAFNodeLowering::LowerSelect(const ir::ops::Select* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Expr begin = MakeConstant(Int(node->start()));
   Expr end = MakeConstant(Int(node->end()));
   Expr stride = MakeConstant(Int(node->stride()));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.strided_slice"), {x, begin, end, stride}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.strided_slice"), {x, begin, end, stride}));
 }
 
-Var MNMNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
+Var RAFNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
   Var dy = loctx()->GetOutputOp(node->operand(1));
   int64_t range = node->end() - node->start();
   int64_t shape[1] = {range};
   int64_t indices_data[range];
   for (int64_t i = 0; i < range; i++) indices_data[i] = node->start() + i;
 
-  mnm::Device dev = ToMNMDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+  raf::Device dev = ToRAFDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
 
   // Make a dummy data that has the same shape as node input
   auto x_dummy_value =
-      mnm::value::CreateDummyValueFromType(ToMNMType(node->operand(0).shape()), dev);
+      raf::value::CreateDummyValueFromType(ToRAFType(node->operand(0).shape()), dev);
   Expr x = MakeConstant(x_dummy_value);
 
   TensorValue indices_tv = MakeTensor(indices_data, shape, 1, dev, DType(DTypeCode::kInt(), 64));
   Expr indices = MakeConstant(indices_tv);
   Expr axis = MakeConstant(Int(node->dim()));
   Expr mode = MakeConstant(String("clip"));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.take_dx"), {x, dy, indices, axis, mode}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.take_dx"), {x, dy, indices, axis, mode}));
 }
 
 Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {
@@ -1004,20 +1004,20 @@ Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd
   Expr pad = MakeConstant(TupleInt(pad_vec));
   Expr value = MakeConstant(Double(node->value().toDouble()));
   Expr pad_mode = MakeConstant(String("constant"));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.pad"), {x, pad, value, pad_mode}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.pad"), {x, pad, value, pad_mode}));
 }
 
-Var MNMNodeLowering::LowerConstantPadNd(const ir::ops::ConstantPadNd* node) {
+Var RAFNodeLowering::LowerConstantPadNd(const ir::ops::ConstantPadNd* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BuildConstantPadNd({x}, node);
 }
 
-Var MNMNodeLowering::LowerScatter(const ir::ops::Scatter* node) {
+Var RAFNodeLowering::LowerScatter(const ir::ops::Scatter* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var idx = loctx()->GetOutputOp(node->operand(1));
   Var src = loctx()->GetOutputOp(node->operand(2));
   Expr axis = MakeConstant(Int(node->dim()));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op.scatter"), {x, idx, src, axis}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.scatter"), {x, idx, src, axis}));
 }
 
 Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) {
@@ -1038,10 +1038,10 @@ Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) 
 
   // The last element in the operands is token
   std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
-  Var allreduce_in = BindSymbol(mnm::ir::Tuple(Array<Expr>(ops_expr)));
-  Var ret = BindSymbol(mnm::ir::Call(Op::Get("mnm.op._allreduce"), {allreduce_in, computation}));
+  Var allreduce_in = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
+  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._allreduce"), {allreduce_in, computation}));
   if (node->scale() != 1.0) {
-    DType dtype = ToMNMDType(node->operands()[0].shape().element_type());
+    DType dtype = ToRAFDType(node->operands()[0].shape().element_type());
     // Take the reverse of the scale to reserve the precision if the data is integer
     double scale_value = 1.0 / node->scale();
     Expr scale;
@@ -1053,33 +1053,33 @@ Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) 
       LTC_LOG(FATAL) << "Unsupported Allreduce datatype "
                      << node->operands()[0].shape().element_type();
     }
-    ret = BindSymbol(mnm::ir::Call(Op::Get("mnm.op.divide"), {ret, scale}));
+    ret = BindSymbol(raf::ir::Call(Op::Get("raf.op.divide"), {ret, scale}));
   }
 
   // Bind the token back
-  return BindSymbol(mnm::ir::Tuple(Array<Expr>({ret, ops.back()})));
+  return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, ops.back()})));
 }
 
-Var MNMNodeLowering::LowerAllReduce(const ir::ops::AllReduce* node) {
+Var RAFNodeLowering::LowerAllReduce(const ir::ops::AllReduce* node) {
   std::vector<Var> ops;
   for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
   return BuildAllReduce(ops, node);
 }
 
-Var BuildMNMAllGather(const std::vector<Var>& ops, const ir::ops::MNMAllGather* node) {
+Var BuildRAFAllGather(const std::vector<Var>& ops, const ir::ops::RAFAllGather* node) {
   LTC_CHECK_EQ(ops.size(), 1U);
   Var x = ops[0];
   Expr dim = MakeConstant(Int(node->dim()));
-  return BindSymbol(mnm::ir::Call(Op::Get("mnm.op._allgather"), {x, dim}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op._allgather"), {x, dim}));
 }
 
-Var MNMNodeLowering::LowerMNMAllGather(const ir::ops::MNMAllGather* node) {
+Var RAFNodeLowering::LowerRAFAllGather(const ir::ops::RAFAllGather* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  return BuildMNMAllGather({x}, node);
+  return BuildRAFAllGather({x}, node);
 }
 
-lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
+lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
   const ir::OpKind& kind = node->op();
   switch (kind.op) {
     case at::aten::relu:
@@ -1122,16 +1122,16 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
         return InferGenericSlice(
             ir::NodeCast<ir::ops::GenericSlice>(node, *ir::ops::ltc_generic_slice));
       }
-      if (kind == *ir::ops::mnm_relay_expr) {
-        return InferRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::mnm_relay_expr));
+      if (kind == *ir::ops::raf_relay_expr) {
+        return InferRelayExpr(ir::NodeCast<ir::ops::RelayExpr>(node, *ir::ops::raf_relay_expr));
       }
-      if (kind == *ir::ops::mnm_relay_function) {
+      if (kind == *ir::ops::raf_relay_function) {
         return InferRelayFunction(
-            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::mnm_relay_function));
+            ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::raf_relay_function));
       }
-      if (kind == *ir::ops::mnm_all_gather) {
-        return InferMNMAllGather(
-            ir::NodeCast<ir::ops::MNMAllGather>(node, *ir::ops::mnm_all_gather));
+      if (kind == *ir::ops::raf_all_gather) {
+        return InferRAFAllGather(
+            ir::NodeCast<ir::ops::RAFAllGather>(node, *ir::ops::raf_all_gather));
       }
       if (kind == *ir::ops::ltc_cross_replica_sum) {
         return InferAllReduce(
@@ -1142,106 +1142,106 @@ lazy_tensors::Shape MNMNodeLowering::Infer(const ir::Node* node) {
   }
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferExpand(const ir::ops::Expand* node) {
+lazy_tensors::Shape RAFNodeLowering::InferExpand(const ir::ops::Expand* node) {
   LTC_CHECK_EQ(node->operands().size(), 1U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildExpand(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferBitwise(const ir::Node* node) {
+lazy_tensors::Shape RAFNodeLowering::InferBitwise(const ir::Node* node) {
   LTC_CHECK_EQ(node->operands().size(), 2U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildBitwise(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferNllLoss(const ir::ops::NllLoss* node) {
+lazy_tensors::Shape RAFNodeLowering::InferNllLoss(const ir::ops::NllLoss* node) {
   LTC_CHECK_EQ(node->operands().size(), 2U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildNllLoss(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferNllLossBackward(const ir::ops::NllLossBackward* node) {
+lazy_tensors::Shape RAFNodeLowering::InferNllLossBackward(const ir::ops::NllLossBackward* node) {
   LTC_CHECK_EQ(node->operands().size(), 3U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildNllLossBackward(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferSum(const ir::ops::Sum* node) {
+lazy_tensors::Shape RAFNodeLowering::InferSum(const ir::ops::Sum* node) {
   LTC_CHECK_EQ(node->operands().size(), 1U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildSum(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferConstantPadNd(const ir::ops::ConstantPadNd* node) {
+lazy_tensors::Shape RAFNodeLowering::InferConstantPadNd(const ir::ops::ConstantPadNd* node) {
   LTC_CHECK_EQ(node->operands().size(), 1U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildConstantPadNd(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferRelayExpr(const ir::ops::RelayExpr* node) {
+lazy_tensors::Shape RAFNodeLowering::InferRelayExpr(const ir::ops::RelayExpr* node) {
   return node->operand(0).shape();
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferRelayFunction(const ir::ops::RelayFunction* node) {
+lazy_tensors::Shape RAFNodeLowering::InferRelayFunction(const ir::ops::RelayFunction* node) {
   LTC_LOG(FATAL) << "Should not reach here";
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferAllReduce(const ir::ops::AllReduce* node) {
+lazy_tensors::Shape RAFNodeLowering::InferAllReduce(const ir::ops::AllReduce* node) {
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildAllReduce(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape MNMNodeLowering::InferMNMAllGather(const ir::ops::MNMAllGather* node) {
+lazy_tensors::Shape RAFNodeLowering::InferRAFAllGather(const ir::ops::RAFAllGather* node) {
   LTC_CHECK_EQ(node->operands().size(), 1U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
-    ops.push_back(MakeVar("operand", ToMNMType(x.shape())));
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
-  Var out = BuildMNMAllGather(ops, node);
+  Var out = BuildRAFAllGather(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
 
 #define DEFINE_INFER_COMPARISON_OP(name)                                   \
-  lazy_tensors::Shape MNMNodeLowering::Infer##name(const ir::Node* node) { \
+  lazy_tensors::Shape RAFNodeLowering::Infer##name(const ir::Node* node) { \
     std::vector<Var> ops;                                                  \
     for (const auto& x : node->operands()) {                               \
-      Var var = MakeVar("operand", ToMNMType(x.shape()));                  \
+      Var var = MakeVar("operand", ToRAFType(x.shape()));                  \
       ops.push_back(var);                                                  \
     }                                                                      \
     Var out = Build##name(ops, node);                                      \
@@ -1258,29 +1258,29 @@ DEFINE_INFER_COMPARISON_OP(Gt)
 }  // namespace
 
 std::unique_ptr<NodeLowering> NodeLowering::Create(ir::LoweringContext* loctx) {
-  return std::make_unique<compiler::MNMNodeLowering>(loctx);
+  return std::make_unique<compiler::RAFNodeLowering>(loctx);
 }
 
 NodeLowering* NodeLowering::Get() {
-  static MNMNodeLowering* mnm_node_lowering = new MNMNodeLowering(nullptr);
-  return mnm_node_lowering;
+  static RAFNodeLowering* raf_node_lowering = new RAFNodeLowering(nullptr);
+  return raf_node_lowering;
 }
 
-namespace mnm_backend {
+namespace raf_backend {
 
-Var LowerNodeToMNM(const ir::Node* node, MNMLoweringContext* loctx) {
+Var LowerNodeToRAF(const ir::Node* node, RAFLoweringContext* loctx) {
   auto node_lowering = NodeLowering::Create(loctx);
-  MNMNodeLowering* mnm_node_lowering = static_cast<MNMNodeLowering*>(node_lowering.get());
-  return mnm_node_lowering->LowerToMNM(node);
+  RAFNodeLowering* raf_node_lowering = static_cast<RAFNodeLowering*>(node_lowering.get());
+  return raf_node_lowering->LowerToRAF(node);
 }
 
-}  // namespace mnm_backend
+}  // namespace raf_backend
 
-NodeLowering* GetMNMNodeLowering() {
+NodeLowering* GetRAFNodeLowering() {
   return NodeLowering::Get();
 }
 
-std::unique_ptr<NodeLowering> CreateMNMNodeLowering(ir::LoweringContext* loctx) {
+std::unique_ptr<NodeLowering> CreateRAFNodeLowering(ir::LoweringContext* loctx) {
   return NodeLowering::Create(loctx);
 }
 

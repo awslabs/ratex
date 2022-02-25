@@ -4,7 +4,7 @@
  */
 
 #include "razor/csrc/ops/log_softmax_backward_use_in.h"
-#include "razor/csrc/ops/mnm_ops.h"
+#include "razor/csrc/ops/raf_ops.h"
 
 #include "absl/strings/str_join.h"
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
@@ -22,7 +22,7 @@ namespace ops {
 
 LogSoftmaxBackwardUseIn::LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output,
                                                  lazy_tensors::int64 dim)
-    : Node(mnm_log_softmax_backward_use_in, {grad_output, output}, grad_output.shape(),
+    : Node(raf_log_softmax_backward_use_in, {grad_output, output}, grad_output.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
       dim_(dim) {
 }

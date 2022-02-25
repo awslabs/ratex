@@ -12,7 +12,7 @@
  * states buffer partition is done as we create the optimizer. The pass looks for this pattern to
  * replace: fn (...) {
  *  ...
- *  let %output_0 = mnm.op.scatter( ... )
+ *  let %output_0 = raf.op.scatter( ... )
  *  ...
  *  let %x_3 = (%output_0, %output_1, %output_2);
  *  %x_3
@@ -21,29 +21,29 @@
  * After subsititution:
  * fn (...) {
  *  ...
- *  let %output_0 = mnm.op._allgather(%x_1, 0);
+ *  let %output_0 = raf.op._allgather(%x_1, 0);
  *  ...
  *  let %x_3 = (%output_0, %output_1, %output_2);
  *  %x_3
  * }
  *
  * FIXME: This pass will be removed after we support the tracing of real torch distributed ops
- * https://github.com/meta-project/torch_mnm/issues/42
+ * https://github.com/raf-project/torch_raf/issues/42
  */
 
-#include "mnm/pass.h"
-#include "mnm/dist_context.h"
+#include "raf/pass.h"
+#include "raf/dist_context.h"
 
-#include "meta/src/pass/common.h"
-#include "meta/src/pass/let_list.h"
-#include "meta/src/common/shape_utils.h"
+#include "raf/src/pass/common.h"
+#include "raf/src/pass/let_list.h"
+#include "raf/src/common/shape_utils.h"
 
-namespace mnm {
+namespace raf {
 namespace pass {
 namespace partition_optim_status {
 
-using namespace mnm::common::shape_utils;
-using mnm::distributed::DistContext;
+using namespace raf::common::shape_utils;
+using raf::distributed::DistContext;
 
 class OptimStatusPartitioner : public ExprMutator {
  public:
@@ -86,7 +86,7 @@ class OptimStatusPartitioner : public ExprMutator {
         auto src_arg = scatter_call->args[2];
 
         // Replace the binding to allgather
-        static const Op& allgather_op = Op::Get("mnm.op._allgather");
+        static const Op& allgather_op = Op::Get("raf.op._allgather");
         auto new_var =
             scope->Push(Call(allgather_op, {src_arg, MakeConstant(ScalarValue::make(int64_t(0)))}));
 
@@ -99,7 +99,7 @@ class OptimStatusPartitioner : public ExprMutator {
                "actual weight, but got "
             << allgather_first_dim << " vs. " << actual_first_dim;
         if (allgather_first_dim > actual_first_dim) {
-          static const Op& strided_slice_op = Op::Get("mnm.op.strided_slice");
+          static const Op& strided_slice_op = Op::Get("raf.op.strided_slice");
           new_var =
               scope->Push(Call(strided_slice_op, {new_var, MakeConstant(ScalarValue::make(0)),
                                                   MakeConstant(ScalarValue::make(actual_first_dim)),
@@ -120,7 +120,7 @@ class OptimStatusPartitioner : public ExprMutator {
  private:
   /*! \brief Check whether a given expression is a call expression with scatter. */
   inline bool IsScatterCall(const Expr& expr) {
-    static const Op& scatter_op = Op::Get("mnm.op.scatter");
+    static const Op& scatter_op = Op::Get("raf.op.scatter");
     if (!expr->IsInstance<CallNode>()) {
       return false;
     }
@@ -158,12 +158,12 @@ Pass PartitionOptimStatus() {
                                                                              PassContext pc) {
     return partition_optim_status::OptimStatusPartitioner(f).Run();
   };
-  auto partition_optim_status = CreateMNMFunctionPass(pass_func, 0, "PartitionOptimStatusFunc", {});
-  return MNMSequential({partition_optim_status, EraseType(), DeadCodeElimination()},
+  auto partition_optim_status = CreateRAFFunctionPass(pass_func, 0, "PartitionOptimStatusFunc", {});
+  return RAFSequential({partition_optim_status, EraseType(), DeadCodeElimination()},
                        "PartitionOptimStatus");
 }
 
-MNM_REGISTER_GLOBAL("mnm.pass_.PartitionOptimStatus").set_body_typed(PartitionOptimStatus);
+RAF_REGISTER_GLOBAL("raf.pass_.PartitionOptimStatus").set_body_typed(PartitionOptimStatus);
 
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf

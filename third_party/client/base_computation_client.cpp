@@ -10,17 +10,17 @@
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
 #include "razor/csrc/compiler/utils.h"
-#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/compiler/raf_lowering_context.h"
 #include "razor/csrc/utils/file.h"
 
-#include "mnm/serialization.h"
+#include "raf/serialization.h"
 
 #include "env_vars.h"
 
 namespace lazy_tensors {
 
 using namespace torch_lazy_tensors::compiler;
-using namespace mnm;
+using namespace raf;
 
 std::once_flag g_computation_client_once;
 std::atomic<lazy_tensors::ComputationClient*> g_computation_client(nullptr);
@@ -55,7 +55,7 @@ void PopulateLocalDevices(BaseComputationClient::Options* options) {
     if (!ignore) {
       options->devices.insert(ltc_device);
       options->global_device_map[ltc_device] =
-          torch_lazy_tensors::compiler::mnm_backend::ToMNMDevice(ltc_device).c_str();
+          torch_lazy_tensors::compiler::raf_backend::ToRAFDevice(ltc_device).c_str();
     }
   }
 }
@@ -150,7 +150,7 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
 
 ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   auto* computation =
-      static_cast<torch_lazy_tensors::compiler::mnm_backend::GenericComputationMNM*>(
+      static_cast<torch_lazy_tensors::compiler::raf_backend::GenericComputationRAF*>(
           instance.computation.get());
   auto func = Downcast<Function>(computation->computation());
   Array<Integer> model_states;
@@ -167,9 +167,9 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
 
   IRModule ir_module = IRModule::FromExpr(computation->computation());
   // Canonicalize IR.
-  ir_module = mnm::pass::FoldConstant()(ir_module);
-  ir_module = mnm::pass::InferType()(ir_module);
-  String json(mnm::ir::serialization::SaveJSON(ir_module));
+  ir_module = raf::pass::FoldConstant()(ir_module);
+  ir_module = raf::pass::InferType()(ir_module);
+  String json(raf::ir::serialization::SaveJSON(ir_module));
 
   return Array<ObjectRef>({json, model_states, alias});
 }

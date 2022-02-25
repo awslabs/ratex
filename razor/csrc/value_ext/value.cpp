@@ -5,10 +5,10 @@
 
 #include "./value.h"
 
-namespace mnm {
+namespace raf {
 namespace value {
 
-using namespace mnm::ir;
+using namespace raf::ir;
 
 ClosureValueExt ClosureValueExt::make(ir::Map<ir::Var, Value> env, IRModule mod, GlobalVar gvar) {
   auto ptr = make_object<ClosureValueExtObj>();
@@ -18,7 +18,7 @@ ClosureValueExt ClosureValueExt::make(ir::Map<ir::Var, Value> env, IRModule mod,
   return ClosureValueExt(ptr);
 }
 
-MNM_REGISTER_OBJECT_REFLECT(ClosureValueExtObj);
+RAF_REGISTER_OBJECT_REFLECT(ClosureValueExtObj);
 
 }  // namespace value
-}  // namespace mnm
+}  // namespace raf

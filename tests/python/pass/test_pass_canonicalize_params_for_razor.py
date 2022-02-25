@@ -3,23 +3,23 @@
 
 import pytest
 
-from razor._lib import mnm
+from razor._lib import raf
 import tvm
 from tvm import relay
-from mnm.ir import ScopeBuilder
-from mnm.model.nn import BatchNorm
-from mnm.testing import randn
+from raf.ir import ScopeBuilder
+from raf.model.nn import BatchNorm
+from raf.testing import randn
 
-_APIS = mnm._lib._get_apis()
-CanonicalizeParamsForRAZOR = _APIS.get("mnm.pass_.CanonicalizeParamsForRAZOR", None)
+_APIS = raf._lib._get_apis()
+CanonicalizeParamsForRAZOR = _APIS.get("raf.pass_.CanonicalizeParamsForRAZOR", None)
 
 
 def test_basic():
-    class Model(mnm.Model):
+    class Model(raf.Model):
         def build(self, num_features, eps=1e-5, momentum=0.1, affine=True):
             self.batch_norm = BatchNorm(num_features, eps, momentum, affine)
 
-        @mnm.model.trace
+        @raf.model.trace
         def forward(self, x):
             x = self.batch_norm(x)
             return x
@@ -31,27 +31,27 @@ def test_basic():
 
     record = model._internal(m_x)
     mod = record.mod
-    mod = mnm._ffi.pass_.InferType()(mod)
-    mod = mnm._ffi.pass_.AutoDiff(record.requires_grads)(mod)
-    mod = mnm._ffi.pass_.DeadCodeElimination()(mod)
-    mod = mnm._ffi.pass_.InferType()(mod)
+    mod = raf._ffi.pass_.InferType()(mod)
+    mod = raf._ffi.pass_.AutoDiff(record.requires_grads)(mod)
+    mod = raf._ffi.pass_.DeadCodeElimination()(mod)
+    mod = raf._ffi.pass_.InferType()(mod)
     mod = CanonicalizeParamsForRAZOR()(mod)
-    mod = mnm._ffi.pass_.DeadCodeElimination()(mod)
-    mod = mnm._ffi.pass_.InferType()(mod)
+    mod = raf._ffi.pass_.DeadCodeElimination()(mod)
+    mod = raf._ffi.pass_.InferType()(mod)
 
     def expected():
-        bn_op = mnm._ffi.op.GetOp("mnm.op.batch_norm_train")
-        bn_dx_op = mnm._ffi.op.GetOp("mnm.op.batch_norm_train_dxwb")
-        zeros_like_op = mnm._ffi.op.GetOp("mnm.op.zeros_like")
-        eps_const = mnm.ir.const(1e-5)
-        momentum_const = mnm.ir.const(0.1)
+        bn_op = raf._ffi.op.GetOp("raf.op.batch_norm_train")
+        bn_dx_op = raf._ffi.op.GetOp("raf.op.batch_norm_train_dxwb")
+        zeros_like_op = raf._ffi.op.GetOp("raf.op.zeros_like")
+        eps_const = raf.ir.const(1e-5)
+        momentum_const = raf.ir.const(0.1)
 
-        data = mnm.ir.var("x", shape=shape)
-        bn_b = mnm.ir.var("bn_b", shape=(shape[1],))
-        bn_m = mnm.ir.var("bn_m", shape=(shape[1],))
-        bn_v = mnm.ir.var("bn_v", shape=(shape[1],))
-        bn_w = mnm.ir.var("bn_w", shape=(shape[1],))
-        dy = mnm.ir.var("dy", shape=shape)
+        data = raf.ir.var("x", shape=shape)
+        bn_b = raf.ir.var("bn_b", shape=(shape[1],))
+        bn_m = raf.ir.var("bn_m", shape=(shape[1],))
+        bn_v = raf.ir.var("bn_v", shape=(shape[1],))
+        bn_w = raf.ir.var("bn_w", shape=(shape[1],))
+        dy = raf.ir.var("dy", shape=shape)
 
         # adjoint closure.
         sb = ScopeBuilder()
@@ -80,7 +80,7 @@ def test_basic():
         sb.ret(ret)
         func = relay.Function([data, bn_b, bn_m, bn_v, bn_w], sb.get())
         mod = tvm.IRModule.from_expr(func)
-        mod = mnm._ffi.pass_.InferType()(mod)
+        mod = raf._ffi.pass_.InferType()(mod)
         return mod
 
     assert tvm.ir.structural_equal(mod["main"], expected()["main"])

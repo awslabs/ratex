@@ -8,13 +8,13 @@
 #include "lazy_tensor_core/csrc/compiler/node_lowering.h"
 #include "lazy_tensor_core/csrc/lowering_context.h"
 
-#include "mnm/device.h"
-#include "mnm/ir.h"
-#include "mnm/value.h"
-#include "mnm/pass.h"
-#include "mnm/binding.h"
+#include "raf/device.h"
+#include "raf/ir.h"
+#include "raf/value.h"
+#include "raf/pass.h"
+#include "raf/binding.h"
 
-namespace mnm {
+namespace raf {
 namespace pass {
 namespace extract_binding {
 
@@ -22,9 +22,9 @@ ir::Expr ExtractBinding(const ir::Var& var, const ir::Array<ir::Var>& ignore);
 
 }  // namespace extract_binding
 }  // namespace pass
-}  // namespace mnm
+}  // namespace raf
 
-namespace mnm {
+namespace raf {
 
 using namespace lazy_tensors;
 
@@ -52,16 +52,16 @@ inline DType::operator PrimitiveType() const {
   }
 }
 
-}  // namespace mnm
+}  // namespace raf
 
 namespace torch_lazy_tensors {
 namespace compiler {
-namespace mnm_backend {
+namespace raf_backend {
 
 using namespace lazy_tensors;
-using namespace mnm;
-using namespace mnm::value;
-using namespace mnm::ir;
+using namespace raf;
+using namespace raf::value;
+using namespace raf::ir;
 
 inline Shape WithDefaultMinorToMajor(const Shape& shape) {
   Shape ret = shape;
@@ -72,7 +72,7 @@ inline Shape WithDefaultMinorToMajor(const Shape& shape) {
   return ret;
 }
 
-inline Shape ToLTCShape(std::vector<int64_t> shape, mnm::DType dtype) {
+inline Shape ToLTCShape(std::vector<int64_t> shape, raf::DType dtype) {
   return WithDefaultMinorToMajor(Shape(dtype, lazy_tensors::Span<const int64>(shape)));
 }
 
@@ -98,7 +98,7 @@ inline Shape ToLTCShape(const Type& type) {
   LTC_LOG(FATAL) << "NotImplementedError: " << type;
 }
 
-inline DType ToMNMDType(const PrimitiveType type) {
+inline DType ToRAFDType(const PrimitiveType type) {
   switch (type) {
     case PrimitiveType::S8:
       return DType(DTypeCode::kInt(), 8);
@@ -121,29 +121,29 @@ inline DType ToMNMDType(const PrimitiveType type) {
   }
 }
 
-inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(
+inline std::tuple<std::vector<int64_t>, DType> ToRAFShape(
     const lazy_tensors::client::ShapeData& shape) {
-  return std::make_tuple(shape.dimensions(), ToMNMDType(shape.element_type()));
+  return std::make_tuple(shape.dimensions(), ToRAFDType(shape.element_type()));
 }
 
-inline std::tuple<std::vector<int64_t>, DType> ToMNMShape(const Shape& shape) {
+inline std::tuple<std::vector<int64_t>, DType> ToRAFShape(const Shape& shape) {
   lazy_tensors::Span<const int64> dimension = shape.dimensions();
   return std::make_tuple(std::vector<int64_t>(dimension.begin(), dimension.end()),
-                         ToMNMDType(shape.element_type()));
+                         ToRAFDType(shape.element_type()));
 }
 
-inline Type ToMNMType(const Shape& shape) {
+inline Type ToRAFType(const Shape& shape) {
   std::vector<int64_t> vec_shape;
   DType dtype;
   Array<tvm::PrimExpr> arr_shape;
-  std::tie(vec_shape, dtype) = ToMNMShape(shape);
+  std::tie(vec_shape, dtype) = ToRAFShape(shape);
   for (const auto& x : vec_shape) {
     arr_shape.push_back(Integer(x));
   }
   return TensorType(arr_shape, DataType(dtype.operator DLDataType()));
 }
 
-inline mnm::Device ToMNMDevice(const std::string& device) {
+inline raf::Device ToRAFDevice(const std::string& device) {
   LTC_CHECK(device != "") << "device is empty";
   auto sep = device.find(":");
   std::string dev_type = device.substr(0, sep);
@@ -151,24 +151,24 @@ inline mnm::Device ToMNMDevice(const std::string& device) {
   int dev_id = (sep == std::string::npos) ? 0 : std::stoi(device.substr(sep + 1));
 
   if (dev_type == "cpu") {
-    return mnm::Device(DevType::kCPU(), dev_id);
+    return raf::Device(DevType::kCPU(), dev_id);
   } else if (dev_type == "gpu" || dev_type == "cuda") {
-    return mnm::Device(DevType::kCUDA(), dev_id);
+    return raf::Device(DevType::kCUDA(), dev_id);
   }
   LTC_LOG(FATAL) << "Not supported device: " << device;
 }
 
 inline std::tuple<Var, Var> PromoteDType(const Var& op0, const Var& op1) {
-  using namespace mnm::binding;
+  using namespace raf::binding;
   auto tty0 = Downcast<TensorType>(op0->checked_type());
   auto tty1 = Downcast<TensorType>(op1->checked_type());
   LTC_CHECK_EQ(tty0->dtype.lanes(), tty1->dtype.lanes());
   if (tty0->dtype.code() != tty1->dtype.code()) {
     if (tty0->dtype.is_float() && tty1->dtype.is_int()) {
       return std::make_tuple(op0,
-                             BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op1, op0})));
+                             BindSymbol(raf::ir::Call(Op::Get("raf.op.cast_like"), {op1, op0})));
     } else if (tty1->dtype.is_float() && tty0->dtype.is_int()) {
-      return std::make_tuple(BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op0, op1})),
+      return std::make_tuple(BindSymbol(raf::ir::Call(Op::Get("raf.op.cast_like"), {op0, op1})),
                              op1);
     }
     LTC_LOG(FATAL) << "Not implemented yet.";
@@ -176,12 +176,12 @@ inline std::tuple<Var, Var> PromoteDType(const Var& op0, const Var& op1) {
   if (tty0->dtype.bits() == tty1->dtype.bits()) {
     return std::make_tuple(op0, op1);
   } else if (tty0->dtype.bits() < tty1->dtype.bits()) {
-    return std::make_tuple(BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op0, op1})), op1);
+    return std::make_tuple(BindSymbol(raf::ir::Call(Op::Get("raf.op.cast_like"), {op0, op1})), op1);
   } else {
-    return std::make_tuple(op0, BindSymbol(mnm::ir::Call(Op::Get("mnm.op.cast_like"), {op1, op0})));
+    return std::make_tuple(op0, BindSymbol(raf::ir::Call(Op::Get("raf.op.cast_like"), {op1, op0})));
   }
 }
 
-}  // namespace mnm_backend
+}  // namespace raf_backend
 }  // namespace compiler
 }  // namespace torch_lazy_tensors

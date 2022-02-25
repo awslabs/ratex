@@ -17,10 +17,10 @@ class autocast:  # pylint: disable=invalid-name
         self._enabled = enabled
 
     def __enter__(self):
-        _RAZORC._mnm_set_amp_enabled(self._enabled)
+        _RAZORC._raf_set_amp_enabled(self._enabled)
 
     def __exit__(self, *args):
-        _RAZORC._mnm_set_amp_enabled(False)
+        _RAZORC._raf_set_amp_enabled(False)
         return False
 
     def __call__(self, func):

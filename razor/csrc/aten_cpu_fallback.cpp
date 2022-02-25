@@ -13,7 +13,7 @@
 
 namespace torch_lazy_tensors {
 
-void mnm_cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
+void raf_cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
   LTC_COUNTER("aten::" + c10::toString(op.operator_name()), 1);
 
   auto& args = op.schema().arguments();
@@ -32,11 +32,11 @@ void mnm_cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
 }
 
 TORCH_LIBRARY_IMPL(_, Lazy, m) {
-  m.fallback(torch::CppFunction::makeFromBoxedFunction<&mnm_cpu_fallback>());
+  m.fallback(torch::CppFunction::makeFromBoxedFunction<&raf_cpu_fallback>());
 }
 
 // Other fallback functions.
-at::Tensor& AtenMNMTypeDefault::add_(at::Tensor& self, const at::Scalar& other,
+at::Tensor& AtenRAFTypeDefault::add_(at::Tensor& self, const at::Scalar& other,
                                      const at::Scalar& alpha) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::add_", 1);
@@ -48,7 +48,7 @@ at::Tensor& AtenMNMTypeDefault::add_(at::Tensor& self, const at::Scalar& other,
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::bernoulli_(at::Tensor& self, const at::Tensor& p,
+at::Tensor& AtenRAFTypeDefault::bernoulli_(at::Tensor& self, const at::Tensor& p,
                                            c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::bernoulli_", 1);
@@ -60,7 +60,7 @@ at::Tensor& AtenMNMTypeDefault::bernoulli_(at::Tensor& self, const at::Tensor& p
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::bernoulli_(at::Tensor& self, double p,
+at::Tensor& AtenRAFTypeDefault::bernoulli_(at::Tensor& self, double p,
                                            c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::bernoulli_", 1);
@@ -72,7 +72,7 @@ at::Tensor& AtenMNMTypeDefault::bernoulli_(at::Tensor& self, double p,
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::div_(at::Tensor& self, const at::Tensor& other,
+at::Tensor& AtenRAFTypeDefault::div_(at::Tensor& self, const at::Tensor& other,
                                      c10::optional<c10::string_view> rounding_mode) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::div_", 1);
@@ -84,7 +84,7 @@ at::Tensor& AtenMNMTypeDefault::div_(at::Tensor& self, const at::Tensor& other,
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::div_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::div_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::div_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -95,7 +95,7 @@ at::Tensor& AtenMNMTypeDefault::div_(at::Tensor& self, const at::Scalar& other) 
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::eq_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::eq_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::eq_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -106,7 +106,7 @@ at::Tensor& AtenMNMTypeDefault::eq_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::eq_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::eq_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::eq_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -117,7 +117,7 @@ at::Tensor& AtenMNMTypeDefault::eq_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::fill_(at::Tensor& self, const at::Scalar& value) {
+at::Tensor& AtenRAFTypeDefault::fill_(at::Tensor& self, const at::Scalar& value) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::fill_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -128,7 +128,7 @@ at::Tensor& AtenMNMTypeDefault::fill_(at::Tensor& self, const at::Scalar& value)
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::fill_(at::Tensor& self, const at::Tensor& value) {
+at::Tensor& AtenRAFTypeDefault::fill_(at::Tensor& self, const at::Tensor& value) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::fill_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, value};
@@ -139,7 +139,7 @@ at::Tensor& AtenMNMTypeDefault::fill_(at::Tensor& self, const at::Tensor& value)
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::fmod_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::fmod_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::fmod_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -150,7 +150,7 @@ at::Tensor& AtenMNMTypeDefault::fmod_(at::Tensor& self, const at::Scalar& other)
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::fmod_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::fmod_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::fmod_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -161,7 +161,7 @@ at::Tensor& AtenMNMTypeDefault::fmod_(at::Tensor& self, const at::Tensor& other)
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::ge_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::ge_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::ge_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -172,7 +172,7 @@ at::Tensor& AtenMNMTypeDefault::ge_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::ge_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::ge_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::ge_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -183,7 +183,7 @@ at::Tensor& AtenMNMTypeDefault::ge_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::gt_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::gt_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::gt_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -194,7 +194,7 @@ at::Tensor& AtenMNMTypeDefault::gt_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::gt_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::gt_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::gt_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -205,7 +205,7 @@ at::Tensor& AtenMNMTypeDefault::gt_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::le_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::le_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::le_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -216,7 +216,7 @@ at::Tensor& AtenMNMTypeDefault::le_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::le_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::le_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::le_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -227,7 +227,7 @@ at::Tensor& AtenMNMTypeDefault::le_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::lt_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::lt_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::lt_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -238,7 +238,7 @@ at::Tensor& AtenMNMTypeDefault::lt_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::lt_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::lt_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::lt_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -249,7 +249,7 @@ at::Tensor& AtenMNMTypeDefault::lt_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-std::tuple<at::Tensor, at::Tensor> AtenMNMTypeDefault::max(const at::Tensor& self, int64_t dim,
+std::tuple<at::Tensor, at::Tensor> AtenRAFTypeDefault::max(const at::Tensor& self, int64_t dim,
                                                            bool keepdim) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::max", 1);
@@ -261,7 +261,7 @@ std::tuple<at::Tensor, at::Tensor> AtenMNMTypeDefault::max(const at::Tensor& sel
       bridge::CreateLtcTensor(std::get<1>(x_result), bridge::GetLtcDevice(self)));
 }
 
-std::tuple<at::Tensor, at::Tensor> AtenMNMTypeDefault::min(const at::Tensor& self, int64_t dim,
+std::tuple<at::Tensor, at::Tensor> AtenRAFTypeDefault::min(const at::Tensor& self, int64_t dim,
                                                            bool keepdim) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::min", 1);
@@ -273,7 +273,7 @@ std::tuple<at::Tensor, at::Tensor> AtenMNMTypeDefault::min(const at::Tensor& sel
       bridge::CreateLtcTensor(std::get<1>(x_result), bridge::GetLtcDevice(self)));
 }
 
-at::Tensor& AtenMNMTypeDefault::mul_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::mul_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::mul_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -284,7 +284,7 @@ at::Tensor& AtenMNMTypeDefault::mul_(at::Tensor& self, const at::Tensor& other) 
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::mul_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::mul_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::mul_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -295,7 +295,7 @@ at::Tensor& AtenMNMTypeDefault::mul_(at::Tensor& self, const at::Scalar& other) 
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::ne_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::ne_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::ne_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -306,7 +306,7 @@ at::Tensor& AtenMNMTypeDefault::ne_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::ne_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::ne_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::ne_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -317,7 +317,7 @@ at::Tensor& AtenMNMTypeDefault::ne_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                     at::ScalarType dtype) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::norm", 1);
@@ -327,7 +327,7 @@ at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const at::Scalar& p) {
+at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const at::Scalar& p) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::norm", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -336,7 +336,7 @@ at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const at::Scalar& p)
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                     at::IntArrayRef dim, bool keepdim, at::ScalarType dtype) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::norm", 1);
@@ -346,7 +346,7 @@ at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                     at::IntArrayRef dim, bool keepdim) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::norm", 1);
@@ -356,7 +356,7 @@ at::Tensor AtenMNMTypeDefault::norm(const at::Tensor& self, const c10::optional<
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor AtenMNMTypeDefault::normal(double mean, const at::Tensor& std,
+at::Tensor AtenRAFTypeDefault::normal(double mean, const at::Tensor& std,
                                       c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::normal", 1);
@@ -366,7 +366,7 @@ at::Tensor AtenMNMTypeDefault::normal(double mean, const at::Tensor& std,
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(std));
 }
 
-at::Tensor AtenMNMTypeDefault::normal(const at::Tensor& mean, const at::Tensor& std,
+at::Tensor AtenRAFTypeDefault::normal(const at::Tensor& mean, const at::Tensor& std,
                                       c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::normal", 1);
@@ -376,7 +376,7 @@ at::Tensor AtenMNMTypeDefault::normal(const at::Tensor& mean, const at::Tensor& 
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(mean));
 }
 
-at::Tensor AtenMNMTypeDefault::normal(const at::Tensor& mean, double std,
+at::Tensor AtenRAFTypeDefault::normal(const at::Tensor& mean, double std,
                                       c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::normal", 1);
@@ -386,7 +386,7 @@ at::Tensor AtenMNMTypeDefault::normal(const at::Tensor& mean, double std,
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(mean));
 }
 
-at::Tensor AtenMNMTypeDefault::pow(const at::Tensor& self, const at::Tensor& exponent) {
+at::Tensor AtenRAFTypeDefault::pow(const at::Tensor& self, const at::Tensor& exponent) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::pow", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, exponent};
@@ -395,7 +395,7 @@ at::Tensor AtenMNMTypeDefault::pow(const at::Tensor& self, const at::Tensor& exp
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor AtenMNMTypeDefault::pow(const at::Scalar& self, const at::Tensor& exponent) {
+at::Tensor AtenRAFTypeDefault::pow(const at::Scalar& self, const at::Tensor& exponent) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::pow", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {exponent};
@@ -404,7 +404,7 @@ at::Tensor AtenMNMTypeDefault::pow(const at::Scalar& self, const at::Tensor& exp
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(exponent));
 }
 
-at::Tensor AtenMNMTypeDefault::pow(const at::Tensor& self, const at::Scalar& exponent) {
+at::Tensor AtenRAFTypeDefault::pow(const at::Tensor& self, const at::Scalar& exponent) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::pow", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -413,7 +413,7 @@ at::Tensor AtenMNMTypeDefault::pow(const at::Tensor& self, const at::Scalar& exp
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
 }
 
-at::Tensor& AtenMNMTypeDefault::pow_(at::Tensor& self, const at::Tensor& exponent) {
+at::Tensor& AtenRAFTypeDefault::pow_(at::Tensor& self, const at::Tensor& exponent) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::pow_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, exponent};
@@ -424,7 +424,7 @@ at::Tensor& AtenMNMTypeDefault::pow_(at::Tensor& self, const at::Tensor& exponen
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::pow_(at::Tensor& self, const at::Scalar& exponent) {
+at::Tensor& AtenRAFTypeDefault::pow_(at::Tensor& self, const at::Scalar& exponent) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::pow_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -435,7 +435,7 @@ at::Tensor& AtenMNMTypeDefault::pow_(at::Tensor& self, const at::Scalar& exponen
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::random_(at::Tensor& self, int64_t from, c10::optional<int64_t> to,
+at::Tensor& AtenRAFTypeDefault::random_(at::Tensor& self, int64_t from, c10::optional<int64_t> to,
                                         c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::random_", 1);
@@ -447,7 +447,7 @@ at::Tensor& AtenMNMTypeDefault::random_(at::Tensor& self, int64_t from, c10::opt
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::random_(at::Tensor& self, int64_t to,
+at::Tensor& AtenRAFTypeDefault::random_(at::Tensor& self, int64_t to,
                                         c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::random_", 1);
@@ -459,7 +459,7 @@ at::Tensor& AtenMNMTypeDefault::random_(at::Tensor& self, int64_t to,
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::remainder_(at::Tensor& self, const at::Scalar& other) {
+at::Tensor& AtenRAFTypeDefault::remainder_(at::Tensor& self, const at::Scalar& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::remainder_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self};
@@ -470,7 +470,7 @@ at::Tensor& AtenMNMTypeDefault::remainder_(at::Tensor& self, const at::Scalar& o
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::remainder_(at::Tensor& self, const at::Tensor& other) {
+at::Tensor& AtenRAFTypeDefault::remainder_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::remainder_", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {self, other};
@@ -481,7 +481,7 @@ at::Tensor& AtenMNMTypeDefault::remainder_(at::Tensor& self, const at::Tensor& o
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::sub_(at::Tensor& self, const at::Tensor& other,
+at::Tensor& AtenRAFTypeDefault::sub_(at::Tensor& self, const at::Tensor& other,
                                      const at::Scalar& alpha) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::sub_", 1);
@@ -493,7 +493,7 @@ at::Tensor& AtenMNMTypeDefault::sub_(at::Tensor& self, const at::Tensor& other,
   return self;
 }
 
-at::Tensor& AtenMNMTypeDefault::sub_(at::Tensor& self, const at::Scalar& other,
+at::Tensor& AtenRAFTypeDefault::sub_(at::Tensor& self, const at::Scalar& other,
                                      const at::Scalar& alpha) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::sub_", 1);
@@ -505,7 +505,7 @@ at::Tensor& AtenMNMTypeDefault::sub_(at::Tensor& self, const at::Scalar& other,
   return self;
 }
 
-at::Tensor AtenMNMTypeDefault::upsample_nearest2d(
+at::Tensor AtenRAFTypeDefault::upsample_nearest2d(
     const at::Tensor& input, c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_TRACK(3);
@@ -516,7 +516,7 @@ at::Tensor AtenMNMTypeDefault::upsample_nearest2d(
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(input));
 }
 
-at::Tensor AtenMNMTypeDefault::upsample_nearest2d_backward(
+at::Tensor AtenRAFTypeDefault::upsample_nearest2d_backward(
     const at::Tensor& grad_output, c10::optional<at::IntArrayRef> output_size,
     at::IntArrayRef input_size, c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_TRACK(3);

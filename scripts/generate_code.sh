@@ -19,7 +19,7 @@ fi
 pushd $PYTORCH_SOURCE_PATH
 python3 -m tools.codegen.gen_backend_stubs \
   --output_dir="$BASE_DIR/razor/csrc" \
-  --source_yaml="$BASE_DIR/mnm_native_functions.yaml"\
-  --impl_path="$BASE_DIR/razor/csrc/aten_mnm_type.cpp"\
+  --source_yaml="$BASE_DIR/raf_native_functions.yaml"\
+  --impl_path="$BASE_DIR/razor/csrc/aten_raf_type.cpp"\
 
 popd

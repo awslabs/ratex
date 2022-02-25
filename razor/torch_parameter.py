@@ -11,7 +11,7 @@ import _RAZORC
 def _to(self, *args, **kwargs):
     ret = super(torch.nn.parameter.Parameter, self).to(*args, **kwargs)
     if str(ret.device.type) == "lazy":
-        return _RAZORC._mnm_mark_parameter(ret)
+        return _RAZORC._raf_mark_parameter(ret)
     return ret
 
 

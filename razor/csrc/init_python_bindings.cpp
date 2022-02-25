@@ -10,17 +10,17 @@
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "lazy_tensors/shape.h"
 #include "lazy_tensor_core/csrc/ops/device_data.h"
-#include "razor/csrc/aten_mnm_bridge.h"
+#include "razor/csrc/aten_raf_bridge.h"
 #include "razor/csrc/ops/all_gather.h"
 #include "razor/csrc/ops/relay_expr.h"
 #include "razor/csrc/ops/relay_function.h"
-#include "razor/csrc/ops/mnm_ops.h"
+#include "razor/csrc/ops/raf_ops.h"
 #include "razor/csrc/compiler/utils.h"
-#include "razor/csrc/mnm_model_state.h"
-#include "razor/csrc/aten_mnm_bridge.h"
-#include "client/mnm_computation_client.h"
-#include "mnm/registry.h"
-#include "meta/src/op/ty/utils.h"
+#include "razor/csrc/raf_model_state.h"
+#include "razor/csrc/aten_raf_bridge.h"
+#include "client/raf_computation_client.h"
+#include "raf/registry.h"
+#include "raf/src/op/ty/utils.h"
 
 namespace torch_lazy_tensors {
 
@@ -50,7 +50,7 @@ Device GetDeviceOrCurrent(const std::string& device_str) {
 
 std::shared_ptr<ir::Value> CreateToken(const std::string& device_str) {
   // This should be using lazy_tensors::CreateToken() once we have added Token
-  // support to the backend AllReduce(). Since mnm AllReduce doesn't need token
+  // support to the backend AllReduce(). Since raf AllReduce doesn't need token
   // so we only return a dummy IR value.
   Device device = GetDeviceOrCurrent(device_str);
   ir::Value ir_value =
@@ -58,12 +58,12 @@ std::shared_ptr<ir::Value> CreateToken(const std::string& device_str) {
   return std::make_shared<ir::Value>(std::move(ir_value));
 }
 
-void InitMNMModuleBindings(py::module m) {
-  m.def("_mnm_invoke_relay",
+void InitRAFModuleBindings(py::module m) {
+  m.def("_raf_invoke_relay",
         [](at::Tensor func, const std::vector<at::Tensor>& tensors,
            const std::unordered_map<int, int>& inplace_update_out_2_arg_idxs)
             -> std::vector<at::Tensor> {
-          LTC_COUNTER("_mnm_invoke_relay", 1);
+          LTC_COUNTER("_raf_invoke_relay", 1);
           LTC_CHECK_GT(tensors.size(), 0U);
           LazyTensor lazy_tensor_func = bridge::GetLtcTensor(func);
           ir::Value func_value = lazy_tensor_func.GetIrValue();
@@ -110,14 +110,14 @@ void InitMNMModuleBindings(py::module m) {
           }
         });
 
-  m.def("_mnm_to_tensor", [](int64_t handle) -> at::Tensor {
-    static auto handle_to_value = mnm::registry::GetPackedFunc("mnm.value.HandleToValue");
+  m.def("_raf_to_tensor", [](int64_t handle) -> at::Tensor {
+    static auto handle_to_value = raf::registry::GetPackedFunc("raf.value.HandleToValue");
     // TODO(@hzfan): assign real data type when handle is TensorValue
-    mnm::value::Value val = handle_to_value(handle);
+    raf::value::Value val = handle_to_value(handle);
     lazy_tensors::Shape shape =
-        compiler::mnm_backend::ToLTCShape(tvm::relay::TupleType({mnm::op::GetType(val)}));
+        compiler::raf_backend::ToLTCShape(tvm::relay::TupleType({raf::op::GetType(val)}));
     LazyTensor ret;
-    if (const auto* cvo = val.as<mnm::value::ClosureValueObj>()) {
+    if (const auto* cvo = val.as<raf::value::ClosureValueObj>()) {
       // ret is closure, whose type cannot be expressed as at::ScalarType. Byte is used as dummy
       // data type for it.
       LTC_CHECK_EQ(cvo->env.size(), 0U);
@@ -131,46 +131,46 @@ void InitMNMModuleBindings(py::module m) {
   });
 
   // TODO: Remove this function and use LTC binding after we have control over LTC
-  m.def("_mnm_all_gather",
+  m.def("_raf_all_gather",
         [](const at::Tensor& input, lazy_tensors::int64 dim, const py::list& groups) {
           std::vector<std::vector<lazy_tensors::int64>> replica_groups = CreateReduceGroups(groups);
           const LazyTensor& input_ltc = bridge::GetLtcTensor(input);
           std::vector<ir::Value> input_values({input_ltc.GetIrValue()});
           ir::NodePtr node =
-              ir::MakeNode<ir::ops::MNMAllGather>(input_values, dim, std::move(replica_groups));
-          LazyTensor ret = bridge::mnm_backend::CreateFrom(input_ltc, ir::Value(node, 0));
+              ir::MakeNode<ir::ops::RAFAllGather>(input_values, dim, std::move(replica_groups));
+          LazyTensor ret = bridge::raf_backend::CreateFrom(input_ltc, ir::Value(node, 0));
           return bridge::AtenFromLtcTensor(std::move(ret));
         });
 
-  m.def("_mnm_create_token", [](const std::string& device) { return CreateToken(device); });
+  m.def("_raf_create_token", [](const std::string& device) { return CreateToken(device); });
 
-  m.def("_mnm_mark_parameter", [](at::Tensor tensor) -> at::Tensor {
+  m.def("_raf_mark_parameter", [](at::Tensor tensor) -> at::Tensor {
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);
     ir::Value ir_value = lazy_tensor.GetIrValue();
-    GetMNMModelState()->AddModelState(lazy_tensor);
+    GetRAFModelState()->AddModelState(lazy_tensor);
 
     Value value = lazy_tensor.GetIrValue();
-    lazy_tensors::ComputationClient::DataPtr data = bridge::mnm_backend::GetData(value);
+    lazy_tensors::ComputationClient::DataPtr data = bridge::raf_backend::GetData(value);
     static_cast<razor::BaseComputationClient::BaseData*>(data.get())->is_param = true;
 
     return tensor;
   });
 
-  m.def("_mnm_set_amp_enabled", [](bool enable) { GetMNMModelState()->SetAMPEnabled(enable); });
+  m.def("_raf_set_amp_enabled", [](bool enable) { GetRAFModelState()->SetAMPEnabled(enable); });
 
-  m.def("_mnm_is_amp_enabled", []() { return GetMNMModelState()->IsAMPEnabled(); });
+  m.def("_raf_is_amp_enabled", []() { return GetRAFModelState()->IsAMPEnabled(); });
 
-  m.def("_mnm_ltc_timed_metric", [](const std::string& name, float value) {
+  m.def("_raf_ltc_timed_metric", [](const std::string& name, float value) {
     lazy_tensors::metrics::Metric(name, lazy_tensors::metrics::MetricFnTime).AddSample(value);
   });
 
-  m.def("_mnm_ltc_counter_metric", [](const std::string& name, int value) {
+  m.def("_raf_ltc_counter_metric", [](const std::string& name, int value) {
     lazy_tensors::metrics::Counter(name).AddValue(value);
   });
 }
 
-void InitMNMBindings(py::module m) {
-  InitMNMModuleBindings(m);
+void InitRAFBindings(py::module m) {
+  InitRAFModuleBindings(m);
 }
 
 }  // namespace
@@ -184,5 +184,5 @@ PYBIND11_MODULE(_RAZORC, m) {
     // Do nothing, CUDA not available.
   }
   torch_lazy_tensors::InitLtcBindings(m);
-  torch_lazy_tensors::InitMNMBindings(m);
+  torch_lazy_tensors::InitRAFBindings(m);
 }

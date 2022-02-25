@@ -7,16 +7,16 @@
 #include "tvm/runtime/ndarray.h"
 #include "tvm/node/functor.h"
 #include "tvm/ir/module.h"
-#include "mnm/executor.h"
-#include "mnm/ir.h"
-#include "mnm/registry.h"
-#include "mnm/tensor.h"
-#include "mnm/value.h"
+#include "raf/executor.h"
+#include "raf/ir.h"
+#include "raf/registry.h"
+#include "raf/tensor.h"
+#include "raf/value.h"
 
-namespace mnm {
+namespace raf {
 namespace value {
 
-using namespace mnm::ir;
+using namespace raf::ir;
 
 class ValueRegistry {
  public:
@@ -50,8 +50,8 @@ Value HandleToValue(Integer value) {
   }
 }
 
-MNM_REGISTER_GLOBAL("mnm.value.ValueToHandle").set_body_typed(ValueToHandle);
-MNM_REGISTER_GLOBAL("mnm.value.HandleToValue").set_body_typed(HandleToValue);
+RAF_REGISTER_GLOBAL("raf.value.ValueToHandle").set_body_typed(ValueToHandle);
+RAF_REGISTER_GLOBAL("raf.value.HandleToValue").set_body_typed(HandleToValue);
 
 }  // namespace value
-}  // namespace mnm
+}  // namespace raf

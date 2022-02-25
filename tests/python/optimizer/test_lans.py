@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import mnm
-from mnm.model import Conv2d, Linear, BatchNorm
-from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, with_seed
+import raf
+from raf.model import Conv2d, Linear, BatchNorm
+from raf.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, with_seed
 
 from razor.optimizer import LANS
 from razor.testing import check
@@ -27,13 +27,13 @@ class TorchSimpleTest(nn.Module):
         return y
 
 
-class MNMSimpleTest(mnm.Model):
+class MNMSimpleTest(raf.Model):
     def build(self, shape):
-        self.x = mnm.array(np.random.randn(*shape).astype("float32"))
+        self.x = raf.array(np.random.randn(*shape).astype("float32"))
 
-    @mnm.model.trace
+    @raf.model.trace
     def forward(self):
-        y = mnm.relu(self.x)
+        y = raf.relu(self.x)
         return y
 
 
@@ -59,31 +59,31 @@ class TorchTest(nn.Module):
         return out
 
 
-class MNMTest(mnm.Model):
+class MNMTest(raf.Model):
     def build(self, input_shape=28, num_classes=10):
         self.conv1 = Conv2d(in_channels=3, out_channels=6, kernel_size=5, padding=2, bias=False)
         self.bn1 = BatchNorm(6)
         self.linear1 = Linear((input_shape // 2) ** 2 * 6, num_classes)
 
-    @mnm.model.trace
+    @raf.model.trace
     def forward(self, x, y_true):
         y_pred = self.forward_infer(x)
-        y_pred = mnm.log_softmax(y_pred)
-        loss = mnm.nll_loss(y_true=y_true, y_pred=y_pred)
+        y_pred = raf.log_softmax(y_pred)
+        loss = raf.nll_loss(y_true=y_true, y_pred=y_pred)
         return loss
 
-    @mnm.model.trace
+    @raf.model.trace
     def forward_infer(self, x):
         out = self.bn1(self.conv1(x))
-        out = mnm.relu(out)
-        out = mnm.avg_pool2d(out, (2, 2), (2, 2))
-        out = mnm.batch_flatten(out)
+        out = raf.relu(out)
+        out = raf.avg_pool2d(out, (2, 2), (2, 2))
+        out = raf.batch_flatten(out)
         out = self.linear1(out)
         return out
 
 
 @pytest.mark.skipif(
-    not mnm.build.with_cuda(), reason="Require CUDA to run LANS kernel for comparison"
+    not raf.build.with_cuda(), reason="Require CUDA to run LANS kernel for comparison"
 )
 @with_seed(0)
 def test_traced_lans_simple():
@@ -98,7 +98,7 @@ def test_traced_lans_simple():
     m_model = MNMSimpleTest(shape)
     m_model.x = t2m_param(t_model.x, device=m_device)
     m_model.train_mode()
-    m_optimizer = mnm.optim.lans.with_lans()(m_model)
+    m_optimizer = raf.optim.lans.with_lans()(m_model)
     for _ in range(iter_size):
         m_dy, t_dy = randn_torch(shape, device=t_device, requires_grad=False)
         m_dy = m_dy.to(device=m_device)
@@ -111,7 +111,7 @@ def test_traced_lans_simple():
 
 
 @pytest.mark.skipif(
-    not mnm.build.with_cuda(), reason="Require CUDA to run LANS kernel for comparison"
+    not raf.build.with_cuda(), reason="Require CUDA to run LANS kernel for comparison"
 )
 @pytest.mark.parametrize(
     "config",
@@ -140,7 +140,7 @@ def test_traced_lans(config):
 
     m_model.train_mode()
     t_model.train()
-    m_optimizer = mnm.optim.lans.with_lans()(m_model)
+    m_optimizer = raf.optim.lans.with_lans()(m_model)
     t_optimizer = LANS(t_model.parameters())
     for _ in range(iter_size):
         m_dy, t_dy = randn_torch((), std=0.0, mean=1.0, device=t_device, requires_grad=False)

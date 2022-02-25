@@ -15,12 +15,12 @@ BackendRegistrar::BackendRegistrar(BackendImplInterface* backend_impl_interface)
   backend_impl_registry.store(backend_impl_interface);
 }
 
-// Implemented in razor/csrc/compiler/mnm_lowering_context.cpp
+// Implemented in razor/csrc/compiler/raf_lowering_context.cpp
 // std::unique_ptr<NodeLowering> NodeLowering::Create(ir::LoweringContext* loctx) {
 //   return getBackendRegistrar()->CreateNodeLowering(loctx);
 // }
 
-// Implemented in razor/csrc/compiler/mnm_lowering_context.cpp
+// Implemented in razor/csrc/compiler/raf_lowering_context.cpp
 // NodeLowering* NodeLowering::Get() {
 //   return getBackendRegistrar()->GetNodeLowering();
 // }
@@ -29,7 +29,7 @@ BackendRegistrar::BackendRegistrar(BackendImplInterface* backend_impl_interface)
 
 namespace ir {
 
-// Implemented in razor/csrc/compiler/mnm_lowering_context.cpp
+// Implemented in razor/csrc/compiler/raf_lowering_context.cpp
 // std::unique_ptr<LoweringContext> LoweringContext::Create(
 //     const std::string& name, Device device,
 //     lazy_tensors::Span<const Node* const> post_order,
@@ -38,7 +38,7 @@ namespace ir {
 //       ->CreateLoweringContext(name, device, post_order, emit_status);
 // }
 
-// Implemented in razor/csrc/compiler/mnm_lowering_context.cpp
+// Implemented in razor/csrc/compiler/raf_lowering_context.cpp
 // std::unique_ptr<LoweringContext> LoweringContext::Create(
 //     const std::string& name, Device device) {
 //   return torch_lazy_tensors::compiler::getBackendRegistrar()

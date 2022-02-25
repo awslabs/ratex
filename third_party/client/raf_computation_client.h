@@ -7,20 +7,20 @@
 #include "client/base_computation_client.h"
 #include "lazy_tensors/computation_client/computation_client.h"
 #include "lazy_tensors/computation_client/client_data.h"
-#include "mnm/value.h"
-#include "mnm/ir.h"
+#include "raf/value.h"
+#include "raf/ir.h"
 
 namespace razor {
 
 using namespace lazy_tensors;
 
-class MNMComputationClient : public BaseComputationClient {
+class RAFComputationClient : public BaseComputationClient {
  public:
-  struct MNMData : public BaseData {
-    MNMData(std::string device, Shape shape, bool is_param = false)
+  struct RAFData : public BaseData {
+    RAFData(std::string device, Shape shape, bool is_param = false)
         : BaseData(std::move(device), GetShapeData(std::move(shape)), is_param) {
     }
-    MNMData(std::string device, Shape shape, mnm::value::Value handle, bool is_param = false)
+    RAFData(std::string device, Shape shape, raf::value::Value handle, bool is_param = false)
         : BaseData(std::move(device), GetShapeData(std::move(shape)), is_param), handle(handle) {
     }
 
@@ -39,17 +39,17 @@ class MNMComputationClient : public BaseComputationClient {
     }
 
     /*! \brief TupleValue or TensorValue */
-    mnm::value::Value handle;
+    raf::value::Value handle;
   };
 
-  struct MNMComputation : public BaseComputation {
-    MNMComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
+  struct RAFComputation : public BaseComputation {
+    RAFComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
                    std::vector<std::string> devices,
                    const std::unordered_map<int64_t, int64_t>& alias = {})
         : BaseComputation(computation, program_shape, devices, alias) {
     }
 
-    MNMComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
+    RAFComputation(std::shared_ptr<GenericComputation> computation, ProgramShape program_shape,
                    std::vector<std::string> devices, tvm::runtime::Module executable,
                    tvm::runtime::Module vm_module,
                    const std::unordered_map<int64_t, int64_t>& alias = {})
@@ -62,7 +62,7 @@ class MNMComputationClient : public BaseComputationClient {
     tvm::runtime::Module vm_module;
   };
 
-  MNMComputationClient(Options options);
+  RAFComputationClient(Options options);
 
   static std::unique_ptr<ComputationClient> Create();
 
@@ -88,8 +88,8 @@ class MNMComputationClient : public BaseComputationClient {
   std::vector<DataPtr> TransferToServerInternal(lazy_tensors::Span<const TensorSource> tensors);
 };
 
-lazy_tensors::ComputationClient* MNMGet();
+lazy_tensors::ComputationClient* RAFGet();
 
-lazy_tensors::ComputationClient* MNMGetIfInitialized();
+lazy_tensors::ComputationClient* RAFGetIfInitialized();
 
 }  // namespace razor

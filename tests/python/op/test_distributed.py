@@ -6,14 +6,14 @@ from unittest.mock import patch
 import pytest
 import torch
 import torch.nn as nn
-import mnm
+import raf
 import razor
-from mnm import distributed as dist
+from raf import distributed as dist
 from razor.core.lazy_model import all_gather, all_reduce
 from razor.testing import compile_model
 
 
-@patch("mnm.distributed.get_context")
+@patch("raf.distributed.get_context")
 @pytest.mark.parametrize("world_size", [1, 4])
 def test_allreduce(mock_get_context, world_size):
     """Test of tracing and lowering allreduce op."""
@@ -41,7 +41,7 @@ def test_allreduce(mock_get_context, world_size):
 
     module = compile_model(Model(), [x], jit_script=False)
 
-    text = mnm._ffi.ir.AsText(module)
+    text = raf._ffi.ir.AsText(module)
     assert text.count("_allreduce") == 1
     if world_size != 1:
         assert text.count("divide") == 1
@@ -66,7 +66,7 @@ def test_allgather():
 
     module = compile_model(Model(), [x], jit_script=False)
 
-    text = mnm._ffi.ir.AsText(module)
+    text = raf._ffi.ir.AsText(module)
     ret_type = module["main"].ret_type
     expected_ret_shape = shape
     expected_ret_shape[0] *= dctx.size

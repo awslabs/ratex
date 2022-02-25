@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn, optim
 
-import mnm
+import raf
 import razor
 from razor.utils.cache import Cache, cache
 from ..lazy_tensor_core.core import lazy_model as lm
@@ -323,14 +323,14 @@ def compile_model(model_origin, args, jit_script=True):
       Input args of the model
 
     jit_script : bool
-      If False, the graph will be traced using LTC-to-mnm lowering
-      instead of mnm.frontend.from_pytorch in jit.script, and it is used to evaluate lowering the
+      If False, the graph will be traced using LTC-to-raf lowering
+      instead of raf.frontend.from_pytorch in jit.script, and it is used to evaluate lowering the
       ops without backward.
 
     Return
     ------
-    module : mnm.Module
-      Compiled meta module
+    module : raf.Module
+      Compiled raf module
     """
 
     def _compile(model_origin, args, jit_script):
@@ -339,7 +339,7 @@ def compile_model(model_origin, args, jit_script=True):
 
         with open(meta_ir_file) as module_file:
             module_json = module_file.read()
-            module = mnm.ir.serialization.LoadJSON(module_json)
+            module = raf.ir.serialization.LoadJSON(module_json)
         return module
 
     return dryrun_dumped_ir_file(_compile)(model_origin, args, jit_script)
@@ -347,7 +347,7 @@ def compile_model(model_origin, args, jit_script=True):
 
 def numpy(x):
     """Helper function to convert x to numpy"""
-    if isinstance(x, (mnm.ndarray, mnm._core.value.TensorValue)):
+    if isinstance(x, (raf.ndarray, raf._core.value.TensorValue)):
         return x.numpy()
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().numpy()

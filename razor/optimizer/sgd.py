@@ -9,7 +9,7 @@ from importlib import import_module
 import numpy as np
 import torch
 
-from mnm import distributed as dist
+from raf import distributed as dist
 
 from .optimizer import Optimizer
 
