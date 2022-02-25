@@ -126,11 +126,17 @@ jobs:
         id: badge
         # Download the latest CI badge from S3
         run: |
+          # env vars are unavailable in job.if so we have to implement it here.
+          if [ "${{ needs.check_status.outputs.pr }}" != "" ]; then
+            echo "No need to update badge for PR CI. Skip."
+            exit 0
+          fi
           aws s3 cp s3://ci-razor/razor-ci-badge-last-pass.txt razor-ci-badge-last-pass.txt
           message=$(head -n 1 razor-ci-badge-last-pass.txt)
           echo "::set-output name=message::${message}"
       - name: Update CI badge
         uses: schneegans/dynamic-badges-action@v1.1.0
+        continue-on-error: true
         with:
           auth: ${{ secrets.BOT_TOKEN }}
           gistID: 5e763b919e5c0b91ceede34877869ec0

@@ -61,7 +61,7 @@ echo "set(RAF_USE_CUDA $USE_CUDA)" >> config.cmake
 echo "set(RAF_CUDA_ARCH $CUDA_ARCH)" >> config.cmake
 echo "set(RAF_USE_CUBLAS $USE_CUBLAS)" >> config.cmake
 echo "set(RAF_USE_CUDNN $USE_CUDNN)" >> config.cmake
-echo "set(USE_CUTLASS $USE_CUTLASS)" >> config.cmake
+echo "set(RAF_USE_CUTLASS $USE_CUTLASS)" >> config.cmake
 cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ ..
 make -j${BUILD_MAX_JOBS}
 popd
