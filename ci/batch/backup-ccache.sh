@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # The script to backup or recover ccache cache with Amazon S3.
 # Note that recovering ccache cache will override the existing cache.
 set -e

@@ -9,11 +9,11 @@ __pycache__/
 *.so
 
 # Auto-generated
-torch_mnm/version.py
-torch_mnm/csrc/RegisterLazy.cpp
-torch_mnm/csrc/RegisterAutogradLazy.cpp
-torch_mnm/csrc/LazyNativeFunctions.h
-torch_mnm/csrc/version.cpp
+razor/version.py
+razor/csrc/RegisterLazy.cpp
+razor/csrc/RegisterAutogradLazy.cpp
+razor/csrc/LazyNativeFunctions.h
+razor/csrc/version.cpp
 
 # Distribution / packaging
 .Python
@@ -34,7 +34,7 @@ var/
 *.egg
 
 # Unignore the source code under "lib"
-!torch_mnm/lazy_tensors/core/lib/
+!razor/lazy_tensors/core/lib/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

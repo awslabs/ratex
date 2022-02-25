@@ -1,10 +1,15 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 #include "lazy_tensors/computation_client/computation_client.h"
 #include "lazy_tensors/computation_client/client_data.h"
 #include "mnm/value.h"
 #include "mnm/ir.h"
 
-namespace torch_mnm {
+namespace razor {
 
 using namespace lazy_tensors;
 
@@ -175,4 +180,4 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
 void PopulateLocalDevices(BaseComputationClient::Options* options);
 
-}  // namespace torch_mnm
+}  // namespace razor

@@ -1,3 +1,6 @@
+<!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!--- SPDX-License-Identifier: Apache-2.0  -->
+
 # Gradient Accumulation
 
 Gradient accumulation is a technique to simulate large batch size training in memory-constrained and network-constrained system.

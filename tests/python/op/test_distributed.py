@@ -1,13 +1,16 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 from unittest.mock import patch
 
 import pytest
 import torch
 import torch.nn as nn
 import mnm
-import torch_mnm
+import razor
 from mnm import distributed as dist
-from torch_mnm.core.lazy_model import all_gather, all_reduce
-from torch_mnm.testing import compile_model
+from razor.core.lazy_model import all_gather, all_reduce
+from razor.testing import compile_model
 
 
 @patch("mnm.distributed.get_context")

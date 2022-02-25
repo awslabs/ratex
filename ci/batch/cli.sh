@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # The CLI scripts for running tasks. This is supposed to be used by
 # automated CI so it assumes
 #   1. The script is run in the repo root folder.
@@ -34,7 +37,7 @@ function compile() {
     # Compile. Note that compilation errors will not result in crash in this function.
     # We use return exit code to let the caller decide the action.
     BUILD_TYPE=Release USE_CUTLASS=ON bash ./scripts/build_third_party.sh || true
-    bash ./scripts/build_torch_mnm.sh || true
+    bash ./scripts/build_razor.sh || true
     RET=$?
 
     # Backup the ccache.
@@ -55,6 +58,10 @@ function lint() {
     echo "[CLI] Formatting"
     echo "================"
     bash ./scripts/lint/check-format.sh
+    echo "======================"
+    echo "[CLI] Checking license"
+    echo "======================"
+    python3 ./scripts/lint/check-license-header.py origin/main
     return 0
 }
 
@@ -87,6 +94,11 @@ function unit_test() {
 
 # Update CI badge
 function update_ci_badge() {
+    PR=$1
+    if [ ! -z "$PR" ]; then
+        echo "PR number is provided, meaning this is a PR build. Skip updating CI badge."
+        exit 0
+    fi
     RAZOR_VERSION=$(git rev-parse --short HEAD)
     echo "Razor version: ${RAZOR_VERSION}"
     TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)")

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Build the docker image
 #
 # Usage: build.sh <CONTAINER_TYPE> [--dockerfile <DOCKERFILE_PATH>]

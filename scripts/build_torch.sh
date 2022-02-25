@@ -1,4 +1,7 @@
 #!/usr/bin
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Please make sure you are at the PyTorch folder when running this script.
 set -ex
 

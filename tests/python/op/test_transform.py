@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import copy
 import pytest
 
@@ -6,9 +9,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch_mnm
-from torch_mnm.lazy_tensor_core.core import lazy_model as lm
-from torch_mnm.testing import verify_step
+import razor
+from razor.lazy_tensor_core.core import lazy_model as lm
+from razor.testing import verify_step
 
 
 @pytest.mark.xfail(reason="Need to fix the accuracy issue")
@@ -31,7 +34,7 @@ def test_embedding():
         optimizer.zero_grad()
         tmp = model
         if device == "lazy":
-            model = torch_mnm.jit.script(model)
+            model = razor.jit.script(model)
         args = [arg.to(device) for arg in args]
         loss = model(*args)
         loss.backward()

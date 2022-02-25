@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # The entry point of AWS Batch job. This script is in charge of configuring
 # the repo, executing the given command, and uploading the results.
 set -e

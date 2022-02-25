@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import os
 import re
 import tempfile
@@ -8,11 +11,11 @@ import pytest
 import torch
 import torch.optim as optim
 
-import torch_mnm
+import razor
 import tvm
-from torch_mnm.testing import TorchLeNet, fake_image_dataset, train
-from torch_mnm.testing import with_dumped_tensor_file, with_temp_cache
-from torch_mnm.utils.cache import Cache
+from razor.testing import TorchLeNet, fake_image_dataset, train
+from razor.testing import with_dumped_tensor_file, with_temp_cache
+from razor.utils.cache import Cache
 
 
 def test_cache():
@@ -60,8 +63,8 @@ def test_cache():
 
 @with_temp_cache
 def test_compile_cache():
-    from torch_mnm.jit.script import JIT_CACHE
-    from torch_mnm.utils.cache import cache
+    from razor.jit.script import JIT_CACHE
+    from razor.utils.cache import cache
 
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
@@ -81,9 +84,9 @@ def test_compile_cache():
 
 @with_temp_cache
 def test_convert_module_to_meta_cache():
-    # it cannot be accessed with torch_mnm.jit.script.convert_module_to_meta
-    from torch_mnm.jit.script import convert_module_to_meta
-    from torch_mnm.utils.cache import cache
+    # it cannot be accessed with razor.jit.script.convert_module_to_meta
+    from razor.jit.script import convert_module_to_meta
+    from razor.utils.cache import cache
 
     args = [torch.rand(1, 1, 28, 28, dtype=torch.float32)]
     shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
@@ -125,8 +128,8 @@ def test_convert_module_to_meta_cache():
 @with_dumped_tensor_file
 def test_convert_module_to_meta_cache_ltc_trace():
     """This is to test if the LTC IR is the same before and after JIT compile hits."""
-    from torch_mnm.jit.script import JIT_CACHE
-    from torch_mnm.utils.cache import cache
+    from razor.jit.script import JIT_CACHE
+    from razor.utils.cache import cache
 
     batch_size = 16
     dataset = fake_image_dataset(batch_size, 1, 28, 10)

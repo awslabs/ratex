@@ -1,9 +1,12 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 import torch
 import torch.nn as nn
 
-import torch_mnm
-from torch_mnm.testing import verify_step
+import razor
+from razor.testing import verify_step
 
 
 def test_conv():

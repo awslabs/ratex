@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 
 set -ex
 
@@ -15,8 +18,8 @@ fi
 
 pushd $PYTORCH_SOURCE_PATH
 python3 -m tools.codegen.gen_backend_stubs \
-  --output_dir="$BASE_DIR/torch_mnm/csrc" \
+  --output_dir="$BASE_DIR/razor/csrc" \
   --source_yaml="$BASE_DIR/mnm_native_functions.yaml"\
-  --impl_path="$BASE_DIR/torch_mnm/csrc/aten_mnm_type.cpp"\
+  --impl_path="$BASE_DIR/razor/csrc/aten_mnm_type.cpp"\
 
 popd

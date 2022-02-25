@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # pylint: disable=abstract-method, arguments-differ, attribute-defined-outside-init, no-member
 import pytest
 import numpy as np
@@ -9,8 +12,8 @@ import mnm
 from mnm.model import Conv2d, Linear, BatchNorm
 from mnm.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, with_seed
 
-from torch_mnm.optimizer import LANS
-from torch_mnm.testing import check
+from razor.optimizer import LANS
+from razor.testing import check
 
 
 class TorchSimpleTest(nn.Module):

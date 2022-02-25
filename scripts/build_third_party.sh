@@ -1,4 +1,7 @@
 #!/usr/bin
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Environment variables you are probably interested in:
 #
 #   BUILD_TYPE

@@ -1,8 +1,11 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 
 import numpy as np
 
-from torch_mnm._lib import mnm
+from razor._lib import mnm
 from mnm.ir import ScopeBuilder
 from mnm._ffi.pass_ import InferType
 

@@ -1,3 +1,6 @@
+<!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
+<!--- SPDX-License-Identifier: Apache-2.0  -->
+
 # PyTorch/RAF
 
 Note that PyTorch/RAF is a PyTorch extension, so the PyTorch source code has to be available during the compilation. Accordingly, we require to set the environment variable `PYTORCH_SOURCE_PATH` before the compilation.
@@ -8,7 +11,7 @@ In this guide, we will use the following directory organization:
 $HOME
 |- workspace
   |- pytorch
-  |- torch_mnm
+  |- razor
 ```
 
 And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
@@ -28,10 +31,10 @@ git submodule sync
 git submodule update --init --recursive --jobs 0
 ```
 
-#### 1.2 Clone a copy of the torch_mnm (this repo)
+#### 1.2 Clone a copy of the razor (this repo)
 
 ```
-git clone git@github.com:meta-project/torch_mnm.git --recursive
+git clone git@github.com:meta-project/razor.git --recursive
 ```
 
 #### 1.3 Create a Python virtual environment (optional but recommanded)
@@ -67,7 +70,7 @@ export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 ### 4. Build PyTorch
 
 Note that you need to make sure you are now at the PyTorch source folder (`pytorch/`).
-You can directly run `bash $TORCH_MNM_HOME/scripts/build_torch.sh` that performs all the following steps.
+You can directly run `bash $RAZOR_HOME/scripts/build_torch.sh` that performs all the following steps.
 If you are not interested in details, you can directly jump to the last step of this section
 to test whether the installation was successed.
 
@@ -129,9 +132,9 @@ When they are available, we should be able to simply use `pip install` to let pi
 and install their wheels.
 
 Same as building PyTorch, you can directly run `bash ./scripts/build_third_party.sh`
-under `torch_mnm/` to perform the following steps.
+under `razor/` to perform the following steps.
 
-#### 5.1 Compile Meta/TVM (under `torch_mnm/`)
+#### 5.1 Compile Meta/TVM (under `razor/`)
 
 Note that you can also compile Meat with other configurations, such as
 CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
@@ -150,10 +153,10 @@ Troubleshootings:
 
 * If you encounter the following error, try link /usr/local/cuda to /usr/local/cuda-10.2 instead of /usr/local/cuda-10.0 .
 ```
-torch_mnm/third_party/meta/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
+razor/third_party/meta/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
 ```
 
-#### 5.2 Build/Install Meta/TVM wheels (under `torch_mnm/`)
+#### 5.2 Build/Install Meta/TVM wheels (under `razor/`)
 
 ```
 export BASE_DIR=`pwd`
@@ -180,10 +183,10 @@ python3 -c "import mnm"
 
 ### 6. Build PyTorch/RAF
 
-#### 6.1 Build (under `torch_mnm/`)
+#### 6.1 Build (under `razor/`)
 
 Same as building PyTorch, you can directly run `bash ./scripts/build_torch_mnm.sh`
-under `torch_mnm/` to perform the following steps.
+under `razor/` to perform the following steps.
 
 First make sure the environment is set:
 
@@ -198,9 +201,9 @@ export BUILD_CPP_TESTS=0
 
 ```
 python3 -m pip install glob2 filelock
-rm -rf ./build/pip/public/torch_mnm
-python3 setup.py bdist_wheel -d ./build/pip/public/torch_mnm
-python3 -m pip install ./build/pip/public/torch_mnm/*.whl --force-reinstall --no-deps
+rm -rf ./build/pip/public/razor
+python3 setup.py bdist_wheel -d ./build/pip/public/razor
+python3 -m pip install ./build/pip/public/razor/*.whl --force-reinstall --no-deps
 ```
 
 Troubleshootings:
@@ -211,8 +214,8 @@ make[2]: *** No rule to make target '/usr/lib/libpython3.6m.so', needed by 'test
 * If you encounter the following error, check your build environment in the beginning of this step, amd make sure using `clang`.
 ```
 In file included from /usr/include/c++/7/list:63:0,
-                 from /home/ubuntu/torch-mnm-venv/torch_mnm/lazy_tensor_core/lazy_tensors/computation_client/cache.h:5,
-                 from /home/ubuntu/torch-mnm-venv/torch_mnm/lazy_tensor_core/test/cpp/test_ltc_util_cache.cpp:5:
+                 from /home/ubuntu/torch-mnm-venv/razor/lazy_tensor_core/lazy_tensors/computation_client/cache.h:5,
+                 from /home/ubuntu/torch-mnm-venv/razor/lazy_tensor_core/test/cpp/test_ltc_util_cache.cpp:5:
 /usr/include/c++/7/bits/stl_list.h:326:27: error: #if with no expression
  #if _GLIBCXX_USE_CXX11_ABI
 ```
@@ -221,13 +224,13 @@ In file included from /usr/include/c++/7/list:63:0,
 
 ```
 cd $HOME
-python3 -c "import torch_mnm"
+python3 -c "import razor"
 ```
 
 ### 7. Run LeNet Example
 
 ```
-cd torch_mnm
+cd razor/docs/wiki
 python3 -m pip install torchvision --no-deps # otherwise it will install PyTorch from wheel...
 python3 -m pip install Pillow
 python3 lenet.py
@@ -240,10 +243,10 @@ mnm starts...
 Epoch 0/9
 ----------
 One or more operators have not been tuned. Please tune your model for better performance. Use DEBUG logging level to see more details.
-[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/torch_mnm/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/torch_mnm/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/torch_mnm/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/torch_mnm/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/meta/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
 train Loss: 0.0701
 Epoch 1/9
 ----------

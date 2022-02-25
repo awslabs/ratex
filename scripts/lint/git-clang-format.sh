@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # This is mainly borrowed from https://github.com/apache/tvm/blob/main/tests/lint/git-clang-format.sh
 set -e
 set -u

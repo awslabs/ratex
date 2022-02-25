@@ -1,7 +1,10 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 import torch
-from torch_mnm.optimizer import SGD
-from torch_mnm.testing import TorchLeNet, fake_image_dataset, train, verify, with_seed
+from razor.optimizer import SGD
+from razor.testing import TorchLeNet, fake_image_dataset, train, verify, with_seed
 
 
 @with_seed(0)

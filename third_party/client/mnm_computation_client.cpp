@@ -1,14 +1,19 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "client/mnm_computation_client.h"
 
 #include <fstream>
 #include <iostream>
 
-#include "torch_mnm/csrc/compiler/utils.h"
-#include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
-#include "torch_mnm/csrc/mnm_model_state.h"
-#include "torch_mnm/csrc/value_ext/value.h"
-#include "torch_mnm/csrc/pass_ext/pass.h"
-#include "torch_mnm/csrc/utils/file.h"
+#include "razor/csrc/compiler/utils.h"
+#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/mnm_model_state.h"
+#include "razor/csrc/value_ext/value.h"
+#include "razor/csrc/pass_ext/pass.h"
+#include "razor/csrc/utils/file.h"
 #include "env_vars.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
@@ -25,7 +30,7 @@
 #include "meta/src/impl/vm/compiler.h"
 #include "meta/src/op/ty/utils.h"
 
-namespace torch_mnm {
+namespace razor {
 
 using namespace torch_lazy_tensors::compiler;
 using namespace torch_lazy_tensors::compiler::mnm_backend;
@@ -240,7 +245,7 @@ ComputationClient::ComputationPtr MNMComputationClient::Compile(
                                               instance.devices, exe, vm_module);
   lifted_computation_[ret.get()] = ir_module;
 
-  std::string file_path = lazy_tensors::sys_util::GetEnvString("TORCH_MNM_SAVE_IR_FILE", "");
+  std::string file_path = lazy_tensors::sys_util::GetEnvString("RAZOR_SAVE_IR_FILE", "");
   if (file_path != "") {
     Save(file_path, mnm::serialization::SaveJSON(ir_module));
   }
@@ -253,7 +258,7 @@ std::vector<ComputationClient::DataPtr> MNMComputationClient::ExecuteComputation
     const std::string& device, const ExecuteComputationOptions& options) {
   LTC_TIMED("MNMExecute");
 
-  bool is_dryrun = lazy_tensors::sys_util::GetEnvBool("TORCH_MNM_DRY_RUN", false);
+  bool is_dryrun = lazy_tensors::sys_util::GetEnvBool("RAZOR_DRY_RUN", false);
   if (is_dryrun) {
     return DryrunComputation(computation, arguments, device, options);
   }
@@ -391,4 +396,4 @@ lazy_tensors::ComputationClient* MNMGetIfInitialized() {
   return MNMGet();
 }
 
-}  // namespace torch_mnm
+}  // namespace razor

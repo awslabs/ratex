@@ -1,8 +1,11 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 import torch
 
-from torch_mnm.optimizer import Adam
-from torch_mnm.testing import TorchLeNet, fake_image_dataset, verify, train, with_seed
+from razor.optimizer import Adam
+from razor.testing import TorchLeNet, fake_image_dataset, verify, train, with_seed
 
 
 @pytest.mark.xfail(reason="Need to fix the accuracy issue")

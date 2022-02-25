@@ -1,12 +1,17 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "client/base_computation_client.h"
 
 #include "lazy_tensor_core/csrc/compiler/backend_impl_interface.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
-#include "torch_mnm/csrc/compiler/utils.h"
-#include "torch_mnm/csrc/compiler/mnm_lowering_context.h"
-#include "torch_mnm/csrc/utils/file.h"
+#include "razor/csrc/compiler/utils.h"
+#include "razor/csrc/compiler/mnm_lowering_context.h"
+#include "razor/csrc/utils/file.h"
 
 #include "mnm/serialization.h"
 
@@ -30,12 +35,12 @@ std::unique_ptr<ComputationClient> ComputationClient::Create() {
 
 }  // namespace lazy_tensors
 
-namespace torch_mnm {
+namespace razor {
 
 using namespace lazy_tensors;
 
 void PopulateLocalDevices(BaseComputationClient::Options* options) {
-  auto dev_kind = sys_util::GetEnvString(torch_mnm::env::kEnvDefaultDevice, "CPU");
+  auto dev_kind = sys_util::GetEnvString(razor::env::kEnvDefaultDevice, "CPU");
   int dev_id = 0;  // TODO: Determine the device ID using local rank.
   bool ignore = true;
 
@@ -111,12 +116,12 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
   std::vector<ComputationPtr> results;
   for (const auto& ins : instances) {
     if (options_.cache_enabled) {
-      static auto query = registry::GetPackedFunc("torch_mnm.utils.cache.query");
-      static auto create_entry = registry::GetPackedFunc("torch_mnm.utils.cache.create_entry");
+      static auto query = registry::GetPackedFunc("razor.utils.cache.query");
+      static auto create_entry = registry::GetPackedFunc("razor.utils.cache.create_entry");
       static auto acquire_lock =
-          registry::GetPackedFunc("torch_mnm.utils.cache.acquire_cache_entry_lock");
+          registry::GetPackedFunc("razor.utils.cache.acquire_cache_entry_lock");
       static auto release_lock =
-          registry::GetPackedFunc("torch_mnm.utils.cache.release_cache_entry_lock");
+          registry::GetPackedFunc("razor.utils.cache.release_cache_entry_lock");
 
       const auto& key = CompileCacheKey(ins);
       acquire_lock(key);
@@ -169,4 +174,4 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   return Array<ObjectRef>({json, model_states, alias});
 }
 
-}  // namespace torch_mnm
+}  // namespace razor

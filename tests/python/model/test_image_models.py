@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """Test torchvision models."""
 import os
 import tempfile
@@ -8,9 +11,9 @@ import mnm
 import pytest
 import torch.optim as optim
 import torchvision
-from torch_mnm.optimizer import LANS, SGD
-from torch_mnm.testing import TorchLeNet, fake_image_dataset, train, verify
-from torch_mnm.testing import with_seed, with_temp_cache, dryrun_dumped_ir_file
+from razor.optimizer import LANS, SGD
+from razor.testing import TorchLeNet, fake_image_dataset, train, verify
+from razor.testing import with_seed, with_temp_cache, dryrun_dumped_ir_file
 
 
 @pytest.mark.parametrize("optimizer", [optim.SGD, SGD, LANS])
@@ -71,7 +74,7 @@ def test_compile_lenet_dp(mock_get_context):
         num_epochs=1,
         reduce_gradients=True,
     )
-    meta_ir_file = os.environ["TORCH_MNM_SAVE_IR_FILE"]
+    meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
     with open(meta_ir_file) as module_file:
         module_json = module_file.read()
         module = mnm.ir.serialization.LoadJSON(module_json)
