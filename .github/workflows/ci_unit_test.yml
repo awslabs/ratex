@@ -133,13 +133,15 @@ jobs:
           fi
           aws s3 cp s3://ci-razor/razor-ci-badge-last-pass.txt razor-ci-badge-last-pass.txt
           message=$(head -n 1 razor-ci-badge-last-pass.txt)
+          echo "::set-output name=gist_id::5e763b919e5c0b91ceede34877869ec0"
           echo "::set-output name=message::${message}"
       - name: Update CI badge
+        # Intentionally fail this step with empty gist_id.
         uses: schneegans/dynamic-badges-action@v1.1.0
         continue-on-error: true
         with:
           auth: ${{ secrets.BOT_TOKEN }}
-          gistID: 5e763b919e5c0b91ceede34877869ec0
+          gistID: ${{ steps.badge.outputs.gist_id }}
           filename: razor-ci-badge-last-pass.json
           label: CI-Last-Success
           message: ${{ steps.badge.outputs.message }}
