@@ -721,20 +721,20 @@ Var RAFNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOver
 
 Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
                                  const ir::ops::LogSoftmaxBackwardUseIn* node) {
-  LTC_CHECK_EQ(ops.size(), 3U);
-  Var dy = ops[0], y = ops[1], x = ops[2];
+  LTC_CHECK_EQ(ops.size(), 2U);
+  Var dy = ops[0], y = ops[1];
 
-  static auto op_softmax = Op::Get("raf.op.softmax");
+  static auto op_exp = Op::Get("raf.op.exp");
   static auto op_sum = Op::Get("raf.op.sum");
   static auto op_multiply = Op::Get("raf.op.multiply");
   static auto op_subtract = Op::Get("raf.op.subtract");
 
   const Expr& dim = MakeConstant(Int(node->dim()));
-  Var softmax_y = BindSymbol(raf::ir::Call(op_softmax, {x, dim}));
+  Var exp_y = BindSymbol(raf::ir::Call(op_exp, {y}));
   Expr keep_dims = MakeConstant(ScalarValue::make((int64_t)1));
   Expr exclude = MakeConstant(BoolValue::make(false));
   Var e_1 = BindSymbol(raf::ir::Call(op_sum, {dy, dim, keep_dims, exclude}));
-  Var e_2 = BindSymbol(raf::ir::Call(op_multiply, {e_1, softmax_y}));
+  Var e_2 = BindSymbol(raf::ir::Call(op_multiply, {exp_y, e_1}));
   Var e_3 = BindSymbol(raf::ir::Call(op_subtract, {dy, e_2, MakeNull(), MakeNull()}));
   return e_3;
 }

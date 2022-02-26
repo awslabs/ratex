@@ -74,13 +74,13 @@ def test_select():
     model = Model()
     n_x = np.random.randn(*shape)
     t_x_cpu = torch.tensor(n_x, device="cpu", dtype=torch.float32, requires_grad=True)
-    t_x_xla = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
+    t_x_razor = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
 
     loss_cpu = step("cpu", model, [t_x_cpu])
-    loss_ltc = step("lazy", model, [t_x_xla])
+    loss_ltc = step("lazy", model, [t_x_razor])
 
     torch.testing.assert_close(loss_cpu, loss_ltc)
-    torch.testing.assert_close(t_x_cpu.grad, t_x_xla.grad.to("cpu"))
+    torch.testing.assert_close(t_x_cpu.grad, t_x_razor.grad.to("cpu"))
 
 
 def test_scatter():

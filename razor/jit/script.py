@@ -181,7 +181,7 @@ def persis_cache_fn(wrapped_func):
     return wrapper
 
 
-@ltc_timed("MNMTraceConvertModuleToMeta")
+@ltc_timed("RAFTraceConvertModuleToMeta")
 @persis_cache_fn
 def convert_module_to_meta(module, shape_n_dtype, args):
     """Convert the PyTorch module to Meta and apply necessary transformations.
@@ -271,7 +271,7 @@ def script(module: torch.nn.Module):
         for k, v in module.state_dict().items()
     }
 
-    @ltc_timed("MNMTrace")
+    @ltc_timed("RAFTrace")
     def wrapper(*args, **kwargs):
         # TODO: use torch.jit.script
         assert len(args) == 1, f"Only support single input for now, but got {len(args)}"

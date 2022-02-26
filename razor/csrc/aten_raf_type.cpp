@@ -67,8 +67,8 @@ bool IsNonTrivialDilation(at::IntArrayRef dilation) {
 namespace {
 
 Device GetLtcDeviceOrCurrent(const c10::optional<c10::Device>& device) {
-  auto xla_device_opt = bridge::GetLtcDevice(device);
-  return xla_device_opt ? *xla_device_opt : GetCurrentDevice();
+  auto razor_device_opt = bridge::GetLtcDevice(device);
+  return razor_device_opt ? *razor_device_opt : GetCurrentDevice();
 }
 
 at::ScalarType GetScalarTypeOrFloat(c10::optional<at::ScalarType> scalar_type) {
@@ -326,7 +326,7 @@ void LazyNativeFunctions::_amp_foreach_non_finite_check_and_unscale_(at::TensorL
   LazyTensor found_inf_tensor = bridge::raf_backend::GetLtcTensor(found_inf);
   DeviceType hw_type = found_inf_tensor.GetDevice().hw_type;
   LTC_CHECK(hw_type == DeviceType::GPU || hw_type == DeviceType::CPU)
-      << "AMP should be used with XLA:GPU";
+      << "AMP should be used with CPU or GPU";
   LazyTensor::_amp_foreach_non_finite_check_and_unscale_(
       bridge::raf_backend::GetLtcTensors(self), found_inf_tensor,
       bridge::raf_backend::GetLtcTensor(inv_scale));
@@ -340,7 +340,7 @@ at::Tensor& LazyNativeFunctions::_amp_update_scale_(
   LazyTensor current_scale_tensor = bridge::raf_backend::GetLtcTensor(current_scale);
   DeviceType hw_type = growth_tracker_tensor.GetDevice().hw_type;
   LTC_CHECK(hw_type == DeviceType::GPU || hw_type == DeviceType::CPU)
-      << "AMP should be used with XLA:GPU";
+      << "AMP should be used with CPU or GPU";
   LazyTensor::_amp_update_scale_(growth_tracker_tensor, current_scale_tensor,
                                  bridge::raf_backend::GetLtcTensor(found_inf), scale_growth_factor,
                                  scale_backoff_factor, growth_interval);
@@ -446,8 +446,8 @@ at::Tensor LazyNativeFunctions::_log_softmax_backward_data(const at::Tensor& gra
 std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::_pack_padded_sequence(
     const at::Tensor& input, const at::Tensor& lengths, bool batch_first) {
   LTC_FN_COUNTER("aten::");
-  std::vector<at::Tensor> xla_tensors = {lengths};
-  auto cpu_tensors = bridge::LtcCreateTensorList(xla_tensors);
+  std::vector<at::Tensor> razor_tensors = {lengths};
+  auto cpu_tensors = bridge::LtcCreateTensorList(razor_tensors);
   return at::native::_pack_padded_sequence(input, cpu_tensors[0], batch_first);
 }
 
@@ -602,7 +602,7 @@ at::Tensor LazyNativeFunctions::addmm(const at::Tensor& self, const at::Tensor& 
                                       const at::Tensor& mat2, const at::Scalar& beta,
                                       const at::Scalar& alpha) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (beta.to<double>() != 1 || alpha.to<double>() != 1 || !at::native::is_floating_point(self) ||
       !at::native::is_floating_point(mat1) || !at::native::is_floating_point(mat2)) {
     return FALLBACK_ATEN_OP(addmm, self, mat1, mat2, beta, alpha);
@@ -702,11 +702,9 @@ const at::Tensor& LazyNativeFunctions::as_strided_(const at::Tensor& self, at::I
   }
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::as_strided_", 1);
-  RAZOR_VLOG(3) << "XLA as_strided_ :"
-                << " self=" << self.toString();
-  auto xlatens = bridge::LtcCreateTensorList({self});
-  at::as_strided_(xlatens[0], size, stride, storage_offset);
-  bridge::LtcUpdateTensors({self}, xlatens, {0});
+  auto razortens = bridge::LtcCreateTensorList({self});
+  at::as_strided_(razortens[0], size, stride, storage_offset);
+  bridge::LtcUpdateTensors({self}, razortens, {0});
   return self;
 }
 
@@ -747,7 +745,7 @@ at::Tensor LazyNativeFunctions::atanh(const at::Tensor& self) {
 
 at::Tensor LazyNativeFunctions::atan2(const at::Tensor& self, const at::Tensor& other) {
   LTC_FN_COUNTER("raf::");
-  // xla::Atan2 doesn't support integer types.
+  // razor::Atan2 doesn't support integer types.
   if (!self.is_floating_point() || !other.is_floating_point()) {
     return FALLBACK_ATEN_OP(atan2, self, other);
   }
@@ -759,7 +757,7 @@ at::Tensor LazyNativeFunctions::atan2(const at::Tensor& self, const at::Tensor& 
 
 at::Tensor& LazyNativeFunctions::atan2_(at::Tensor& self, const at::Tensor& other) {
   LTC_FN_COUNTER("raf::");
-  // xla::Atan2 doesn't support integer types.
+  // razor::Atan2 doesn't support integer types.
   if (!bridge::IsInteropView(self) && self.is_floating_point() && other.is_floating_point()) {
     CheckBinaryOpTypePromotion(self, self, other);
     LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -854,7 +852,7 @@ at::Tensor LazyNativeFunctions::baddbmm(const at::Tensor& self, const at::Tensor
                                         const at::Tensor& batch2, const at::Scalar& beta,
                                         const at::Scalar& alpha) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(batch1) || !at::native::is_floating_point(batch2)) {
     return FALLBACK_ATEN_OP(baddbmm, self, batch1, batch2, beta, alpha);
   }
@@ -867,7 +865,7 @@ at::Tensor& LazyNativeFunctions::baddbmm_(at::Tensor& self, const at::Tensor& ba
                                           const at::Tensor& batch2, const at::Scalar& beta,
                                           const at::Scalar& alpha) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(batch1) || !at::native::is_floating_point(batch2)) {
     return FALLBACK_ATEN_OP(baddbmm_, self, batch1, batch2, beta, alpha);
   }
@@ -1007,7 +1005,7 @@ at::Tensor& LazyNativeFunctions::bitwise_xor_out(const at::Tensor& self, const a
 
 at::Tensor LazyNativeFunctions::bmm(const at::Tensor& self, const at::Tensor& mat2) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(mat2)) {
     return FALLBACK_ATEN_OP(bmm, self, mat2);
   }
@@ -1211,7 +1209,7 @@ at::Tensor LazyNativeFunctions::cumprod(const at::Tensor& self, int64_t dim,
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   c10::optional<at::ScalarType> promoted_dtype = PromoteIntegralType(self_tensor.dtype(), dtype);
   if (IsOperationOnType(promoted_dtype, self_tensor.dtype(), at::ScalarType::Long)) {
-    // XLA reduce-window does not support S64 mode.
+    // Reduce-window does not support S64 mode.
     return FALLBACK_ATEN_OP(cumprod, self, dim, dtype);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::cumprod(self_tensor, dim, promoted_dtype));
@@ -1222,7 +1220,7 @@ at::Tensor LazyNativeFunctions::cumsum(const at::Tensor& self, int64_t dim,
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   if (IsOperationOnType(dtype, self_tensor.dtype(), at::ScalarType::Long)) {
-    // XLA reduce-window does not support S64 mode.
+    // Reduce-window does not support S64 mode.
     return FALLBACK_ATEN_OP(cumsum, self, dim, dtype);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::cumsum(self_tensor, dim, dtype));
@@ -1292,7 +1290,7 @@ at::Tensor LazyNativeFunctions::dot(const at::Tensor& self, const at::Tensor& te
   LTC_CHECK_EQ(self.dim(), 1) << "dot: Expected 1-D argument self, but got " << self.dim() << "-D";
   LTC_CHECK_EQ(tensor.dim(), 1) << "dot: Expected 1-D argument tensor, but got " << tensor.dim()
                                 << "-D";
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(tensor)) {
     return FALLBACK_ATEN_OP(dot, self, tensor);
   }
@@ -1334,8 +1332,7 @@ at::Tensor LazyNativeFunctions::embedding(const at::Tensor& weight, const at::Te
                                           int64_t padding_idx, bool scale_grad_by_freq,
                                           bool sparse) {
   LTC_FN_COUNTER("raf::");
-  // TODO: for now route to native, which dispatches supported XLA operations.
-  // We need to make use of the TPU embedding core here eventually.
+  // We route embedding to native so that it will be decomposed to supported Lazy operations.
   return at::native::embedding(weight, indices, padding_idx, scale_grad_by_freq, sparse);
 }
 
@@ -2053,8 +2050,6 @@ at::Tensor& LazyNativeFunctions::masked_scatter_(at::Tensor& self, const at::Ten
 at::Tensor LazyNativeFunctions::masked_select(const at::Tensor& self, const at::Tensor& mask) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  // Initially make XLA handled masked_select() handling experimental, and
-  // opt-in.
   if (!DebugUtil::ExperimentEnabled("masked_select")) {
     return FALLBACK_ATEN_OP(masked_select, self, mask);
   }
@@ -2281,7 +2276,7 @@ std::tuple<at::Tensor&, at::Tensor&> LazyNativeFunctions::min_out(const at::Tens
 
 at::Tensor LazyNativeFunctions::mm(const at::Tensor& self, const at::Tensor& mat2) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(mat2)) {
     return FALLBACK_ATEN_OP(mm, self, mat2);
   }
@@ -2347,7 +2342,7 @@ at::Tensor& LazyNativeFunctions::mul_(at::Tensor& self, const at::Scalar& other)
 
 at::Tensor LazyNativeFunctions::mv(const at::Tensor& self, const at::Tensor& vec) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(vec)) {
     return FALLBACK_ATEN_OP(mv, self, vec);
   }
@@ -2358,7 +2353,7 @@ at::Tensor LazyNativeFunctions::mv(const at::Tensor& self, const at::Tensor& vec
 at::Tensor& LazyNativeFunctions::mv_out(const at::Tensor& self, const at::Tensor& vec,
                                         at::Tensor& out) {
   LTC_FN_COUNTER("raf::");
-  // xla::dot doesn't support integer types.
+  // razor::dot doesn't support integer types.
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(vec)) {
     return FALLBACK_ATEN_OP(mv_out, self, vec, out);
   }
@@ -2590,7 +2585,7 @@ at::Tensor LazyNativeFunctions::permute(const at::Tensor& self, at::IntArrayRef 
 
 at::Tensor LazyNativeFunctions::pow(const at::Tensor& self, const at::Scalar& exponent) {
   LTC_FN_COUNTER("raf::");
-  // xla::Pow() doesn't support integer types.
+  // razor::Pow() doesn't support integer types.
   if (!at::native::is_floating_point(self)) {
     return AtenRAFTypeDefault::pow(self, exponent);
   }
@@ -2600,7 +2595,7 @@ at::Tensor LazyNativeFunctions::pow(const at::Tensor& self, const at::Scalar& ex
 
 at::Tensor LazyNativeFunctions::pow(const at::Tensor& self, const at::Tensor& exponent) {
   LTC_FN_COUNTER("raf::");
-  // xla::Pow() doesn't support integer types.
+  // razor::Pow() doesn't support integer types.
   if (!at::native::is_floating_point(self)) {
     return AtenRAFTypeDefault::pow(self, exponent);
   }
@@ -2610,7 +2605,7 @@ at::Tensor LazyNativeFunctions::pow(const at::Tensor& self, const at::Tensor& ex
 
 at::Tensor LazyNativeFunctions::pow(const at::Scalar& self, const at::Tensor& exponent) {
   LTC_FN_COUNTER("raf::");
-  // xla::Pow() doesn't support integer types.
+  // razor::Pow() doesn't support integer types.
   if (!self.isFloatingPoint()) {
     return AtenRAFTypeDefault::pow(self, exponent);
   }
@@ -2620,7 +2615,7 @@ at::Tensor LazyNativeFunctions::pow(const at::Scalar& self, const at::Tensor& ex
 
 at::Tensor& LazyNativeFunctions::pow_(at::Tensor& self, const at::Scalar& exponent) {
   LTC_FN_COUNTER("raf::");
-  // xla::Pow() doesn't support integer types.
+  // razor::Pow() doesn't support integer types.
   if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
     LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
     LazyTensor::pow_(self_tensor, exponent);
@@ -2631,7 +2626,7 @@ at::Tensor& LazyNativeFunctions::pow_(at::Tensor& self, const at::Scalar& expone
 
 at::Tensor& LazyNativeFunctions::pow_(at::Tensor& self, const at::Tensor& exponent) {
   LTC_FN_COUNTER("raf::");
-  // xla::Pow() doesn't support integer types.
+  // razor::Pow() doesn't support integer types.
   if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
     LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
     LazyTensor::pow_(self_tensor, bridge::raf_backend::GetLtcTensor(exponent));
@@ -3094,17 +3089,17 @@ std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::sort(const at::Tensor& s
 std::vector<at::Tensor> LazyNativeFunctions::split(const at::Tensor& self, int64_t split_size,
                                                    int64_t dim) {
   LTC_FN_COUNTER("raf::");
-  auto xla_tensors = LazyTensor::split(bridge::raf_backend::GetLtcTensor(self), split_size, dim);
-  return bridge::AtenFromLtcTensors(xla_tensors);
+  auto razor_tensors = LazyTensor::split(bridge::raf_backend::GetLtcTensor(self), split_size, dim);
+  return bridge::AtenFromLtcTensors(razor_tensors);
 }
 
 std::vector<at::Tensor> LazyNativeFunctions::split_with_sizes(const at::Tensor& self,
                                                               at::IntArrayRef split_sizes,
                                                               int64_t dim) {
   LTC_FN_COUNTER("raf::");
-  auto xla_tensors = LazyTensor::split_with_sizes(bridge::raf_backend::GetLtcTensor(self),
-                                                  Helpers::I64List(split_sizes), dim);
-  return bridge::AtenFromLtcTensors(xla_tensors);
+  auto razor_tensors = LazyTensor::split_with_sizes(bridge::raf_backend::GetLtcTensor(self),
+                                                    Helpers::I64List(split_sizes), dim);
+  return bridge::AtenFromLtcTensors(razor_tensors);
 }
 
 at::Tensor LazyNativeFunctions::sqrt(const at::Tensor& self) {
@@ -3136,16 +3131,14 @@ at::Tensor LazyNativeFunctions::squeeze(const at::Tensor& self, int64_t dim) {
 at::Tensor& LazyNativeFunctions::squeeze_(at::Tensor& self) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::squeeze_", 1);
-  RAZOR_VLOG(3) << "XLA squeeze_ :"
-                << " self=" << self.toString();
-  std::vector<at::Tensor> xlatens_tensors = {self};
-  auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);
-  xlatens[0].squeeze_();
-  std::vector<size_t> xlatens_update_indices = {0};
+  std::vector<at::Tensor> razortens_tensors = {self};
+  auto razortens = bridge::LtcCreateTensorList(razortens_tensors);
+  razortens[0].squeeze_();
+  std::vector<size_t> razortens_update_indices = {0};
   if (bridge::IsInteropView(self)) {
-    bridge::LtcUpdateTensorsMeta(xlatens_tensors, xlatens, xlatens_update_indices);
+    bridge::LtcUpdateTensorsMeta(razortens_tensors, razortens, razortens_update_indices);
   } else {
-    bridge::LtcUpdateTensors(xlatens_tensors, xlatens, xlatens_update_indices);
+    bridge::LtcUpdateTensors(razortens_tensors, razortens, razortens_update_indices);
   }
   return self;
 }
@@ -3153,16 +3146,14 @@ at::Tensor& LazyNativeFunctions::squeeze_(at::Tensor& self) {
 at::Tensor& LazyNativeFunctions::squeeze_(at::Tensor& self, int64_t dim) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::squeeze_", 1);
-  RAZOR_VLOG(3) << "XLA squeeze_ :"
-                << " self=" << self.toString();
-  std::vector<at::Tensor> xlatens_tensors = {self};
-  auto xlatens = bridge::LtcCreateTensorList(xlatens_tensors);
-  xlatens[0].squeeze_(dim);
-  std::vector<size_t> xlatens_update_indices = {0};
+  std::vector<at::Tensor> razortens_tensors = {self};
+  auto razortens = bridge::LtcCreateTensorList(razortens_tensors);
+  razortens[0].squeeze_(dim);
+  std::vector<size_t> razortens_update_indices = {0};
   if (bridge::IsInteropView(self)) {
-    bridge::LtcUpdateTensorsMeta(xlatens_tensors, xlatens, xlatens_update_indices);
+    bridge::LtcUpdateTensorsMeta(razortens_tensors, razortens, razortens_update_indices);
   } else {
-    bridge::LtcUpdateTensors(xlatens_tensors, xlatens, xlatens_update_indices);
+    bridge::LtcUpdateTensors(razortens_tensors, razortens, razortens_update_indices);
   }
   return self;
 }
@@ -3490,8 +3481,6 @@ at::Tensor LazyNativeFunctions::upsample_bilinear2d(const at::Tensor& self,
                                                     c10::optional<double> scales_w) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  // Only the XLA TPU backend for now implements the CustomCall required by
-  // our XLA lowering.
   if (self_tensor.GetDevice().hw_type != DeviceType::TPU || (scales_h && *scales_h != 1.0) ||
       (scales_w && *scales_w != 1.0)) {
     return FALLBACK_ATEN_OP(upsample_bilinear2d, self, output_size, align_corners, scales_h,
@@ -3506,8 +3495,6 @@ at::Tensor LazyNativeFunctions::upsample_bilinear2d_backward(
     bool align_corners, c10::optional<double> scales_h, c10::optional<double> scales_w) {
   LTC_FN_COUNTER("raf::");
   LazyTensor grad_output_tensor = bridge::raf_backend::GetLtcTensor(grad_output);
-  // Only the XLA TPU backend for now implements the CustomCall required by
-  // our XLA lowering.
   if (grad_output_tensor.GetDevice().hw_type != DeviceType::TPU || (scales_h && *scales_h != 1.0) ||
       (scales_w && *scales_w != 1.0)) {
     return FALLBACK_ATEN_OP(upsample_bilinear2d_backward, grad_output, output_size, input_size,
@@ -3523,8 +3510,6 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(
     c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_COUNTER("raf::");
   LazyTensor input_tensor = bridge::raf_backend::GetLtcTensor(input);
-  // Only the XLA TPU backend for now implements the CustomCall required by our
-  // XLA lowering.
   if (input_tensor.GetDevice().hw_type != DeviceType::TPU) {
     return AtenRAFTypeDefault::upsample_nearest2d(input, output_size, scale_factors);
   }
@@ -3538,8 +3523,6 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(
     at::IntArrayRef input_size, c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_COUNTER("raf::");
   LazyTensor grad_output_tensor = bridge::raf_backend::GetLtcTensor(grad_output);
-  // Only the XLA TPU backend for now implements the CustomCall required by our
-  // XLA lowering.
   if (grad_output_tensor.GetDevice().hw_type != DeviceType::TPU) {
     return AtenRAFTypeDefault::upsample_nearest2d_backward(grad_output, output_size, input_size,
                                                            scale_factors);
@@ -3557,8 +3540,6 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(const at::Tensor& self,
                                                    c10::optional<double> scales_w) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  // Only the XLA TPU backend for now implements the CustomCall required by
-  // our XLA lowering.
   if (self_tensor.GetDevice().hw_type != DeviceType::TPU || (scales_h && *scales_h != 1.0) ||
       (scales_w && *scales_w != 1.0)) {
     return FALLBACK_ATEN_OP(upsample_nearest2d, self, output_size, scales_h, scales_w);
@@ -3574,8 +3555,6 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(const at::Tensor& gr
                                                             c10::optional<double> scales_w) {
   LTC_FN_COUNTER("raf::");
   LazyTensor grad_output_tensor = bridge::raf_backend::GetLtcTensor(grad_output);
-  // Only the XLA TPU backend for now implements the CustomCall required by
-  // our XLA lowering.
   if (grad_output_tensor.GetDevice().hw_type != DeviceType::TPU || (scales_h && *scales_h != 1.0) ||
       (scales_w && *scales_w != 1.0)) {
     return FALLBACK_ATEN_OP(upsample_nearest2d_backward, grad_output, output_size, input_size,

@@ -125,18 +125,18 @@ cd $HOME
 python3 -c "import torch; print(torch.__file__)"
 ```
 
-### 5. Build Meta/TVM
+### 5. Build RAF/TVM
 
-Since Meta and TVM do not have release wheels, we have to build them by ourselves for now.
+Since RAF and TVM do not have release wheels, we have to build them by ourselves for now.
 When they are available, we should be able to simply use `pip install` to let pip download
 and install their wheels.
 
 Same as building PyTorch, you can directly run `bash ./scripts/build_third_party.sh`
 under `razor/` to perform the following steps.
 
-#### 5.1 Compile Meta/TVM (under `razor/`)
+#### 5.1 Compile RAF/TVM (under `razor/`)
 
-Note that you can also compile Meat with other configurations, such as
+Note that you can also compile RAF with other configurations, such as
 CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
 
 ```
@@ -144,8 +144,13 @@ cd third_party/raf/
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
-cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ -D CMAKE_BUILD_TYPE=Debug \
-      -D MNM_USE_CUDA=ON -D MNM_USE_CUBLAS=ON -D MNM_USE_CUDNN=ON ..
+echo "set(CMAKE_BUILD_TYPE Debug)" >> config.cmake
+echo "set(RAF_USE_CUDA ON)" >> config.cmake
+echo "set(RAF_CUDA_ARCH 70)" >> config.cmake
+echo "set(RAF_USE_CUBLAS ON)" >> config.cmake
+echo "set(RAF_USE_CUDNN ON)" >> config.cmake
+echo "set(RAF_USE_CUTLASS ON)" >> config.cmake
+cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ ..
 make -j$(nproc)
 ```
 

@@ -18,7 +18,7 @@ jobs:
       run: |
         git config --global url."https://${{ secrets.BOT_TOKEN }}:x-oauth-basic@github.com/".insteadOf "git@github.com:"
         git config submodule.syntastic.update "git pull origin main"
-        git submodule update --remote third_party/raf
+        git submodule update --init --remote third_party/raf
     - name: Create timestamp
       id: date
       run: echo "::set-output name=now::$(date +'%Y-%m-%d-%H-%M-%S')"

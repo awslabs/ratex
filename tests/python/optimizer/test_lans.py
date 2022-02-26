@@ -27,7 +27,7 @@ class TorchSimpleTest(nn.Module):
         return y
 
 
-class MNMSimpleTest(raf.Model):
+class RAFSimpleTest(raf.Model):
     def build(self, shape):
         self.x = raf.array(np.random.randn(*shape).astype("float32"))
 
@@ -59,7 +59,7 @@ class TorchTest(nn.Module):
         return out
 
 
-class MNMTest(raf.Model):
+class RAFTest(raf.Model):
     def build(self, input_shape=28, num_classes=10):
         self.conv1 = Conv2d(in_channels=3, out_channels=6, kernel_size=5, padding=2, bias=False)
         self.bn1 = BatchNorm(6)
@@ -95,7 +95,7 @@ def test_traced_lans_simple():
     t_model.train()
     t_model.to(t_device)
     t_optimizer = LANS(t_model.parameters())
-    m_model = MNMSimpleTest(shape)
+    m_model = RAFSimpleTest(shape)
     m_model.x = t2m_param(t_model.x, device=m_device)
     m_model.train_mode()
     m_optimizer = raf.optim.lans.with_lans()(m_model)
@@ -128,7 +128,7 @@ def test_traced_lans(config):
     iter_size = config[0]
     t_model = TorchTest(config[1], config[2])
     t_model.to(device=t_device)
-    m_model = MNMTest(config[1], config[2])
+    m_model = RAFTest(config[1], config[2])
     m_model.to(device=m_device)
     m_model.conv1.w = t2m_param(t_model.conv1.weight, device=m_device)
     m_model.linear1.w = t2m_param(t_model.linear1.weight, device=m_device)

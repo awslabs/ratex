@@ -212,7 +212,7 @@ raf_git_sha, torch_git_sha = get_git_head_sha(base_dir)
 version = get_build_version(raf_git_sha)
 build_mode = _get_build_mode()
 if build_mode not in ["clean"]:
-    # Generate version info (lazy_xla.__version__).
+    # Generate version info
     create_version_files(base_dir, version, raf_git_sha, torch_git_sha)
     # Generate the code before globbing!
     generate_raf_aten_code(base_dir)
