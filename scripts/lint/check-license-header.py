@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Helper tool to check license header."""
+from pathlib import Path
 import os
 import sys
 import subprocess
@@ -16,7 +17,7 @@ Examples:
 """
 
 IGNORE_FILES = ["LICENSE", "README.md", ".gitignore", ".gitmodules"]
-IGNORE_FILE_EXTS = [".png", ".txt"]
+IGNORE_FILE_EXTS = ["", ".json", ".png", ".txt"]
 
 
 def copyright_line(line):
@@ -32,15 +33,11 @@ def copyright_line(line):
 
 
 def check_license(fname):
-    if fname in IGNORE_FILES:
-        return True
+    fpath = Path(fname)
 
-    # Skip 3rdparty change.
-    if not os.path.isfile(fname):
-        return True
-
-    # Skip ignorable files.
-    if any([fname.endswith(ext) for ext in IGNORE_FILE_EXTS]):
+    # Skip ignorable files and file extensions.
+    # Note that the file with no suffix could be a 3rdparty directory or a config file.
+    if fpath.name in IGNORE_FILES or fpath.suffix in IGNORE_FILE_EXTS:
         return True
 
     has_license_header = False
