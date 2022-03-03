@@ -236,6 +236,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
     inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())
+    mod = InferType()(mod)
     func = mod["main"]
     param_names = [var.name_hint for var in func.params]
     return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype

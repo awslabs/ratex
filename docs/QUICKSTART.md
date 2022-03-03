@@ -62,7 +62,7 @@ conda install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing
 conda install -c pytorch magma-cuda113
 
 python3 -m pip install scikit-build==0.11.1
-python3 -m pip install six numpy cython decorator scipy tornado typed_ast orderedset antlr4-python3-runtime attrs requests Pillow packaging psutil dataclasses pycparser pydot
+python3 -m pip install six numpy cython decorator scipy tornado typed_ast orderedset antlr4-python3-runtime attrs requests Pillow packaging psutil dataclasses pycparser pydot black
 
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 ```

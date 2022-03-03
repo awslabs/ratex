@@ -29,8 +29,15 @@ using namespace raf::pass;
 using namespace raf::ir;
 
 lazy_tensors::Shape InferRelayFunction(const Expr& func) {
-  Expr f = InferType(func);
-  auto fty = Downcast<FuncType>(f->checked_type());
+  FuncType fty;
+  if (!func->checked_type_.defined()) {
+    LTC_LOG(WARNING) << "func type is not defined and InferType is called to infer the shape. This "
+                        "degrades the performance badly.";
+    auto f = InferType(func);
+    fty = Downcast<FuncType>(f->checked_type());
+  } else {
+    fty = Downcast<FuncType>(func->checked_type());
+  }
   return compiler::raf_backend::ToLTCShape(fty->ret_type);
 }
 

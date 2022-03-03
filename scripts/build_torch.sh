@@ -24,6 +24,7 @@ export USE_CUDA=0
 export USE_MKL=1
 
 # Build PyTorch
+pip3 install -r requirements.txt
 echo "Building PyTorch wheel..."
 rm -rf build/pip/public/pytorch
 python3 setup.py bdist_wheel -d build/pip/public/pytorch
