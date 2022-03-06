@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file partition_optim_status.cc
  * \brief This pass will be used to apply ZeRO1 optimization, which partitions the model states into
  * N ranks, and allgather all the partial values to update the weight. Note that this pass only does

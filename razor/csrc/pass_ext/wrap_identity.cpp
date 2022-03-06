@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file src/pass/wrap_identity.cc
  * \brief Wrap identity output values with raf.op.copy
  */

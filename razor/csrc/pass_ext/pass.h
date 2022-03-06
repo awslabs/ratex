@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file pass.h
  * \brief Customized RAF passes
  */

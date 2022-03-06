@@ -337,4 +337,5 @@ setup(
         "build_ext": Build,
         "clean": Clean,
     },
+    python_requires=">=3.7",
 )

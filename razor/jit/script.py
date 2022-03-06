@@ -162,12 +162,12 @@ def persis_cache_fn(wrapped_func):
             return value
 
         def loader(value):
-            func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype = unpack(
+            func, param_names, inplace_update_map, raf_params_shape, raf_params_dtype = unpack(
                 raf.ir.load_json(value)
             )
-            # mnm_params_shape is tuple instead of list
-            mnm_params_shape = {k: tuple(v) for k, v in mnm_params_shape.items()}
-            return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
+            # raf_params_shape is tuple instead of list
+            raf_params_shape = {k: tuple(v) for k, v in raf_params_shape.items()}
+            return func, param_names, inplace_update_map, raf_params_shape, raf_params_dtype
 
         def saver(value):
             return raf.ir.save_json(value)
@@ -220,10 +220,10 @@ def convert_module_to_meta(module, shape_n_dtype, args):
         model_file=cached_model_file,
         hash_file=cached_hash_file,
     )
-    mnm_params = model.state()
-    # ensure mnm_params are cachable
-    mnm_params_shape = {k: v.shape for k, v in mnm_params.items()}
-    mnm_params_dtype = {k: v.dtype for k, v in mnm_params.items()}
+    raf_params = model.state()
+    # ensure raf_params are cachable
+    raf_params_shape = {k: v.shape for k, v in raf_params.items()}
+    raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
@@ -239,7 +239,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     mod = InferType()(mod)
     func = mod["main"]
     param_names = [var.name_hint for var in func.params]
-    return func, param_names, inplace_update_map, mnm_params_shape, mnm_params_dtype
+    return func, param_names, inplace_update_map, raf_params_shape, raf_params_dtype
 
 
 # Module based cache that maps the input shape/dtype to a tuple of
@@ -288,8 +288,8 @@ def script(module: torch.nn.Module):
                 func,
                 param_names,
                 inplace_update_map,
-                mnm_params_shape,
-                mnm_params_dtype,
+                raf_params_shape,
+                raf_params_dtype,
             ) = convert_module_to_meta(module, shape_n_dtype, args)
             # Convert missing args
             params_keys = [to_raf_name(k) for k in params.keys()]
@@ -299,8 +299,8 @@ def script(module: torch.nn.Module):
                 if name not in params_keys:
                     t_name = to_torch_name(name)
                     params[t_name] = torch.zeros(
-                        mnm_params_shape[name],
-                        dtype=TORCH_DTYPES.get(mnm_params_dtype[name], "float32"),
+                        raf_params_shape[name],
+                        dtype=TORCH_DTYPES.get(raf_params_dtype[name], "float32"),
                     ).to("lazy")
                     logger.warning(
                         "%s parameter has been converted from raf.array to torch.Tensor.", name

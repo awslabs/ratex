@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file src/pass/inplace_update_by_alias.cc
  * \brief Mutate the IR to attach in-place update information according to the given alias map.
  */

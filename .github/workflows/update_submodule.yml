@@ -3,7 +3,11 @@
 
 name: Update Submodules
 on:
-  # TODO: Setup a schedule to trigger this workflow nightly.
+  schedule:
+    # Note that cron uses UTC times and weeks start from Sunday (0).
+    # RAF updates TVM on Monday, so we update RAF every Friday at 5am (PST).
+    - cron:  '0 13 * * 5'
+
   workflow_dispatch:
 
 jobs:

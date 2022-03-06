@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file src/pass/eliminate_closure.cc
  * \brief Eliminate closure value in function return
  */

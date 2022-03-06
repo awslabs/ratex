@@ -4,7 +4,6 @@
  */
 
 /*!
- * Copyright (c) 2021 by Contributors
  * \file src/pass/analyze_inplace_update.cc
  * \brief Analyze the IR to get a mapping from output tuple indices to input
  * argument indices that share the same memory (inplace update).

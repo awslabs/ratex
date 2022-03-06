@@ -311,6 +311,7 @@ def main():
         response = aws_batch.describe_jobs(jobs=[job_id])
         status = response["jobs"][0]["status"]
         if status == "SUCCEEDED" or status == "FAILED":
+            log_stream_name = response["jobs"][0]["container"]["logStreamName"]
             if log_stream_name:
                 start_timestamp = (
                     fetch_cloud_watch_logs(aws_cloudwatch_logs, log_stream_name, start_timestamp)

@@ -95,16 +95,16 @@ def test_convert_module_to_meta_cache():
         func,
         param_names,
         inplace_update_map,
-        mnm_params_shape,
-        mnm_params_dtype,
+        raf_params_shape,
+        raf_params_dtype,
     ) = convert_module_to_meta(module, shape_n_dtype, args)
     assert cache.misses == 2 and cache.hits == 0
     (
         func_1,
         param_names_1,
         inplace_update_map_1,
-        mnm_params_shape_1,
-        mnm_params_dtype_1,
+        raf_params_shape_1,
+        raf_params_dtype_1,
     ) = convert_module_to_meta(module, shape_n_dtype, args)
     assert cache.misses == 2 and cache.hits == 1
     # clear in-memory cache
@@ -113,15 +113,15 @@ def test_convert_module_to_meta_cache():
         func_1,
         param_names_1,
         inplace_update_map_1,
-        mnm_params_shape_1,
-        mnm_params_dtype_1,
+        raf_params_shape_1,
+        raf_params_dtype_1,
     ) = convert_module_to_meta(module, shape_n_dtype, args)
     assert isinstance(func, tvm.relay.Function)
     assert tvm.ir.structural_equal(func, func_1)
     assert param_names == param_names_1
     assert inplace_update_map == inplace_update_map_1
-    assert mnm_params_shape == mnm_params_shape_1
-    assert mnm_params_dtype == mnm_params_dtype_1
+    assert raf_params_shape == raf_params_shape_1
+    assert raf_params_dtype == raf_params_dtype_1
 
 
 @with_temp_cache
