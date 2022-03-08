@@ -73,7 +73,7 @@ class Adam(Optimizer):
         self._zero_opt_level = dctx.zero_opt_level
         self._rank = dctx.rank
         self._world_size = dctx.size
-        self._lm = import_module("lazy_tensor_core.core.lazy_model") if mark_step else None
+        self._lm = import_module("razor.lazy_tensor_core.core.lazy_model") if mark_step else None
 
     def __setstate__(self, state):
         super(Adam, self).__setstate__(state)
@@ -82,6 +82,7 @@ class Adam(Optimizer):
 
     @torch.no_grad()
     def step(self, closure=None):
+        # pylint: disable=too-many-branches
         """Performs a single optimization step.
 
         Args:
@@ -115,21 +116,31 @@ class Adam(Optimizer):
                         # state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                         # pylint: enable=line-too-long
                         if self._need_partition(param):
-                            state["exp_avg"] = self._create_partitioned_buffer(param)
-                            state["exp_avg_sq"] = self._create_partitioned_buffer(param)
+                            state["exp_avg"] = self._create_partitioned_buffer(
+                                param, dtype=torch.float32
+                            )
+                            state["exp_avg_sq"] = self._create_partitioned_buffer(
+                                param, dtype=torch.float32
+                            )
                         else:
                             state["exp_avg"] = torch.zeros(
-                                param.data.size(), dtype=param.data.dtype
+                                param.data.size(), dtype=torch.float32
                             ).to(device=param.data.device)
                             state["exp_avg_sq"] = torch.zeros(
-                                param.data.size(), dtype=param.data.dtype
+                                param.data.size(), dtype=torch.float32
                             ).to(device=param.data.device)
-
+                        if param.dtype == torch.float16:
+                            # master weight param
+                            state["param"] = self._partition(param.data, state["exp_avg"]).float()
                     exp_avg = state["exp_avg"]
                     exp_avg_sq = state["exp_avg_sq"]
                     assert exp_avg.shape == exp_avg_sq.shape
-                    param_with_grad_local = self._partition(param.data, exp_avg)
+                    param_with_grad_local = (
+                        state["param"] if "param" in state else self._partition(param.data, exp_avg)
+                    )
                     grad = self._partition(param.grad, exp_avg)
+                    if grad.dtype == torch.float16:
+                        grad = grad.float()
                     state["step"] += 1
                     state_step = state["step"]
 
@@ -148,12 +159,14 @@ class Adam(Optimizer):
                         eps=group["eps"],
                     )
 
+                    if param.dtype == torch.float16:
+                        state["param"][:] = updated_param_with_grad_local
+                        updated_param_with_grad_local = updated_param_with_grad_local.half()
+
                     if self._need_partition(param_with_grad_global):
                         # This line will be eventually replaced by allgather,
                         # so the index doesn't matter
-                        index = torch.zeros(
-                            updated_param_with_grad_local.size(), dtype=torch.int64
-                        ).to(device=updated_param_with_grad_local.device)
+                        index = torch.zeros_like(updated_param_with_grad_local, dtype=torch.int64)
                         param_with_grad_global.scatter_(
                             dim=0, index=index, src=updated_param_with_grad_local
                         )
@@ -163,16 +176,19 @@ class Adam(Optimizer):
 
                     if self._lm:
                         updated_param_with_grad_local = None
+                        grad = None
                         self._lm.mark_step()
         return loss
 
     def _need_partition(self, data):
         return self._zero_opt_level > 0 and data.shape[0] >= self._world_size
 
-    def _create_partitioned_buffer(self, data):
+    def _create_partitioned_buffer(self, data, dtype=None):
         new_shape = list(data.shape)
         new_shape[0] = math.ceil(new_shape[0] / self._world_size)
-        return torch.zeros(*new_shape, dtype=data.dtype, requires_grad=False).to(device=data.device)
+        return torch.zeros(
+            *new_shape, dtype=data.dtype if dtype is None else dtype, requires_grad=False
+        ).to(device=data.device)
 
     def _partition(self, global_data, local_data):
         if self._need_partition(global_data):

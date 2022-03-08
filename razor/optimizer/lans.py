@@ -5,8 +5,10 @@
 # pylint: disable=arguments-differ, unused-argument
 import torch
 
+from .optimizer import Optimizer
 
-class LANS(torch.optim.Optimizer):
+
+class LANS(Optimizer):
     """LANS optimizer."""
 
     def __init__(

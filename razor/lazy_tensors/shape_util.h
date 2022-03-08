@@ -210,6 +210,9 @@ inline at::ScalarType PrimitiveToScalarType(lazy_tensors::PrimitiveType scalar_t
     case lazy_tensors::PrimitiveType::U64: {
       return at::ScalarType::Long;
     }
+    case lazy_tensors::PrimitiveType::F16: {
+      return at::ScalarType::Half;
+    }
     case lazy_tensors::PrimitiveType::F32: {
       return at::ScalarType::Float;
     }

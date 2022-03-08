@@ -458,8 +458,10 @@ void TensorToBufferSType(const at::Tensor& tensor, const lazy_tensors::Shape& de
                                                     dest_buffer_size, device);
       break;
     case lazy_tensors::PrimitiveType::F16:
-      TensorToBuffer<SType, lazy_tensors::half>(tensor, dest_shape, dest_buffer, dest_buffer_size,
-                                                device);
+      // TensorToBuffer<SType, lazy_tensors::half>(tensor, dest_shape, dest_buffer,
+      //                                           dest_buffer_size, device);
+      // lazy_tensors::half is not implemented yet. Use at::Half instead
+      TensorToBuffer<SType, at::Half>(tensor, dest_shape, dest_buffer, dest_buffer_size, device);
       break;
     case lazy_tensors::PrimitiveType::F32:
       TensorToBuffer<SType, float>(tensor, dest_shape, dest_buffer, dest_buffer_size, device);
@@ -656,7 +658,9 @@ at::Tensor MakeTensorFromLiteral(const lazy_tensors::Literal& literal,
     case lazy_tensors::PrimitiveType::BF16:
       return LiteralToTensorHelper<lazy_tensors::bfloat16>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::F16:
-      return LiteralToTensorHelper<lazy_tensors::half>(literal, dest_element_type);
+      // return LiteralToTensorHelper<lazy_tensors::half>(literal, dest_element_type);
+      // lazy_tensors::half is not implemented yet. Use at::Half instead
+      return LiteralToTensorHelper<at::Half>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::F32:
       return LiteralToTensorHelper<float>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::F64:

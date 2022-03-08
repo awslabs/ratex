@@ -73,13 +73,13 @@ def test_compile_cache():
     JIT_CACHE.clear()
 
     train("lazy", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
-    assert cache.misses == 2 and cache.hits == 0
+    assert cache.misses == 1 and cache.hits == 0
 
     # Clear the JIT cache to force compile
     JIT_CACHE.clear()
 
     train("lazy", model, dataset, optimizer=optim.SGD, batch_size=batch_size, num_epochs=1)
-    assert cache.misses == 2 and cache.hits == 1
+    assert cache.misses == 1 and cache.hits == 1
 
 
 @with_temp_cache
@@ -98,7 +98,7 @@ def test_convert_module_to_meta_cache():
         raf_params_shape,
         raf_params_dtype,
     ) = convert_module_to_meta(module, shape_n_dtype, args)
-    assert cache.misses == 2 and cache.hits == 0
+    assert cache.misses == 1 and cache.hits == 0
     (
         func_1,
         param_names_1,
@@ -106,7 +106,7 @@ def test_convert_module_to_meta_cache():
         raf_params_shape_1,
         raf_params_dtype_1,
     ) = convert_module_to_meta(module, shape_n_dtype, args)
-    assert cache.misses == 2 and cache.hits == 1
+    assert cache.misses == 1 and cache.hits == 1
     # clear in-memory cache
     cache.evict_all()
     (

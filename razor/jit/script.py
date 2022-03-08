@@ -146,9 +146,14 @@ def persis_cache_fn(wrapped_func):
 
     def wrapper(module, shape_n_dtype, args):
         dctx = dist.get_context()
+        # params included in cache key to distinguish full-precision and half-precision models
+        params = sorted(
+            [(name, (param.shape, param.dtype)) for name, param in module.named_parameters()]
+        )
         cache_key = (
             hash_torch_module(module),
             str(shape_n_dtype),
+            str(tuple(params)),
             dctx.enable_data_parallel,
             dctx.size,
             "convert_module_to_meta",
@@ -201,25 +206,8 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     """
     dctx = dist.get_context()
     cloned_module = copy.deepcopy(module)
-    cache_key = (hash_torch_module(cloned_module), str(shape_n_dtype))
-    cached_model_path = persist_cache.query(cache_key)
 
-    # Cache miss. Add new entries to the cache and directly let from_pytorch write the
-    # traced model to the persistent storage.
-    if cached_model_path is None:
-        cached_model_path = persist_cache.create_entry(cache_key)
-
-    cached_model_file, cached_hash_file = None, None
-    if cached_model_path is not None:
-        cached_model_file = cached_model_path / "model.pt"
-        cached_hash_file = cached_model_path / "model.hash"
-
-    model = raf.frontend.from_pytorch(
-        cloned_module,
-        {"input0": shape_n_dtype},
-        model_file=cached_model_file,
-        hash_file=cached_hash_file,
-    )
+    model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
     raf_params = model.state()
     # ensure raf_params are cachable
     raf_params_shape = {k: v.shape for k, v in raf_params.items()}

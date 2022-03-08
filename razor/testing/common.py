@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import sys
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -208,6 +209,7 @@ def train(
     device,
     model,
     dataset,
+    criterion=lambda pred, true: -torch.sum(pred * true) / true.size(0),
     optimizer=optim.SGD,
     optimizer_params=None,
     batch_size=1,
@@ -217,6 +219,10 @@ def train(
     trim=False,
     reduce_gradients=False,
     dtype=torch.float32,
+    epilogue_closure=None,
+    set_to_none=True,
+    acc_grad_steps=None,
+    force_one_hot=True,
 ):
     """Run training."""
     if optimizer_params is None:
@@ -231,37 +237,42 @@ def train(
     model = model.to(device, dtype=dtype)
     model.train()
 
-    # adapting loss cacluation from
-    # https://www.programmersought.com/article/86167037001/
-    # this doesn't match nn.NLLLoss() exactly, but close...
-    criterion = lambda pred, true: -torch.sum(pred * true) / true.size(0)
     optimizer = optimizer(model.parameters(), **optimizer_params)
     if device == "lazy":
         model = razor.jit.script(model)
 
     for epoch in range(num_epochs):
+        print(f"Epoch {epoch:2d} starts...")
+        start = time.time()
         running_loss = []
-        for inputs, labels in dataloader:
+        for idx, (inputs, labels) in enumerate(dataloader):
             inputs = inputs.to(device)
-            labels = torch.from_numpy(np.eye(num_classes, dtype=np.float32)[labels])
+            if force_one_hot:
+                labels = torch.from_numpy(np.eye(num_classes, dtype=np.float32)[labels])
             labels = labels.to(device)
             with razor.amp.autocast(amp):
-                optimizer.zero_grad(set_to_none=True)
+                if not acc_grad_steps or idx % acc_grad_steps == 0:
+                    optimizer.zero_grad(set_to_none=set_to_none)
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
+                loss = loss / acc_grad_steps if acc_grad_steps else loss
                 loss.backward()
                 if trim:
                     logger.log(logging.DEBUG, "Mark Step...")
                     lm.mark_step()
                 if reduce_gradients:
                     razor.core.lazy_model.reduce_gradients(optimizer)
-                optimizer.step()
-                logger.log(logging.DEBUG, "Mark Step...")
-                lm.mark_step()
+                if not acc_grad_steps or idx % acc_grad_steps == (acc_grad_steps - 1):
+                    optimizer.step()
+                    logger.log(logging.DEBUG, "Mark Step...")
+                    lm.mark_step()
             running_loss.append((loss, inputs.size(0)))
+            if epilogue_closure:
+                epilogue_closure()
 
         epoch_loss = sum([l.item() * w for l, w in running_loss]) / dataset_size
-        print(f"Epoch {epoch:2d}, Loss {epoch_loss:.4f}", flush=True)
+        end = time.time()
+        print(f"Epoch {epoch:2d}, Loss {epoch_loss:.4f}, Time {(end - start): .4f}", flush=True)
         results.append(epoch_loss)
     return results
 

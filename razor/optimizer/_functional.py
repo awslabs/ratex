@@ -48,9 +48,10 @@ def adam(
             grad = grad.add(param, alpha=weight_decay)
 
         # Decay the first and second moment running average coefficient
-        exp_avg.mul_(utils.tensor_like(beta1, exp_avg))
+        exp_avg = exp_avg.mul(utils.tensor_like(beta1, exp_avg))
         exp_avg.add_(grad, alpha=1 - beta1)
-        exp_avg_sq.mul_(utils.tensor_like(beta2, exp_avg_sq)).addcmul_(grad, grad, value=1 - beta2)
+        exp_avg_sq = exp_avg_sq.mul(utils.tensor_like(beta2, exp_avg_sq))
+        exp_avg_sq.addcmul_(grad, grad, value=1 - beta2)
         if amsgrad:
             # Maintains the maximum of all 2nd moment running avg. till now
             torch.maximum(max_exp_avg_sqs[i], exp_avg_sq, out=max_exp_avg_sqs[i])
@@ -62,7 +63,7 @@ def adam(
         else:
             denom = (
                 exp_avg_sq.sqrt() / utils.tensor_like(math.sqrt(bias_correction2), exp_avg_sq)
-            ).add_(utils.tensor_like(eps, exp_avg_sq))
+            ).add(utils.tensor_like(eps, exp_avg_sq))
 
         step_size = lr / bias_correction1
 
