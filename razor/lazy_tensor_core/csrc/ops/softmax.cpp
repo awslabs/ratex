@@ -26,7 +26,7 @@ lazy_tensors::Shape NodeOutputShape(const Value& input,
 
 }  // namespace
 
-Softmax::Softmax(const Value& input, lazy_tensors::int64 dim, c10::optional<at::ScalarType> dtype)
+Softmax::Softmax(const Value& input, int64_t dim, c10::optional<at::ScalarType> dtype)
     : Node(
           ir::OpKind(at::aten::softmax), {input}, [&]() { return NodeOutputShape(input, dtype); },
           /*num_outputs=*/1, lazy_tensors::util::MHash(dim, OptionalOr<int>(dtype, -1))),

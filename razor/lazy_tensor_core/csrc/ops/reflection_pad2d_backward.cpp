@@ -15,7 +15,7 @@ namespace ir {
 namespace ops {
 
 ReflectionPad2dBackward::ReflectionPad2dBackward(const Value& grad_output, const Value& input,
-                                                 std::vector<lazy_tensors::int64> padding)
+                                                 std::vector<int64_t> padding)
     : Node(OpKind(at::aten::reflection_pad2d_backward), {grad_output, input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(padding)),
       padding_(std::move(padding)) {

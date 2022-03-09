@@ -17,8 +17,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-GetDimensionsSize::GetDimensionsSize(const Value& input,
-                                     std::vector<lazy_tensors::int64> dimensions)
+GetDimensionsSize::GetDimensionsSize(const Value& input, std::vector<int64_t> dimensions)
     : Node(ltc_get_dimensions_size, {input},
            lazy_tensors::ShapeUtil::MakeShape(GetShapeDimensionType(/*device=*/nullptr), {}),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dimensions)),

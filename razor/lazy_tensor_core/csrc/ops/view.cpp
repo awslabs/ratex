@@ -18,7 +18,7 @@ namespace ops {
 namespace {
 
 lazy_tensors::Shape NodeOutputShape(const Value& input,
-                                    lazy_tensors::Span<const lazy_tensors::int64> output_sizes) {
+                                    lazy_tensors::Span<const int64_t> output_sizes) {
   const lazy_tensors::Shape& input_shape = input.shape();
   auto info = Helpers::GetDynamicReshapeInfo(input_shape, output_sizes);
   if (info) {
@@ -30,7 +30,7 @@ lazy_tensors::Shape NodeOutputShape(const Value& input,
 
 }  // namespace
 
-View::View(const Value& input, std::vector<lazy_tensors::int64> output_size)
+View::View(const Value& input, std::vector<int64_t> output_size)
     : Node(ir::OpKind(at::aten::view), {input}, NodeOutputShape(input, output_size),
            /*num_outputs=*/1, lazy_tensors::util::MHash(output_size)),
       output_size_(std::move(output_size)) {

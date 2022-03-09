@@ -17,13 +17,13 @@ namespace ops {
 
 class CumProd : public Node {
  public:
-  CumProd(const Value& input, lazy_tensors::int64 dim, c10::optional<at::ScalarType> dtype);
+  CumProd(const Value& input, int64_t dim, c10::optional<at::ScalarType> dtype);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   }
 
@@ -32,7 +32,7 @@ class CumProd : public Node {
   }
 
  private:
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
   c10::optional<at::ScalarType> dtype_;
 };
 

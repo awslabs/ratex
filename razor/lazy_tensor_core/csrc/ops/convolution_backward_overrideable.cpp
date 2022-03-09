@@ -16,10 +16,9 @@ namespace ir {
 namespace ops {
 
 ConvolutionBackwardOverrideable::ConvolutionBackwardOverrideable(
-    const Value& grad_output, const Value& input, const Value& weight,
-    std::vector<lazy_tensors::int64> stride, std::vector<lazy_tensors::int64> padding,
-    std::vector<lazy_tensors::int64> dilation, bool transposed,
-    std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups)
+    const Value& grad_output, const Value& input, const Value& weight, std::vector<int64_t> stride,
+    std::vector<int64_t> padding, std::vector<int64_t> dilation, bool transposed,
+    std::vector<int64_t> output_padding, int64_t groups)
     : Node(
           ir::OpKind(at::aten::convolution_backward_overrideable), {grad_output, input, weight},
           /*num_outputs=*/3,

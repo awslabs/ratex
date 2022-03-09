@@ -15,7 +15,7 @@ namespace ir {
 namespace ops {
 namespace {
 
-c10::Symbol MaxUnpoolNdBackwardSymbol(lazy_tensors::int64 spatial_dim_count) {
+c10::Symbol MaxUnpoolNdBackwardSymbol(int64_t spatial_dim_count) {
   switch (spatial_dim_count) {
     case 2:
       return at::aten::max_unpool2d_backward;
@@ -29,8 +29,7 @@ c10::Symbol MaxUnpoolNdBackwardSymbol(lazy_tensors::int64 spatial_dim_count) {
 }  // namespace
 
 MaxUnpoolNdBackward::MaxUnpoolNdBackward(const Value& grad_output, const Value& input,
-                                         const Value& indices,
-                                         std::vector<lazy_tensors::int64> output_size)
+                                         const Value& indices, std::vector<int64_t> output_size)
     : Node(ir::OpKind(MaxUnpoolNdBackwardSymbol(output_size.size())), {grad_output, input, indices},
            /*num_outputs=*/1, lazy_tensors::util::MHash(output_size)),
       output_size_(std::move(output_size)) {

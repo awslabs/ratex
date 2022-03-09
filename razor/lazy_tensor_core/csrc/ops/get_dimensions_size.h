@@ -16,18 +16,18 @@ namespace ops {
 
 class GetDimensionsSize : public Node {
  public:
-  GetDimensionsSize(const Value& input, std::vector<lazy_tensors::int64> dimensions);
+  GetDimensionsSize(const Value& input, std::vector<int64_t> dimensions);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& dimensions() const {
+  const std::vector<int64_t>& dimensions() const {
     return dimensions_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> dimensions_;
+  std::vector<int64_t> dimensions_;
 };
 
 }  // namespace ops

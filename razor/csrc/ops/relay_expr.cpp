@@ -32,7 +32,7 @@ lazy_tensors::Shape InferRelayExpr(const std::vector<Value>& inputs) {
   return inputs[0].shape();
 }
 
-lazy_tensors::int64 GetNumOutputs(const std::vector<Value>& inputs) {
+int64_t GetNumOutputs(const std::vector<Value>& inputs) {
   lazy_tensors::Shape shape = InferRelayExpr(inputs);
   return shape.IsTuple() ? shape.tuple_shapes_size() : 1;
 }

@@ -16,7 +16,7 @@ using namespace lazy_tensors;
 class BaseComputationClient : public lazy_tensors::ComputationClient {
   struct DeviceHandle {
     std::string device;
-    lazy_tensors::int64 handle;
+    int64_t handle;
   };
 
   using Data = lazy_tensors::client::Data;

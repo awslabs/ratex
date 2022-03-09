@@ -26,8 +26,7 @@ lazy_tensors::Shape NodeOutputShape(const Value& input,
 
 }  // namespace
 
-LogSoftmax::LogSoftmax(const Value& input, lazy_tensors::int64 dim,
-                       c10::optional<at::ScalarType> dtype)
+LogSoftmax::LogSoftmax(const Value& input, int64_t dim, c10::optional<at::ScalarType> dtype)
     : Node(
           ir::OpKind(at::aten::log_softmax), {input},
           [&]() { return NodeOutputShape(input, dtype); },

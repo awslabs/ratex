@@ -16,7 +16,7 @@ namespace ir {
 namespace ops {
 
 ReplicationPadBackward::ReplicationPadBackward(const Value& grad_output, const Value& input,
-                                               std::vector<lazy_tensors::int64> padding)
+                                               std::vector<int64_t> padding)
     : Node(ltc_replication_pad_backward, {grad_output, input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(padding)),
       padding_(std::move(padding)) {

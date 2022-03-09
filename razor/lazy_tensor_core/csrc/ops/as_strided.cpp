@@ -18,8 +18,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-AsStrided::AsStrided(const Value& input, std::vector<lazy_tensors::int64> size,
-                     std::vector<lazy_tensors::int64> stride, lazy_tensors::int64 storage_offset)
+AsStrided::AsStrided(const Value& input, std::vector<int64_t> size, std::vector<int64_t> stride,
+                     int64_t storage_offset)
     : Node(
           ir::OpKind(at::aten::as_strided), {input},
           [&]() { return lazy_tensors::ShapeUtil::MakeShape(input.shape().element_type(), size); },
@@ -41,21 +41,19 @@ NodePtr AsStrided::Clone(OpList operands) const {
 }
 
 bool AsStrided::StrideIsSupported(const lazy_tensors::Shape& input_shape,
-                                  lazy_tensors::Span<const lazy_tensors::int64> size,
-                                  lazy_tensors::Span<const lazy_tensors::int64> stride,
-                                  lazy_tensors::int64 storage_offset) {
-  std::vector<lazy_tensors::int64> sorted_stride(stride.begin(), stride.end());
+                                  lazy_tensors::Span<const int64_t> size,
+                                  lazy_tensors::Span<const int64_t> stride,
+                                  int64_t storage_offset) {
+  std::vector<int64_t> sorted_stride(stride.begin(), stride.end());
   std::sort(sorted_stride.begin(), sorted_stride.end());
   return stride.empty() || sorted_stride.front() == 1;
 }
 
-std::vector<lazy_tensors::int64> AsStrided::GetArrayStridePermutation(
-    lazy_tensors::Span<const lazy_tensors::int64> stride,
-    lazy_tensors::Span<const lazy_tensors::int64> size) {
-  std::vector<lazy_tensors::int64> permutation =
-      lazy_tensors::util::Iota<lazy_tensors::int64>(stride.size());
+std::vector<int64_t> AsStrided::GetArrayStridePermutation(lazy_tensors::Span<const int64_t> stride,
+                                                          lazy_tensors::Span<const int64_t> size) {
+  std::vector<int64_t> permutation = lazy_tensors::util::Iota<int64_t>(stride.size());
   std::sort(permutation.begin(), permutation.end(),
-            [&](lazy_tensors::int64 a, lazy_tensors::int64 b) { return stride[a] > stride[b]; });
+            [&](int64_t a, int64_t b) { return stride[a] > stride[b]; });
   return permutation;
 }
 

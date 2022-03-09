@@ -15,11 +15,12 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-ConvolutionOverrideable::ConvolutionOverrideable(
-    const Value& input, const Value& weight, const Value& bias,
-    std::vector<lazy_tensors::int64> stride, std::vector<lazy_tensors::int64> padding,
-    std::vector<lazy_tensors::int64> dilation, bool transposed,
-    std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups)
+ConvolutionOverrideable::ConvolutionOverrideable(const Value& input, const Value& weight,
+                                                 const Value& bias, std::vector<int64_t> stride,
+                                                 std::vector<int64_t> padding,
+                                                 std::vector<int64_t> dilation, bool transposed,
+                                                 std::vector<int64_t> output_padding,
+                                                 int64_t groups)
     : Node(
           ir::OpKind(at::aten::convolution_overrideable), {input, weight, bias},
           /*num_outputs=*/1,
@@ -33,10 +34,12 @@ ConvolutionOverrideable::ConvolutionOverrideable(
   SetShapeDeferred([&]() { return compiler::NodeLowering::Get()->Infer(this); });
 }
 
-ConvolutionOverrideable::ConvolutionOverrideable(
-    const Value& input, const Value& weight, std::vector<lazy_tensors::int64> stride,
-    std::vector<lazy_tensors::int64> padding, std::vector<lazy_tensors::int64> dilation,
-    bool transposed, std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups)
+ConvolutionOverrideable::ConvolutionOverrideable(const Value& input, const Value& weight,
+                                                 std::vector<int64_t> stride,
+                                                 std::vector<int64_t> padding,
+                                                 std::vector<int64_t> dilation, bool transposed,
+                                                 std::vector<int64_t> output_padding,
+                                                 int64_t groups)
     : Node(
           ir::OpKind(at::aten::convolution_overrideable), {input, weight},
           /*num_outputs=*/1,

@@ -47,7 +47,7 @@ Shape::Shape(LTCShape x) {
 
 Shape::operator LTCShape() const {
   std::vector<LTCShape> tuple_shapes = ToLTCFromTVM<std::vector<LTCShape>>(get()->element_shapes);
-  std::vector<int64> dimensions = ToLTCFromTVM<std::vector<int64>>(get()->dimensions);
+  std::vector<int64_t> dimensions = ToLTCFromTVM<std::vector<int64_t>>(get()->dimensions);
   return get()->element_type->value == (int)PrimitiveType::TUPLE
              ? LTCShape(tuple_shapes)
              : LTCShape(ToLTCFromTVM<PrimitiveType>(get()->element_type), dimensions);

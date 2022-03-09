@@ -16,8 +16,8 @@ namespace ir {
 namespace ops {
 
 UpsampleNearestBackward::UpsampleNearestBackward(const Value& input,
-                                                 std::vector<lazy_tensors::int64> output_size,
-                                                 std::vector<lazy_tensors::int64> input_size)
+                                                 std::vector<int64_t> output_size,
+                                                 std::vector<int64_t> input_size)
     : Node(ir::OpKind(at::aten::upsample_nearest2d_backward), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(output_size, input_size)),
       output_size_(std::move(output_size)),

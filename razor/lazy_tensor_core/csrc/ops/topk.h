@@ -14,18 +14,17 @@ namespace ops {
 
 class TopK : public Node {
  public:
-  TopK(const Value& input, lazy_tensors::int64 k, lazy_tensors::int64 dim, bool largest,
-       bool sorted);
+  TopK(const Value& input, int64_t k, int64_t dim, bool largest, bool sorted);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 k() const {
+  int64_t k() const {
     return k_;
   };
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   };
 
@@ -38,8 +37,8 @@ class TopK : public Node {
   }
 
  private:
-  lazy_tensors::int64 k_;
-  lazy_tensors::int64 dim_;
+  int64_t k_;
+  int64_t dim_;
   bool largest_;
   bool sorted_;
 };

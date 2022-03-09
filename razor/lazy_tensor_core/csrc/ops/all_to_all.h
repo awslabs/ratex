@@ -15,35 +15,34 @@ namespace ops {
 
 class AllToAll : public Node {
  public:
-  AllToAll(const Value& input, const Value& token, lazy_tensors::int64 split_dimension,
-           lazy_tensors::int64 concat_dimension, lazy_tensors::int64 split_count,
-           std::vector<std::vector<lazy_tensors::int64>> groups);
+  AllToAll(const Value& input, const Value& token, int64_t split_dimension,
+           int64_t concat_dimension, int64_t split_count, std::vector<std::vector<int64_t>> groups);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 split_dimension() const {
+  int64_t split_dimension() const {
     return split_dimension_;
   }
 
-  lazy_tensors::int64 concat_dimension() const {
+  int64_t concat_dimension() const {
     return concat_dimension_;
   }
 
-  lazy_tensors::int64 split_count() const {
+  int64_t split_count() const {
     return split_count_;
   }
 
-  const std::vector<std::vector<lazy_tensors::int64>>& groups() const {
+  const std::vector<std::vector<int64_t>>& groups() const {
     return groups_;
   }
 
  private:
-  lazy_tensors::int64 split_dimension_;
-  lazy_tensors::int64 concat_dimension_;
-  lazy_tensors::int64 split_count_;
-  std::vector<std::vector<lazy_tensors::int64>> groups_;
+  int64_t split_dimension_;
+  int64_t concat_dimension_;
+  int64_t split_count_;
+  std::vector<std::vector<int64_t>> groups_;
 };
 
 }  // namespace ops

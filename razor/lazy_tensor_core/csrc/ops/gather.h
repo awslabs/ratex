@@ -14,18 +14,18 @@ namespace ops {
 
 class Gather : public Node {
  public:
-  Gather(const Value& input, lazy_tensors::int64 dim, const Value& index);
+  Gather(const Value& input, int64_t dim, const Value& index);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   };
 
  private:
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
 };
 
 }  // namespace ops

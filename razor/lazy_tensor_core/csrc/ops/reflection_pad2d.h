@@ -16,18 +16,18 @@ namespace ops {
 
 class ReflectionPad2d : public Node {
  public:
-  ReflectionPad2d(const Value& input, std::vector<lazy_tensors::int64> padding);
+  ReflectionPad2d(const Value& input, std::vector<int64_t> padding);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& padding() const {
+  const std::vector<int64_t>& padding() const {
     return padding_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> padding_;
+  std::vector<int64_t> padding_;
 };
 
 }  // namespace ops

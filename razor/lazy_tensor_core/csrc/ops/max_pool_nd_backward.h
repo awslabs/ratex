@@ -14,29 +14,27 @@ namespace ops {
 
 class MaxPoolNdBackward : public Node {
  public:
-  MaxPoolNdBackward(const Value& grad_output, const Value& input,
-                    lazy_tensors::int64 spatial_dim_count,
-                    std::vector<lazy_tensors::int64> kernel_size,
-                    std::vector<lazy_tensors::int64> stride,
-                    std::vector<lazy_tensors::int64> padding, bool ceil_mode);
+  MaxPoolNdBackward(const Value& grad_output, const Value& input, int64_t spatial_dim_count,
+                    std::vector<int64_t> kernel_size, std::vector<int64_t> stride,
+                    std::vector<int64_t> padding, bool ceil_mode);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 spatial_dim_count() const {
+  int64_t spatial_dim_count() const {
     return spatial_dim_count_;
   }
 
-  const std::vector<lazy_tensors::int64>& kernel_size() const {
+  const std::vector<int64_t>& kernel_size() const {
     return kernel_size_;
   }
 
-  const std::vector<lazy_tensors::int64>& stride() const {
+  const std::vector<int64_t>& stride() const {
     return stride_;
   }
 
-  const std::vector<lazy_tensors::int64>& padding() const {
+  const std::vector<int64_t>& padding() const {
     return padding_;
   }
 
@@ -45,10 +43,10 @@ class MaxPoolNdBackward : public Node {
   }
 
  private:
-  lazy_tensors::int64 spatial_dim_count_;
-  std::vector<lazy_tensors::int64> kernel_size_;
-  std::vector<lazy_tensors::int64> stride_;
-  std::vector<lazy_tensors::int64> padding_;
+  int64_t spatial_dim_count_;
+  std::vector<int64_t> kernel_size_;
+  std::vector<int64_t> stride_;
+  std::vector<int64_t> padding_;
   bool ceil_mode_;
 };
 

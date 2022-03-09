@@ -10,7 +10,7 @@
 
 namespace lazy_tensors {
 
-inline lazy_tensors::Span<const int64> AsInt64Slice(lazy_tensors::Span<const int64> slice) {
+inline lazy_tensors::Span<const int64_t> AsInt64Slice(lazy_tensors::Span<const int64_t> slice) {
   return slice;
 }
 

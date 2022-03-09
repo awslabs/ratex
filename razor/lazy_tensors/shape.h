@@ -25,7 +25,7 @@ class Shape {
   Shape() : element_type_(PrimitiveType::INVALID) {
   }
 
-  Shape(PrimitiveType element_type, lazy_tensors::Span<const int64> dimensions)
+  Shape(PrimitiveType element_type, lazy_tensors::Span<const int64_t> dimensions)
       : element_type_(element_type),
         dimensions_(dimensions.begin(), dimensions.end()),
         dynamic_dimensions_(dimensions.size(), false) {
@@ -53,7 +53,7 @@ class Shape {
                         "]");
   }
 
-  int64 rank() const {
+  int64_t rank() const {
     return dimensions_.size();
   }
 
@@ -79,7 +79,7 @@ class Shape {
 
   // Removes the dimension at index dim_to_delete entirely, reducing the rank
   // by 1.
-  void DeleteDimension(int64 dim_to_delete);
+  void DeleteDimension(int64_t dim_to_delete);
 
   PrimitiveType element_type() const {
     return element_type_;
@@ -92,7 +92,7 @@ class Shape {
   int dimensions_size() const {
     return dimensions_.size();
   }
-  int64 dimensions(int index) const {
+  int64_t dimensions(int index) const {
     if (dynamic_mode_.load()) {
       throw std::runtime_error("Exact shape not known");
     }
@@ -100,12 +100,12 @@ class Shape {
     return dimensions_[index];
   }
 
-  void set_dimensions(int index, int64 value) {
+  void set_dimensions(int index, int64_t value) {
     LTC_CHECK_LT(index, dimensions_.size());
     dimensions_[index] = value;
   }
 
-  lazy_tensors::Span<const int64> dimensions() const {
+  lazy_tensors::Span<const int64_t> dimensions() const {
     if (dynamic_mode_.load()) {
       throw std::runtime_error("Exact shape not known");
     }
@@ -143,7 +143,7 @@ class Shape {
 
  private:
   PrimitiveType element_type_;
-  std::vector<int64> dimensions_;
+  std::vector<int64_t> dimensions_;
   std::vector<bool> dynamic_dimensions_;
   std::vector<Shape> element_shapes_;
   Layout layout_;

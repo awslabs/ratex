@@ -55,7 +55,7 @@ class LazyTensor {
     return LazyTensor(data_ptr());
   }
 
-  lazy_tensors::int64 size(lazy_tensors::int64 dim) const;
+  int64_t size(int64_t dim) const;
 
   at::Tensor ToTensor(bool detached);
 
@@ -78,7 +78,7 @@ class LazyTensor {
   lazy_tensors::Shape shape_with_layout() const;
 
   const Device& GetDevice() const;
-  lazy_tensors::int64 GetUniqueId() const;
+  int64_t GetUniqueId() const;
 
   // Retrieves an opaque ID of the alias object upon which the tensor's view is
   // rooted, or 0 if this tensor is not a view.
@@ -114,7 +114,7 @@ class LazyTensor {
                                        const Device& device);
   static ir::Value GetIrValueForScalar(const at::Scalar& value, const Device& device);
   static ir::Value GetIrValueForScalar(const at::Scalar& value, lazy_tensors::PrimitiveType type,
-                                       lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+                                       lazy_tensors::Span<const int64_t> dimensions,
                                        const Device& device);
   static ir::Value GetIrValueForScalar(const at::Scalar& value, const lazy_tensors::Shape& shape,
                                        const Device& device);
@@ -124,9 +124,9 @@ class LazyTensor {
 
   static ir::Value GetRngSeed(const Device& device);
 
-  static void SetRngSeed(const Device& device, lazy_tensors::uint64 seed);
+  static void SetRngSeed(const Device& device, uint64_t seed);
 
-  static lazy_tensors::uint64 GetRunningSeed(const Device& device);
+  static uint64_t GetRunningSeed(const Device& device);
 
   // Dispatches a comparison operator, setting the logical type of the result
   // appropriately.
@@ -182,28 +182,29 @@ class LazyTensor {
   //////////////////////////////////////////////////////////////////////////////
   // Special operators follows here, listed in alphabetical order.
   //////////////////////////////////////////////////////////////////////////////
-  static std::pair<LazyTensor, ir::Value> all_reduce(
-      const LazyTensor& input, const ir::Value& token, AllReduceType reduce_type, double scale,
-      std::vector<std::vector<lazy_tensors::int64>> groups);
+  static std::pair<LazyTensor, ir::Value> all_reduce(const LazyTensor& input,
+                                                     const ir::Value& token,
+                                                     AllReduceType reduce_type, double scale,
+                                                     std::vector<std::vector<int64_t>> groups);
 
   static ir::Value all_reduce_(LazyTensor& input, const ir::Value& token, AllReduceType reduce_type,
-                               double scale, std::vector<std::vector<lazy_tensors::int64>> groups);
+                               double scale, std::vector<std::vector<int64_t>> groups);
 
   static ir::Value all_reduce(std::vector<LazyTensor>* inputs, const ir::Value& token,
                               AllReduceType reduce_type, double scale,
-                              std::vector<std::vector<lazy_tensors::int64>> groups);
+                              std::vector<std::vector<int64_t>> groups);
 
-  static std::pair<LazyTensor, ir::Value> all_to_all(
-      const LazyTensor& input, const ir::Value& token, lazy_tensors::int64 split_dimension,
-      lazy_tensors::int64 concat_dimension, lazy_tensors::int64 split_count,
-      std::vector<std::vector<lazy_tensors::int64>> groups);
+  static std::pair<LazyTensor, ir::Value> all_to_all(const LazyTensor& input,
+                                                     const ir::Value& token,
+                                                     int64_t split_dimension,
+                                                     int64_t concat_dimension, int64_t split_count,
+                                                     std::vector<std::vector<int64_t>> groups);
 
   static std::pair<LazyTensor, ir::Value> collective_permute(
       const LazyTensor& input, const ir::Value& token,
-      std::vector<std::pair<lazy_tensors::int64, lazy_tensors::int64>> source_target_pairs);
+      std::vector<std::pair<int64_t, int64_t>> source_target_pairs);
 
-  static LazyTensor get_dimensions_size(const LazyTensor& input,
-                                        std::vector<lazy_tensors::int64> dimensions);
+  static LazyTensor get_dimensions_size(const LazyTensor& input, std::vector<int64_t> dimensions);
 
   //////////////////////////////////////////////////////////////////////////////
   // ATEN operators follows here, listed in alphabetical order.
@@ -224,14 +225,12 @@ class LazyTensor {
   static LazyTensor __rshift__(const LazyTensor& input, const LazyTensor& other,
                                c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
 
-  static LazyTensor adaptive_avg_pool3d(const LazyTensor& input,
-                                        std::vector<lazy_tensors::int64> output_size);
+  static LazyTensor adaptive_avg_pool3d(const LazyTensor& input, std::vector<int64_t> output_size);
 
   static LazyTensor adaptive_avg_pool3d_backward(const LazyTensor& grad_output,
                                                  const LazyTensor& input);
 
-  static LazyTensor _adaptive_avg_pool2d(const LazyTensor& input,
-                                         std::vector<lazy_tensors::int64> output_size);
+  static LazyTensor _adaptive_avg_pool2d(const LazyTensor& input, std::vector<int64_t> output_size);
 
   static LazyTensor _adaptive_avg_pool2d_backward(const LazyTensor& grad_output,
                                                   const LazyTensor& input);
@@ -273,31 +272,29 @@ class LazyTensor {
   static LazyTensor addmm(const LazyTensor& input, const LazyTensor& weight,
                           const LazyTensor& bias);
 
-  static LazyTensor all(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor all(const LazyTensor& input, std::vector<int64_t> dimensions,
                         bool keep_reduced_dimensions);
 
-  static LazyTensor any(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor any(const LazyTensor& input, std::vector<int64_t> dimensions,
                         bool keep_reduced_dimensions);
 
   static void arange_out(LazyTensor& out, const at::Scalar& start, const at::Scalar& end,
                          const at::Scalar& step, at::ScalarType scalar_type);
 
-  static LazyTensor argmax(const LazyTensor& input, lazy_tensors::int64 dim, bool keepdim);
+  static LazyTensor argmax(const LazyTensor& input, int64_t dim, bool keepdim);
   static LazyTensor argmax(const LazyTensor& input);
 
-  static LazyTensor argmin(const LazyTensor& input, lazy_tensors::int64 dim, bool keepdim);
+  static LazyTensor argmin(const LazyTensor& input, int64_t dim, bool keepdim);
   static LazyTensor argmin(const LazyTensor& input);
 
   // Takes a slice from the input as R1 at the specified offset and reshapes it
   // into the provided size.
-  static LazyTensor as_strided(const LazyTensor& input, std::vector<lazy_tensors::int64> size,
-                               std::vector<lazy_tensors::int64> stride,
-                               c10::optional<lazy_tensors::int64> storage_offset);
+  static LazyTensor as_strided(const LazyTensor& input, std::vector<int64_t> size,
+                               std::vector<int64_t> stride, c10::optional<int64_t> storage_offset);
 
   // In-place version of the method above.
-  static void as_strided_(LazyTensor& input, std::vector<lazy_tensors::int64> size,
-                          std::vector<lazy_tensors::int64> stride,
-                          c10::optional<lazy_tensors::int64> storage_offset);
+  static void as_strided_(LazyTensor& input, std::vector<int64_t> size, std::vector<int64_t> stride,
+                          c10::optional<int64_t> storage_offset);
 
   static LazyTensor asin(const LazyTensor& input);
   static void asin_(LazyTensor& input);
@@ -315,18 +312,16 @@ class LazyTensor {
                           c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   static void atan2_(LazyTensor& input, const LazyTensor& other);
 
-  static LazyTensor avg_pool_nd(const LazyTensor& input, lazy_tensors::int64 spatial_dim_count,
-                                std::vector<lazy_tensors::int64> kernel_size,
-                                std::vector<lazy_tensors::int64> stride,
-                                std::vector<lazy_tensors::int64> padding, bool ceil_mode,
+  static LazyTensor avg_pool_nd(const LazyTensor& input, int64_t spatial_dim_count,
+                                std::vector<int64_t> kernel_size, std::vector<int64_t> stride,
+                                std::vector<int64_t> padding, bool ceil_mode,
                                 bool count_include_pad);
 
   static LazyTensor avg_pool_nd_backward(const LazyTensor& out_backprop, const LazyTensor& input,
-                                         lazy_tensors::int64 spatial_dim_count,
-                                         std::vector<lazy_tensors::int64> kernel_size,
-                                         std::vector<lazy_tensors::int64> stride,
-                                         std::vector<lazy_tensors::int64> padding, bool ceil_mode,
-                                         bool count_include_pad);
+                                         int64_t spatial_dim_count,
+                                         std::vector<int64_t> kernel_size,
+                                         std::vector<int64_t> stride, std::vector<int64_t> padding,
+                                         bool ceil_mode, bool count_include_pad);
 
   static LazyTensor baddbmm(const LazyTensor& input, const LazyTensor& batch1,
                             const LazyTensor& batch2, const at::Scalar& beta,
@@ -340,12 +335,11 @@ class LazyTensor {
   static void bernoulli_(LazyTensor& input, const LazyTensor& probability);
 
   static LazyTensor binary_cross_entropy(const LazyTensor& input, const LazyTensor& target,
-                                         const LazyTensor& weight, lazy_tensors::int64 reduction);
+                                         const LazyTensor& weight, int64_t reduction);
 
   static LazyTensor binary_cross_entropy_backward(const LazyTensor& grad_output,
                                                   const LazyTensor& input, const LazyTensor& target,
-                                                  const LazyTensor& weight,
-                                                  lazy_tensors::int64 reduction);
+                                                  const LazyTensor& weight, int64_t reduction);
 
   static void bitwise_and_out(LazyTensor& out, const LazyTensor& input, const at::Scalar& other);
 
@@ -369,7 +363,7 @@ class LazyTensor {
   // Broadcasts the given tensors according to broadcasting semantics.
   static std::vector<LazyTensor> broadcast_tensors(lazy_tensors::Span<const LazyTensor> tensors);
 
-  static LazyTensor cat(lazy_tensors::Span<const LazyTensor> tensors, lazy_tensors::int64 dim);
+  static LazyTensor cat(lazy_tensors::Span<const LazyTensor> tensors, int64_t dim);
 
   static LazyTensor ceil(const LazyTensor& input);
   static void ceil_(LazyTensor& input);
@@ -389,26 +383,25 @@ class LazyTensor {
 
   // Pad with the given value and size specified by the given list of low and
   // high paddings.
-  static LazyTensor constant_pad_nd(const LazyTensor& input,
-                                    lazy_tensors::Span<const lazy_tensors::int64> pad,
+  static LazyTensor constant_pad_nd(const LazyTensor& input, lazy_tensors::Span<const int64_t> pad,
                                     const at::Scalar& value);
 
-  static LazyTensor convolution_overrideable(
-      const LazyTensor& input, const LazyTensor& weight, const LazyTensor& bias,
-      std::vector<lazy_tensors::int64> stride, std::vector<lazy_tensors::int64> padding,
-      std::vector<lazy_tensors::int64> dilation, bool transposed,
-      std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups);
+  static LazyTensor convolution_overrideable(const LazyTensor& input, const LazyTensor& weight,
+                                             const LazyTensor& bias, std::vector<int64_t> stride,
+                                             std::vector<int64_t> padding,
+                                             std::vector<int64_t> dilation, bool transposed,
+                                             std::vector<int64_t> output_padding, int64_t groups);
 
   static std::tuple<LazyTensor, LazyTensor, LazyTensor> convolution_backward_overrideable(
       const LazyTensor& out_backprop, const LazyTensor& input, const LazyTensor& weight,
-      std::vector<lazy_tensors::int64> stride, std::vector<lazy_tensors::int64> padding,
-      std::vector<lazy_tensors::int64> dilation, bool transposed,
-      std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups);
+      std::vector<int64_t> stride, std::vector<int64_t> padding, std::vector<int64_t> dilation,
+      bool transposed, std::vector<int64_t> output_padding, int64_t groups);
 
-  static LazyTensor convolution_overrideable(
-      const LazyTensor& input, const LazyTensor& weight, std::vector<lazy_tensors::int64> stride,
-      std::vector<lazy_tensors::int64> padding, std::vector<lazy_tensors::int64> dilation,
-      bool transposed, std::vector<lazy_tensors::int64> output_padding, lazy_tensors::int64 groups);
+  static LazyTensor convolution_overrideable(const LazyTensor& input, const LazyTensor& weight,
+                                             std::vector<int64_t> stride,
+                                             std::vector<int64_t> padding,
+                                             std::vector<int64_t> dilation, bool transposed,
+                                             std::vector<int64_t> output_padding, int64_t groups);
 
   static LazyTensor cos(const LazyTensor& input);
   static void cos_(LazyTensor& input);
@@ -420,25 +413,24 @@ class LazyTensor {
   // If the dimension is not given, it defaults to the first dimension found
   // with the size 3.
   static LazyTensor cross(const LazyTensor& input, const LazyTensor& other,
-                          c10::optional<lazy_tensors::int64> dim);
+                          c10::optional<int64_t> dim);
 
   // Returns the cumulative product of elements of input in the given dimension.
-  static LazyTensor cumprod(const LazyTensor& input, lazy_tensors::int64 dim,
+  static LazyTensor cumprod(const LazyTensor& input, int64_t dim,
                             c10::optional<at::ScalarType> dtype);
 
   // Returns the cumulative sum of elements of input in the given dimension.
-  static LazyTensor cumsum(const LazyTensor& input, lazy_tensors::int64 dim,
+  static LazyTensor cumsum(const LazyTensor& input, int64_t dim,
                            c10::optional<at::ScalarType> dtype);
 
   // If the input is a matrix (2-D tensor), returns a 1-D tensor with the
   // diagonal elements of the input. If the input is a vector (1-D tensor),
   // returns a 2-D square tensor with the elements of input as the diagonal.
-  static LazyTensor diag(const LazyTensor& input, lazy_tensors::int64 offset);
+  static LazyTensor diag(const LazyTensor& input, int64_t offset);
 
   // Returns the diagonal of a matrix (2-D tensor) or batch of matrices. The
   // matrix dimensions are specified by dim1 and dim2, the diagonal by offset.
-  static LazyTensor diagonal(const LazyTensor& input, lazy_tensors::int64 offset,
-                             lazy_tensors::int64 dim1, lazy_tensors::int64 dim2);
+  static LazyTensor diagonal(const LazyTensor& input, int64_t offset, int64_t dim1, int64_t dim2);
 
   static LazyTensor div(const LazyTensor& input, const LazyTensor& other,
                         const c10::optional<c10::string_view>& = c10::nullopt,
@@ -462,10 +454,8 @@ class LazyTensor {
                                  const LazyTensor& output);
 
   static LazyTensor embedding_dense_backward(const LazyTensor& grad_output,
-                                             const LazyTensor& indices,
-                                             lazy_tensors::int64 num_weights,
-                                             lazy_tensors::int64 padding_idx,
-                                             bool scale_grad_by_freq);
+                                             const LazyTensor& indices, int64_t num_weights,
+                                             int64_t padding_idx, bool scale_grad_by_freq);
 
   static LazyTensor eq(const LazyTensor& input, const at::Scalar& other);
   static void eq_(LazyTensor& input, const at::Scalar& other);
@@ -485,7 +475,7 @@ class LazyTensor {
   static LazyTensor exp(const LazyTensor& input);
   static void exp_(LazyTensor& input);
 
-  static LazyTensor expand(const LazyTensor& input, std::vector<lazy_tensors::int64> size);
+  static LazyTensor expand(const LazyTensor& input, std::vector<int64_t> size);
 
   static LazyTensor expm1(const LazyTensor& input);
   static void expm1_(LazyTensor& input);
@@ -493,17 +483,16 @@ class LazyTensor {
   static void exponential_(LazyTensor& input, double lambd);
 
   // Returns a 2-D tensor with ones on the diagonal and zeros elsewhere.
-  static LazyTensor eye(lazy_tensors::int64 lines, lazy_tensors::int64 cols, const Device& device,
+  static LazyTensor eye(int64_t lines, int64_t cols, const Device& device,
                         at::ScalarType element_type);
 
-  static void eye_out(LazyTensor& out, lazy_tensors::int64 lines, lazy_tensors::int64 cols);
+  static void eye_out(LazyTensor& out, int64_t lines, int64_t cols);
 
   // Fills the input with the given value.
   static void fill_(LazyTensor& input, const at::Scalar& value);
 
   // Flips (reverses) the values in the dimensions of the input tensor.
-  static LazyTensor flip(const LazyTensor& input,
-                         lazy_tensors::Span<const lazy_tensors::int64> dims);
+  static LazyTensor flip(const LazyTensor& input, lazy_tensors::Span<const int64_t> dims);
 
   static LazyTensor floor(const LazyTensor& input);
   static void floor_(LazyTensor& input);
@@ -518,14 +507,12 @@ class LazyTensor {
   static LazyTensor frac(const LazyTensor& input);
   static void frac_(LazyTensor& input);
 
-  static LazyTensor full(lazy_tensors::Span<const lazy_tensors::int64> size,
-                         const at::Scalar& fill_value, const Device& device,
-                         at::ScalarType scalar_type);
+  static LazyTensor full(lazy_tensors::Span<const int64_t> size, const at::Scalar& fill_value,
+                         const Device& device, at::ScalarType scalar_type);
   static LazyTensor full_like(const LazyTensor& input, const at::Scalar& fill_value,
                               const Device& device, c10::optional<at::ScalarType> scalar_type);
 
-  static LazyTensor gather(const LazyTensor& input, lazy_tensors::int64 dim,
-                           const LazyTensor& index);
+  static LazyTensor gather(const LazyTensor& input, int64_t dim, const LazyTensor& index);
 
   static LazyTensor ge(const LazyTensor& input, const at::Scalar& other);
   static void ge_(LazyTensor& input, const at::Scalar& other);
@@ -550,65 +537,61 @@ class LazyTensor {
   // x ik, the output shape is d1 x ... x d(start_dim) x i1 x ... x ik x
   // d(start_dim+p+1) x ... x dn.
   static LazyTensor index(const LazyTensor& input, lazy_tensors::Span<const LazyTensor> indices,
-                          lazy_tensors::int64 start_dim);
+                          int64_t start_dim);
 
-  static LazyTensor index_add(const LazyTensor& input, lazy_tensors::int64 dim,
-                              const LazyTensor& index, const LazyTensor& source);
+  static LazyTensor index_add(const LazyTensor& input, int64_t dim, const LazyTensor& index,
+                              const LazyTensor& source);
 
-  static void index_add_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void index_add_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                          const LazyTensor& source);
 
-  static LazyTensor index_copy(const LazyTensor& input, lazy_tensors::int64 dim,
-                               const LazyTensor& index, const LazyTensor& source);
+  static LazyTensor index_copy(const LazyTensor& input, int64_t dim, const LazyTensor& index,
+                               const LazyTensor& source);
 
-  static void index_copy_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void index_copy_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                           const LazyTensor& source);
 
   // Fills the elements of the base tensor with the given value in the given
   // dimension, at positions given by the index. The index must be a rank-1
   // tensor.
-  static LazyTensor index_fill(const LazyTensor& input, lazy_tensors::int64 dim,
-                               const LazyTensor& index, const at::Scalar& value);
+  static LazyTensor index_fill(const LazyTensor& input, int64_t dim, const LazyTensor& index,
+                               const at::Scalar& value);
 
   // Same as above, but the value is wrapped as a rank-0 tensor.
-  static LazyTensor index_fill(const LazyTensor& input, lazy_tensors::int64 dim,
-                               const LazyTensor& index, const LazyTensor& value);
+  static LazyTensor index_fill(const LazyTensor& input, int64_t dim, const LazyTensor& index,
+                               const LazyTensor& value);
 
-  static void index_fill_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void index_fill_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                           const LazyTensor& value);
 
-  static void index_fill_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void index_fill_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                           const at::Scalar& value);
 
   // Puts values into the input tensor using the given indices (a tuple of
   // tensors) and returns the result.
   static LazyTensor index_put(const LazyTensor& input, lazy_tensors::Span<const LazyTensor> indices,
-                              lazy_tensors::int64 start_dim, const LazyTensor& values,
-                              bool accumulate,
-                              lazy_tensors::Span<const lazy_tensors::int64> result_permutation);
+                              int64_t start_dim, const LazyTensor& values, bool accumulate,
+                              lazy_tensors::Span<const int64_t> result_permutation);
 
   static void index_put_(LazyTensor& input, const LazyTensor& canonical_base,
-                         lazy_tensors::Span<const LazyTensor> indices,
-                         lazy_tensors::int64 start_dim, const LazyTensor& values, bool accumulate,
-                         lazy_tensors::Span<const lazy_tensors::int64> result_permutation);
+                         lazy_tensors::Span<const LazyTensor> indices, int64_t start_dim,
+                         const LazyTensor& values, bool accumulate,
+                         lazy_tensors::Span<const int64_t> result_permutation);
 
-  static LazyTensor index_select(const LazyTensor& input, lazy_tensors::int64 dim,
-                                 const LazyTensor& index);
+  static LazyTensor index_select(const LazyTensor& input, int64_t dim, const LazyTensor& index);
 
   static LazyTensor inverse(const LazyTensor& input);
 
   static LazyTensor kl_div_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                    const LazyTensor& target, lazy_tensors::int64 reduction,
-                                    bool log_target);
+                                    const LazyTensor& target, int64_t reduction, bool log_target);
 
-  static std::tuple<LazyTensor, LazyTensor> kthvalue(const LazyTensor& input, lazy_tensors::int64 k,
-                                                     lazy_tensors::int64 dim, bool keepdim);
+  static std::tuple<LazyTensor, LazyTensor> kthvalue(const LazyTensor& input, int64_t k,
+                                                     int64_t dim, bool keepdim);
 
-  static LazyTensor l1_loss(const LazyTensor& input, const LazyTensor& target,
-                            lazy_tensors::int64 reduction);
+  static LazyTensor l1_loss(const LazyTensor& input, const LazyTensor& target, int64_t reduction);
 
   static LazyTensor l1_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                     const LazyTensor& target, lazy_tensors::int64 reduction);
+                                     const LazyTensor& target, int64_t reduction);
 
   static LazyTensor le(const LazyTensor& input, const at::Scalar& other);
   static void le_(LazyTensor& input, const at::Scalar& other);
@@ -645,18 +628,18 @@ class LazyTensor {
   static LazyTensor log_sigmoid_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                          const LazyTensor& buffer);
 
-  static LazyTensor log_softmax(const LazyTensor& input, lazy_tensors::int64 dim,
+  static LazyTensor log_softmax(const LazyTensor& input, int64_t dim,
                                 c10::optional<at::ScalarType> dtype);
 
   static LazyTensor log_softmax_backward(const LazyTensor& grad_output, const LazyTensor& output,
-                                         lazy_tensors::int64 dim);
+                                         int64_t dim);
 
   static LazyTensor log1p(const LazyTensor& input);
   static void log1p_(LazyTensor& input);
 
   static LazyTensor logdet(const LazyTensor& input);
 
-  static LazyTensor logsumexp(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor logsumexp(const LazyTensor& input, std::vector<int64_t> dimensions,
                               bool keep_reduced_dimensions);
 
   static LazyTensor lt(const LazyTensor& input, const at::Scalar& other);
@@ -679,31 +662,29 @@ class LazyTensor {
 
   static LazyTensor max(const LazyTensor& input);
 
-  static std::tuple<LazyTensor, LazyTensor> max(const LazyTensor& input, lazy_tensors::int64 dim,
-                                                bool keepdim);
+  static std::tuple<LazyTensor, LazyTensor> max(const LazyTensor& input, int64_t dim, bool keepdim);
 
-  static void max_out(LazyTensor& max, LazyTensor& max_values, const LazyTensor& input,
-                      lazy_tensors::int64 dim, bool keepdim);
+  static void max_out(LazyTensor& max, LazyTensor& max_values, const LazyTensor& input, int64_t dim,
+                      bool keepdim);
 
   static std::tuple<LazyTensor, LazyTensor> max_pool_nd(
-      const LazyTensor& input, lazy_tensors::int64 spatial_dim_count,
-      std::vector<lazy_tensors::int64> kernel_size, std::vector<lazy_tensors::int64> stride,
-      std::vector<lazy_tensors::int64> padding, bool ceil_mode);
+      const LazyTensor& input, int64_t spatial_dim_count, std::vector<int64_t> kernel_size,
+      std::vector<int64_t> stride, std::vector<int64_t> padding, bool ceil_mode);
 
   static LazyTensor max_pool_nd_backward(const LazyTensor& out_backprop, const LazyTensor& input,
-                                         lazy_tensors::int64 spatial_dim_count,
-                                         std::vector<lazy_tensors::int64> kernel_size,
-                                         std::vector<lazy_tensors::int64> stride,
-                                         std::vector<lazy_tensors::int64> padding, bool ceil_mode);
+                                         int64_t spatial_dim_count,
+                                         std::vector<int64_t> kernel_size,
+                                         std::vector<int64_t> stride, std::vector<int64_t> padding,
+                                         bool ceil_mode);
 
   static LazyTensor max_unpool(const LazyTensor& input, const LazyTensor& indices,
-                               std::vector<lazy_tensors::int64> output_size);
+                               std::vector<int64_t> output_size);
 
   static LazyTensor max_unpool_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                         const LazyTensor& indices,
-                                        std::vector<lazy_tensors::int64> output_size);
+                                        std::vector<int64_t> output_size);
 
-  static LazyTensor mean(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor mean(const LazyTensor& input, std::vector<int64_t> dimensions,
                          bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype);
 
   static LazyTensor min(const LazyTensor& input, const LazyTensor& other,
@@ -711,19 +692,17 @@ class LazyTensor {
 
   static LazyTensor min(const LazyTensor& input);
 
-  static std::tuple<LazyTensor, LazyTensor> min(const LazyTensor& input, lazy_tensors::int64 dim,
-                                                bool keepdim);
+  static std::tuple<LazyTensor, LazyTensor> min(const LazyTensor& input, int64_t dim, bool keepdim);
 
   static void min_out(LazyTensor& min, LazyTensor& min_indices, const LazyTensor& input,
-                      lazy_tensors::int64 dim, bool keepdim);
+                      int64_t dim, bool keepdim);
 
   static LazyTensor mm(const LazyTensor& input, const LazyTensor& weight);
 
-  static LazyTensor mse_loss(const LazyTensor& input, const LazyTensor& target,
-                             lazy_tensors::int64 reduction);
+  static LazyTensor mse_loss(const LazyTensor& input, const LazyTensor& target, int64_t reduction);
 
   static LazyTensor mse_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                      const LazyTensor& target, lazy_tensors::int64 reduction);
+                                      const LazyTensor& target, int64_t reduction);
 
   static LazyTensor mul(const LazyTensor& input, const LazyTensor& other,
                         c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
@@ -737,8 +716,7 @@ class LazyTensor {
 
   // Returns a new tensor that is a narrowed view of the input in the given
   // dimension.
-  static LazyTensor narrow(const LazyTensor& input, lazy_tensors::int64 dim,
-                           lazy_tensors::int64 start, lazy_tensors::int64 length);
+  static LazyTensor narrow(const LazyTensor& input, int64_t dim, int64_t start, int64_t length);
 
   // Like batch_norm, but returns additional save_mean and save_invstd used by
   // the backward pass.
@@ -762,27 +740,25 @@ class LazyTensor {
   static void neg_(LazyTensor& input);
 
   static LazyTensor nll_loss(const LazyTensor& input, const LazyTensor& target,
-                             const LazyTensor& weight, lazy_tensors::int64 reduction,
-                             int ignore_index);
+                             const LazyTensor& weight, int64_t reduction, int ignore_index);
 
   static LazyTensor nll_loss2d(const LazyTensor& input, const LazyTensor& target,
-                               const LazyTensor& weight, lazy_tensors::int64 reduction,
-                               int ignore_index);
+                               const LazyTensor& weight, int64_t reduction, int ignore_index);
 
   static LazyTensor nll_loss2d_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                         const LazyTensor& target, const LazyTensor& weight,
-                                        lazy_tensors::int64 reduction, int ignore_index,
+                                        int64_t reduction, int ignore_index,
                                         const LazyTensor& total_weight);
 
   static LazyTensor nll_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                       const LazyTensor& target, const LazyTensor& weight,
-                                      lazy_tensors::int64 reduction, int ignore_index,
+                                      int64_t reduction, int ignore_index,
                                       const LazyTensor& total_weight);
 
   static std::pair<LazyTensor, LazyTensor> nms(const LazyTensor& boxes, const LazyTensor& scores,
                                                const LazyTensor& score_threshold,
                                                const LazyTensor& iou_threshold,
-                                               lazy_tensors::int64 output_size);
+                                               int64_t output_size);
 
   static LazyTensor nonzero(const LazyTensor& input);
 
@@ -801,8 +777,7 @@ class LazyTensor {
                                   const Device& device);
 
   // Permute the dimensions of this tensor according to the given permutation.
-  static LazyTensor permute(const LazyTensor& input,
-                            lazy_tensors::Span<const lazy_tensors::int64> dims);
+  static LazyTensor permute(const LazyTensor& input, lazy_tensors::Span<const int64_t> dims);
 
   static LazyTensor pow(const LazyTensor& input, const at::Scalar& exponent);
   static LazyTensor pow(const LazyTensor& input, const LazyTensor& exponent);
@@ -810,7 +785,7 @@ class LazyTensor {
   static void pow_(LazyTensor& input, const at::Scalar& exponent);
   static void pow_(LazyTensor& input, const LazyTensor& exponent);
 
-  static LazyTensor prod(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor prod(const LazyTensor& input, std::vector<int64_t> dimensions,
                          bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype);
 
   static void put_(LazyTensor& input, const LazyTensor& index, const LazyTensor& source,
@@ -820,18 +795,16 @@ class LazyTensor {
 
   static void random_(LazyTensor& input, int64_t from, int64_t to);
 
-  static LazyTensor randperm(lazy_tensors::int64 n, const Device& device,
-                             at::ScalarType scalar_type);
+  static LazyTensor randperm(int64_t n, const Device& device, at::ScalarType scalar_type);
 
   static LazyTensor reciprocal(const LazyTensor& input);
   static void reciprocal_(LazyTensor& input);
 
-  static LazyTensor reflection_pad2d(const LazyTensor& input,
-                                     std::vector<lazy_tensors::int64> padding);
+  static LazyTensor reflection_pad2d(const LazyTensor& input, std::vector<int64_t> padding);
 
   static LazyTensor reflection_pad2d_backward(const LazyTensor& grad_output,
                                               const LazyTensor& input,
-                                              std::vector<lazy_tensors::int64> padding);
+                                              std::vector<int64_t> padding);
 
   static LazyTensor relu(const LazyTensor& input);
   static void relu_(LazyTensor& input);
@@ -843,21 +816,19 @@ class LazyTensor {
 
   // Repeats the input tensor along each dimension by the given number of
   // repeats.
-  static LazyTensor repeat(const LazyTensor& input, std::vector<lazy_tensors::int64> repeats);
+  static LazyTensor repeat(const LazyTensor& input, std::vector<int64_t> repeats);
 
-  static LazyTensor replication_pad1d(const LazyTensor& input,
-                                      std::vector<lazy_tensors::int64> padding);
+  static LazyTensor replication_pad1d(const LazyTensor& input, std::vector<int64_t> padding);
   static LazyTensor replication_pad1d_backward(const LazyTensor& grad_output,
                                                const LazyTensor& input,
-                                               std::vector<lazy_tensors::int64> padding);
+                                               std::vector<int64_t> padding);
 
-  static LazyTensor replication_pad2d(const LazyTensor& input,
-                                      std::vector<lazy_tensors::int64> padding);
+  static LazyTensor replication_pad2d(const LazyTensor& input, std::vector<int64_t> padding);
   static LazyTensor replication_pad2d_backward(const LazyTensor& grad_output,
                                                const LazyTensor& input,
-                                               std::vector<lazy_tensors::int64> padding);
+                                               std::vector<int64_t> padding);
 
-  static void resize_(LazyTensor& input, std::vector<lazy_tensors::int64> size);
+  static void resize_(LazyTensor& input, std::vector<int64_t> size);
 
   static LazyTensor round(const LazyTensor& input);
   static void round_(LazyTensor& input);
@@ -881,16 +852,15 @@ class LazyTensor {
 
   static void copy_(LazyTensor& input, LazyTensor& src);
 
-  static void scatter_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void scatter_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                        const LazyTensor& src);
-  static void scatter_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void scatter_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                        const at::Scalar& value);
 
-  static void scatter_add_(LazyTensor& input, lazy_tensors::int64 dim, const LazyTensor& index,
+  static void scatter_add_(LazyTensor& input, int64_t dim, const LazyTensor& index,
                            const LazyTensor& src);
 
-  static LazyTensor select(const LazyTensor& input, lazy_tensors::int64 dim,
-                           lazy_tensors::int64 index);
+  static LazyTensor select(const LazyTensor& input, int64_t dim, int64_t index);
 
   static void silu_out(LazyTensor& input, LazyTensor& out);
   static LazyTensor sigmoid(const LazyTensor& input);
@@ -906,24 +876,23 @@ class LazyTensor {
   static LazyTensor sinh(const LazyTensor& input);
   static void sinh_(LazyTensor& input);
 
-  static LazyTensor slice(const LazyTensor& input, lazy_tensors::int64 dim,
-                          lazy_tensors::int64 start, lazy_tensors::int64 end,
-                          lazy_tensors::int64 step);
+  static LazyTensor slice(const LazyTensor& input, int64_t dim, int64_t start, int64_t end,
+                          int64_t step);
 
   // Computes a loss that uses a squared term if the absolute element-wise error
   // falls below 1 and an L1 term otherwise.
   static LazyTensor smooth_l1_loss(const LazyTensor& input, const LazyTensor& target,
-                                   lazy_tensors::int64 reduction, double beta);
+                                   int64_t reduction, double beta);
 
   // Returns the gradient of the input of a smooth_l1_loss operation.
   static LazyTensor smooth_l1_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                            const LazyTensor& target, lazy_tensors::int64 reduction,
+                                            const LazyTensor& target, int64_t reduction,
                                             double beta);
 
-  static LazyTensor softmax(const LazyTensor& input, lazy_tensors::int64 dim,
+  static LazyTensor softmax(const LazyTensor& input, int64_t dim,
                             c10::optional<at::ScalarType> dtype);
   static LazyTensor softmax_backward(const LazyTensor& grad_output, const LazyTensor& output,
-                                     lazy_tensors::int64 dim);
+                                     int64_t dim);
 
   static LazyTensor softplus(const LazyTensor& input, const at::Scalar& beta,
                              const at::Scalar& threshold);
@@ -934,12 +903,10 @@ class LazyTensor {
   static LazyTensor softshrink_backward(const LazyTensor& grad_out, const LazyTensor& input,
                                         const at::Scalar& lambda);
 
-  static std::vector<LazyTensor> split(const LazyTensor& input, lazy_tensors::int64 split_size,
-                                       lazy_tensors::int64 dim);
+  static std::vector<LazyTensor> split(const LazyTensor& input, int64_t split_size, int64_t dim);
 
   static std::vector<LazyTensor> split_with_sizes(const LazyTensor& input,
-                                                  std::vector<lazy_tensors::int64> split_size,
-                                                  lazy_tensors::int64 dim);
+                                                  std::vector<int64_t> split_size, int64_t dim);
 
   static LazyTensor sqrt(const LazyTensor& input);
   static void sqrt_(LazyTensor& input);
@@ -949,16 +916,16 @@ class LazyTensor {
 
   // Squeeze out the specified dimension index, if trivial (size 1). Returns
   // unchanged input otherwise.
-  static LazyTensor squeeze(const LazyTensor& input, lazy_tensors::int64 dim);
+  static LazyTensor squeeze(const LazyTensor& input, int64_t dim);
 
   // In-place versions of the methods above.
   static void squeeze_(LazyTensor& input);
-  static void squeeze_(LazyTensor& input, lazy_tensors::int64 dim);
+  static void squeeze_(LazyTensor& input, int64_t dim);
 
-  static LazyTensor stack(lazy_tensors::Span<const LazyTensor> tensors, lazy_tensors::int64 dim);
+  static LazyTensor stack(lazy_tensors::Span<const LazyTensor> tensors, int64_t dim);
 
-  static LazyTensor std(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
-                        bool keep_reduced_dimensions, lazy_tensors::int64 correction);
+  static LazyTensor std(const LazyTensor& input, std::vector<int64_t> dimensions,
+                        bool keep_reduced_dimensions, int64_t correction);
 
   static LazyTensor sub(const LazyTensor& input, const LazyTensor& other, const at::Scalar& alpha,
                         c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
@@ -967,7 +934,7 @@ class LazyTensor {
                         c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   static void sub_(LazyTensor& input, const at::Scalar& other, const at::Scalar& alpha);
 
-  static LazyTensor sum(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
+  static LazyTensor sum(const LazyTensor& input, std::vector<int64_t> dimensions,
                         bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype);
 
   static std::tuple<LazyTensor, LazyTensor, LazyTensor> svd(const LazyTensor& input, bool some,
@@ -994,19 +961,17 @@ class LazyTensor {
   static LazyTensor to(LazyTensor& input, c10::optional<Device> device,
                        c10::optional<at::ScalarType> scalar_type);
 
-  static std::tuple<LazyTensor, LazyTensor> topk(const LazyTensor& input, lazy_tensors::int64 k,
-                                                 lazy_tensors::int64 dim, bool largest,
-                                                 bool sorted);
+  static std::tuple<LazyTensor, LazyTensor> topk(const LazyTensor& input, int64_t k, int64_t dim,
+                                                 bool largest, bool sorted);
 
   // Returns the sum of the elements of the diagonal of the input 2-D matrix.
   static LazyTensor trace(const LazyTensor& input);
 
   // Swap given dimensions of the input.
-  static LazyTensor transpose(const LazyTensor& input, lazy_tensors::int64 dim0,
-                              lazy_tensors::int64 dim1);
+  static LazyTensor transpose(const LazyTensor& input, int64_t dim0, int64_t dim1);
 
   // In-place version of the method above.
-  static void transpose_(LazyTensor& input, lazy_tensors::int64 dim0, lazy_tensors::int64 dim1);
+  static void transpose_(LazyTensor& input, int64_t dim0, int64_t dim1);
 
   static std::tuple<LazyTensor, LazyTensor> triangular_solve(const LazyTensor& rhs,
                                                              const LazyTensor& lhs, bool left_side,
@@ -1015,55 +980,52 @@ class LazyTensor {
 
   // Returns the lower triangular part of a matrix (2-D tensor) or batch of
   // matrices input, the other elements of the result tensor out are set to 0.
-  static LazyTensor tril(const LazyTensor& input, lazy_tensors::int64 diagonal);
+  static LazyTensor tril(const LazyTensor& input, int64_t diagonal);
 
   // In-place version of the method above.
-  static void tril_(LazyTensor& input, lazy_tensors::int64 diagonal);
+  static void tril_(LazyTensor& input, int64_t diagonal);
 
   // Returns the upper triangular part of a matrix (2-D tensor) or batch of
   // matrices input, the other elements of the result tensor out are set to 0.
-  static LazyTensor triu(const LazyTensor& input, lazy_tensors::int64 diagonal);
+  static LazyTensor triu(const LazyTensor& input, int64_t diagonal);
 
   // In-place version of the method above.
-  static void triu_(LazyTensor& input, lazy_tensors::int64 diagonal);
+  static void triu_(LazyTensor& input, int64_t diagonal);
 
   static LazyTensor trunc(const LazyTensor& input);
   static void trunc_(LazyTensor& input);
 
   // Returns a tuple of all slices along a given dimension with that dimension
   // removed.
-  static std::vector<LazyTensor> unbind(const LazyTensor& input, lazy_tensors::int64 dim);
+  static std::vector<LazyTensor> unbind(const LazyTensor& input, int64_t dim);
 
   static void uniform_(LazyTensor& input, double from, double to);
 
   // Insert a dimension of size one at the specified position.
-  static LazyTensor unsqueeze(const LazyTensor& input, lazy_tensors::int64 dim);
+  static LazyTensor unsqueeze(const LazyTensor& input, int64_t dim);
 
   // In-place version of the method above.
-  static void unsqueeze_(LazyTensor& input, lazy_tensors::int64 dim);
+  static void unsqueeze_(LazyTensor& input, int64_t dim);
 
-  static LazyTensor upsample_bilinear2d(const LazyTensor& input,
-                                        std::vector<lazy_tensors::int64> output_size,
+  static LazyTensor upsample_bilinear2d(const LazyTensor& input, std::vector<int64_t> output_size,
                                         bool align_corners);
 
   static LazyTensor upsample_bilinear2d_backward(const LazyTensor& grad_output,
-                                                 std::vector<lazy_tensors::int64> output_size,
-                                                 std::vector<lazy_tensors::int64> input_size,
+                                                 std::vector<int64_t> output_size,
+                                                 std::vector<int64_t> input_size,
                                                  bool align_corners);
 
-  static LazyTensor upsample_nearest2d(const LazyTensor& input,
-                                       std::vector<lazy_tensors::int64> output_size);
+  static LazyTensor upsample_nearest2d(const LazyTensor& input, std::vector<int64_t> output_size);
 
   static LazyTensor upsample_nearest2d_backward(const LazyTensor& grad_output,
-                                                std::vector<lazy_tensors::int64> output_size,
-                                                std::vector<lazy_tensors::int64> input_size);
+                                                std::vector<int64_t> output_size,
+                                                std::vector<int64_t> input_size);
 
-  static LazyTensor var(const LazyTensor& input, std::vector<lazy_tensors::int64> dimensions,
-                        lazy_tensors::int64 correction, bool keep_reduced_dimensions);
+  static LazyTensor var(const LazyTensor& input, std::vector<int64_t> dimensions,
+                        int64_t correction, bool keep_reduced_dimensions);
 
   // Like reshape, but it returns a view into the original tensor.
-  static LazyTensor view(const LazyTensor& input,
-                         lazy_tensors::Span<const lazy_tensors::int64> output_size);
+  static LazyTensor view(const LazyTensor& input, lazy_tensors::Span<const int64_t> output_size);
 
   static void zero_(LazyTensor& input);
 
@@ -1173,7 +1135,7 @@ class LazyTensor {
     c10::optional<at::ScalarType> logical_element_type;
     c10::optional<at::Tensor> tensor_data;
     const Device device;
-    const lazy_tensors::int64 unique_id = 0;
+    const int64_t unique_id = 0;
     size_t generation = 1;
   };
 
@@ -1310,7 +1272,7 @@ class LazyTensor {
       std::vector<LazyTensor>* tensors, lazy_tensors::Span<const std::string> devices,
       const SyncTensorsConfig& config);
 
-  static lazy_tensors::int64 GetNextTensorId();
+  static int64_t GetNextTensorId();
 
   std::shared_ptr<Data> data_;
 };

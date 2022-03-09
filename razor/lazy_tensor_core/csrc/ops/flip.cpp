@@ -12,7 +12,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Flip::Flip(const Value& input, std::vector<lazy_tensors::int64> dims)
+Flip::Flip(const Value& input, std::vector<int64_t> dims)
     : Node(ir::OpKind(at::aten::flip), {input}, input.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dims)),
       dims_(std::move(dims)) {

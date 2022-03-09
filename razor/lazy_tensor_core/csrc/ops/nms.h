@@ -15,18 +15,18 @@ namespace ops {
 class Nms : public Node {
  public:
   Nms(const Value& boxes, const Value& scores, const Value& score_threshold,
-      const Value& iou_threshold, lazy_tensors::int64 output_size);
+      const Value& iou_threshold, int64_t output_size);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 output_size() const {
+  int64_t output_size() const {
     return output_size_;
   }
 
  private:
-  lazy_tensors::int64 output_size_;
+  int64_t output_size_;
 };
 
 }  // namespace ops

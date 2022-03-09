@@ -17,8 +17,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Mean::Mean(const Value& input, std::vector<lazy_tensors::int64> dimensions,
-           bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype)
+Mean::Mean(const Value& input, std::vector<int64_t> dimensions, bool keep_reduced_dimensions,
+           c10::optional<at::ScalarType> dtype)
     : Node(ir::OpKind(at::aten::mean), {input},
            /*num_outputs=*/1,
            lazy_tensors::util::MHash(dimensions, keep_reduced_dimensions,

@@ -15,7 +15,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Permute::Permute(const Value& input, std::vector<lazy_tensors::int64> dims)
+Permute::Permute(const Value& input, std::vector<int64_t> dims)
     : Node(ir::OpKind(at::aten::permute), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(dims)),
       dims_(std::move(dims)) {
@@ -32,9 +32,8 @@ std::string Permute::ToString() const {
   return ss.str();
 }
 
-lazy_tensors::Shape Permute::MakePermuteShape(
-    const lazy_tensors::Shape& source_shape,
-    lazy_tensors::Span<const lazy_tensors::int64> permutation) {
+lazy_tensors::Shape Permute::MakePermuteShape(const lazy_tensors::Shape& source_shape,
+                                              lazy_tensors::Span<const int64_t> permutation) {
   return Helpers::GetDynamicReshape(source_shape,
                                     Helpers::Permute(permutation, source_shape.dimensions()));
 }

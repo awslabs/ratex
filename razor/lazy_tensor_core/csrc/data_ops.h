@@ -20,18 +20,16 @@ namespace torch_lazy_tensors {
 // output shape. The complete output shape has same total number of elements as
 // input_sizes and matches output_sizes in all dimensions except for at most
 // one, which can be inferred and stored as -1 in output_sizes.
-std::vector<lazy_tensors::int64> GetCompleteShape(
-    lazy_tensors::Span<const lazy_tensors::int64> output_sizes,
-    lazy_tensors::Span<const lazy_tensors::int64> input_sizes);
+std::vector<int64_t> GetCompleteShape(lazy_tensors::Span<const int64_t> output_sizes,
+                                      lazy_tensors::Span<const int64_t> input_sizes);
 
-std::vector<lazy_tensors::int64> BuildSqueezedDimensions(
-    lazy_tensors::Span<const lazy_tensors::int64> dimensions, lazy_tensors::int64 squeeze_dim);
+std::vector<int64_t> BuildSqueezedDimensions(lazy_tensors::Span<const int64_t> dimensions,
+                                             int64_t squeeze_dim);
 
-std::vector<lazy_tensors::int64> BuildUnsqueezeDimensions(
-    lazy_tensors::Span<const lazy_tensors::int64> dimensions, lazy_tensors::int64 dim);
+std::vector<int64_t> BuildUnsqueezeDimensions(lazy_tensors::Span<const int64_t> dimensions,
+                                              int64_t dim);
 
 // Computes the number of splits with a dimension size and the split sizes.
-size_t ComputeSplitCount(lazy_tensors::int64 dim_size,
-                         lazy_tensors::Span<const lazy_tensors::int64> split_sizes);
+size_t ComputeSplitCount(int64_t dim_size, lazy_tensors::Span<const int64_t> split_sizes);
 
 }  // namespace torch_lazy_tensors

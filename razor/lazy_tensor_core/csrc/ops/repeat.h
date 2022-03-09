@@ -15,19 +15,19 @@ namespace ops {
 
 class Repeat : public Node {
  public:
-  Repeat(const Value& input, std::vector<lazy_tensors::int64> repeats);
+  Repeat(const Value& input, std::vector<int64_t> repeats);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& repeats() const {
+  const std::vector<int64_t>& repeats() const {
     return repeats_;
   }
 
  private:
   // The number of repeats along each dimension.
-  std::vector<lazy_tensors::int64> repeats_;
+  std::vector<int64_t> repeats_;
 };
 
 }  // namespace ops

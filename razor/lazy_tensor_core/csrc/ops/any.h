@@ -17,14 +17,13 @@ namespace ops {
 
 class Any : public Node {
  public:
-  Any(const Value& input, std::vector<lazy_tensors::int64> dimensions,
-      bool keep_reduced_dimensions);
+  Any(const Value& input, std::vector<int64_t> dimensions, bool keep_reduced_dimensions);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  const std::vector<lazy_tensors::int64>& dimensions() const {
+  const std::vector<int64_t>& dimensions() const {
     return dimensions_;
   }
 
@@ -33,7 +32,7 @@ class Any : public Node {
   }
 
  private:
-  std::vector<lazy_tensors::int64> dimensions_;
+  std::vector<int64_t> dimensions_;
   bool keep_reduced_dimensions_;
 };
 

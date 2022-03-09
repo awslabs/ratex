@@ -15,14 +15,13 @@ namespace ir {
 namespace ops {
 namespace {
 
-lazy_tensors::Shape NodeOutputShape(const Value& input,
-                                    lazy_tensors::Span<const lazy_tensors::int64> size) {
+lazy_tensors::Shape NodeOutputShape(const Value& input, lazy_tensors::Span<const int64_t> size) {
   return lazy_tensors::ShapeUtil::MakeShape(input.shape().element_type(), size);
 }
 
 }  // namespace
 
-Resize::Resize(const Value& input, std::vector<lazy_tensors::int64> size)
+Resize::Resize(const Value& input, std::vector<int64_t> size)
     : Node(
           ir::OpKind(at::aten::resize), {input}, [&]() { return NodeOutputShape(input, size); },
           /*num_outputs=*/1, lazy_tensors::util::MHash(size)),

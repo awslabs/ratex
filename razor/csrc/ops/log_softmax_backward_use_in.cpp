@@ -21,7 +21,7 @@ namespace ir {
 namespace ops {
 
 LogSoftmaxBackwardUseIn::LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output,
-                                                 lazy_tensors::int64 dim)
+                                                 int64_t dim)
     : Node(raf_log_softmax_backward_use_in, {grad_output, output}, grad_output.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
       dim_(dim) {

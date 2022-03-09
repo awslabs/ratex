@@ -14,34 +14,34 @@ namespace ops {
 
 class Unselect : public Node {
  public:
-  Unselect(const Value& target, const Value& source, lazy_tensors::int64 dim,
-           lazy_tensors::int64 start, lazy_tensors::int64 end, lazy_tensors::int64 stride);
+  Unselect(const Value& target, const Value& source, int64_t dim, int64_t start, int64_t end,
+           int64_t stride);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   }
 
-  lazy_tensors::int64 start() const {
+  int64_t start() const {
     return start_;
   }
 
-  lazy_tensors::int64 end() const {
+  int64_t end() const {
     return end_;
   }
 
-  lazy_tensors::int64 stride() const {
+  int64_t stride() const {
     return stride_;
   }
 
  private:
-  lazy_tensors::int64 dim_;
-  lazy_tensors::int64 start_;
-  lazy_tensors::int64 end_;
-  lazy_tensors::int64 stride_;
+  int64_t dim_;
+  int64_t start_;
+  int64_t end_;
+  int64_t stride_;
 };
 
 }  // namespace ops

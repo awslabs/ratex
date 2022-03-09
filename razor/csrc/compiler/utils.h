@@ -73,7 +73,7 @@ inline Shape WithDefaultMinorToMajor(const Shape& shape) {
 }
 
 inline Shape ToLTCShape(std::vector<int64_t> shape, raf::DType dtype) {
-  return WithDefaultMinorToMajor(Shape(dtype, lazy_tensors::Span<const int64>(shape)));
+  return WithDefaultMinorToMajor(Shape(dtype, lazy_tensors::Span<const int64_t>(shape)));
 }
 
 inline Shape ToLTCShape(const Type& type) {
@@ -127,7 +127,7 @@ inline std::tuple<std::vector<int64_t>, DType> ToRAFShape(
 }
 
 inline std::tuple<std::vector<int64_t>, DType> ToRAFShape(const Shape& shape) {
-  lazy_tensors::Span<const int64> dimension = shape.dimensions();
+  lazy_tensors::Span<const int64_t> dimension = shape.dimensions();
   return std::make_tuple(std::vector<int64_t>(dimension.begin(), dimension.end()),
                          ToRAFDType(shape.element_type()));
 }

@@ -15,23 +15,22 @@ namespace ops {
 
 class Permute : public Node {
  public:
-  Permute(const Value& input, std::vector<lazy_tensors::int64> dims);
+  Permute(const Value& input, std::vector<int64_t> dims);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& dims() const {
+  const std::vector<int64_t>& dims() const {
     return dims_;
   }
 
-  static lazy_tensors::Shape MakePermuteShape(
-      const lazy_tensors::Shape& source_shape,
-      lazy_tensors::Span<const lazy_tensors::int64> permutation);
+  static lazy_tensors::Shape MakePermuteShape(const lazy_tensors::Shape& source_shape,
+                                              lazy_tensors::Span<const int64_t> permutation);
 
  private:
   // The permutation of dimensions.
-  std::vector<lazy_tensors::int64> dims_;
+  std::vector<int64_t> dims_;
 };
 
 }  // namespace ops

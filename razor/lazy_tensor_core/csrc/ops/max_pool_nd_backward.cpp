@@ -15,7 +15,7 @@ namespace ir {
 namespace ops {
 namespace {
 
-c10::Symbol MaxPoolNdBackwardSymbol(lazy_tensors::int64 spatial_dim_count) {
+c10::Symbol MaxPoolNdBackwardSymbol(int64_t spatial_dim_count) {
   switch (spatial_dim_count) {
     case 2:
       return at::aten::max_pool2d_with_indices_backward;
@@ -29,10 +29,9 @@ c10::Symbol MaxPoolNdBackwardSymbol(lazy_tensors::int64 spatial_dim_count) {
 }  // namespace
 
 MaxPoolNdBackward::MaxPoolNdBackward(const Value& grad_output, const Value& input,
-                                     lazy_tensors::int64 spatial_dim_count,
-                                     std::vector<lazy_tensors::int64> kernel_size,
-                                     std::vector<lazy_tensors::int64> stride,
-                                     std::vector<lazy_tensors::int64> padding, bool ceil_mode)
+                                     int64_t spatial_dim_count, std::vector<int64_t> kernel_size,
+                                     std::vector<int64_t> stride, std::vector<int64_t> padding,
+                                     bool ceil_mode)
     : Node(ir::OpKind(MaxPoolNdBackwardSymbol(spatial_dim_count)), {grad_output, input},
            /*num_outputs=*/1,
            lazy_tensors::util::MHash(spatial_dim_count, kernel_size, stride, padding, ceil_mode)),

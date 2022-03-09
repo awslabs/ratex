@@ -15,9 +15,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-GenericSlice::GenericSlice(const Value& input,
-                           lazy_tensors::Span<const lazy_tensors::int64> base_indices,
-                           lazy_tensors::Span<const lazy_tensors::int64> sizes)
+GenericSlice::GenericSlice(const Value& input, lazy_tensors::Span<const int64_t> base_indices,
+                           lazy_tensors::Span<const int64_t> sizes)
     : Node(ltc_generic_slice, {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(base_indices, sizes)),
       base_indices_(base_indices.begin(), base_indices.end()),

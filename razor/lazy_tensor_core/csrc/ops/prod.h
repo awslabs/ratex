@@ -18,14 +18,14 @@ namespace ops {
 
 class Prod : public Node {
  public:
-  Prod(const Value& input, std::vector<lazy_tensors::int64> dimensions,
-       bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype);
+  Prod(const Value& input, std::vector<int64_t> dimensions, bool keep_reduced_dimensions,
+       c10::optional<at::ScalarType> dtype);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  const std::vector<lazy_tensors::int64>& dimensions() const {
+  const std::vector<int64_t>& dimensions() const {
     return dimensions_;
   }
 
@@ -38,7 +38,7 @@ class Prod : public Node {
   }
 
  private:
-  std::vector<lazy_tensors::int64> dimensions_;
+  std::vector<int64_t> dimensions_;
   bool keep_reduced_dimensions_;
   c10::optional<at::ScalarType> dtype_;
 };

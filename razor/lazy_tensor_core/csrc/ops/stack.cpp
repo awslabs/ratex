@@ -13,7 +13,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Stack::Stack(lazy_tensors::Span<const ir::Value> values, lazy_tensors::int64 dim)
+Stack::Stack(lazy_tensors::Span<const ir::Value> values, int64_t dim)
     : Node(ir::OpKind(at::aten::stack), values,
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
       dim_(dim) {

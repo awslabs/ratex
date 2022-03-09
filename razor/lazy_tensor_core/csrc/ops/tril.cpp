@@ -12,7 +12,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Tril::Tril(const Value& input, lazy_tensors::int64 diagonal)
+Tril::Tril(const Value& input, int64_t diagonal)
     : Node(ir::OpKind(at::aten::tril), {input}, input.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(diagonal)),
       diagonal_(diagonal) {

@@ -64,7 +64,7 @@ std::string GetCurrentScope() {
 }
 
 ShapeCache* GetShapeCache() {
-  static lazy_tensors::int64 shape_cache_size =
+  static int64_t shape_cache_size =
       lazy_tensors::sys_util::GetEnvInt("LTC_IR_SHAPE_CACHE_SIZE", 4096);
   static ShapeCache* cache = new ShapeCache(shape_cache_size);
   return cache;

@@ -12,7 +12,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Scatter::Scatter(const Value& input, const Value& index, const Value& src, lazy_tensors::int64 dim)
+Scatter::Scatter(const Value& input, const Value& index, const Value& src, int64_t dim)
     : Node(ir::OpKind(at::aten::scatter), {input, index, src}, input.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
       dim_(dim) {

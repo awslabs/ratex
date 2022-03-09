@@ -16,8 +16,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Split::Split(const Value& input, std::vector<lazy_tensors::int64> split_sizes,
-             lazy_tensors::int64 dim)
+Split::Split(const Value& input, std::vector<int64_t> split_sizes, int64_t dim)
     : Node(ir::OpKind(at::aten::split), {input},
            ComputeSplitCount(input.shape().dimensions(dim), split_sizes),
            lazy_tensors::util::MHash(split_sizes, dim)),

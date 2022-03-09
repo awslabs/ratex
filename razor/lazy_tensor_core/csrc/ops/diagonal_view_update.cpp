@@ -13,9 +13,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-DiagonalViewUpdate::DiagonalViewUpdate(const Value& target, const Value& input,
-                                       lazy_tensors::int64 offset, lazy_tensors::int64 dim1,
-                                       lazy_tensors::int64 dim2)
+DiagonalViewUpdate::DiagonalViewUpdate(const Value& target, const Value& input, int64_t offset,
+                                       int64_t dim1, int64_t dim2)
     : Node(ltc_diagonal_view_update, {target, input}, target.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(offset, dim1, dim2)),
       offset_(offset),

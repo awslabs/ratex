@@ -47,9 +47,9 @@
 
 namespace torch_lazy_tensors {
 
-bool IsSupportedAdaptiveAvgPool(absl::Span<const lazy_tensors::int64> input_size,
-                                absl::Span<const lazy_tensors::int64> output_size, int pool_dim) {
-  lazy_tensors::int64 rank = input_size.size();
+bool IsSupportedAdaptiveAvgPool(absl::Span<const int64_t> input_size,
+                                absl::Span<const int64_t> output_size, int pool_dim) {
+  int64_t rank = input_size.size();
   LTC_CHECK_EQ(output_size.size(), pool_dim);
   for (int spatial_dim = 0; spatial_dim < pool_dim; ++spatial_dim) {
     if (input_size[rank - pool_dim + spatial_dim] % output_size[spatial_dim] != 0) {
@@ -115,9 +115,9 @@ int64_t GetIntegerUpperLimitForType(at::ScalarType dtype) {
   lazy_tensors::PrimitiveType ltc_type = TensorTypeToLtcType(dtype);
   switch (ltc_type) {
     case lazy_tensors::PrimitiveType::F16:
-      return static_cast<int64_t>(1) << std::numeric_limits<lazy_tensors::half>::digits;
+      return static_cast<int64_t>(1) << std::numeric_limits<at::Half>::digits;
     case lazy_tensors::PrimitiveType::BF16:
-      return static_cast<int64_t>(1) << std::numeric_limits<lazy_tensors::bfloat16>::digits;
+      return static_cast<int64_t>(1) << std::numeric_limits<at::BFloat16>::digits;
     case lazy_tensors::PrimitiveType::F32:
       return static_cast<int64_t>(1) << std::numeric_limits<float>::digits;
     case lazy_tensors::PrimitiveType::F64:
@@ -157,21 +157,20 @@ std::pair<LazyTensor, LazyTensor> GetBinaryOperands(const at::Tensor& self,
 }
 
 // The input is in format of {N, C, H, W} and the output will be {H, W}.
-std::vector<lazy_tensors::int64> GetOutputSizeWithScale(
-    absl::Span<const lazy_tensors::int64> input_size,
-    const c10::optional<at::ArrayRef<double>>& scale_factors,
+std::vector<int64_t> GetOutputSizeWithScale(
+    absl::Span<const int64_t> input_size, const c10::optional<at::ArrayRef<double>>& scale_factors,
     const c10::optional<at::IntArrayRef>& output_size) {
   if (!output_size) {
     LTC_CHECK(scale_factors);
     LTC_CHECK_EQ(scale_factors->size(), 2);
     // Calculate the output size from input_shape and scale_factors
     LTC_CHECK_EQ(input_size.size(), 4);
-    lazy_tensors::int64 output_h = input_size[2] * (*scale_factors)[0];
-    lazy_tensors::int64 output_w = input_size[3] * (*scale_factors)[1];
+    int64_t output_h = input_size[2] * (*scale_factors)[0];
+    int64_t output_w = input_size[3] * (*scale_factors)[1];
     return {output_h, output_w};
   }
   LTC_CHECK(!scale_factors);
-  return lazy_tensors::util::ToVector<lazy_tensors::int64>(*output_size);
+  return lazy_tensors::util::ToVector<int64_t>(*output_size);
 }
 
 template <typename B>
@@ -283,8 +282,8 @@ at::Tensor LazyNativeFunctions::_adaptive_avg_pool3d_backward(const at::Tensor& 
                                                               const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   int64_t rank = grad_output.dim();
-  std::vector<lazy_tensors::int64> output_size{
-      grad_output.size(rank - 3), grad_output.size(rank - 2), grad_output.size(rank - 1)};
+  std::vector<int64_t> output_size{grad_output.size(rank - 3), grad_output.size(rank - 2),
+                                   grad_output.size(rank - 1)};
   if (!IsSupportedAdaptiveAvgPool(Helpers::I64List(self.sizes()), output_size,
                                   /*pool_dim=*/3)) {
     return FALLBACK_ATEN_OP(_adaptive_avg_pool3d_backward, grad_output, self);
@@ -309,8 +308,7 @@ at::Tensor LazyNativeFunctions::_adaptive_avg_pool2d_backward(const at::Tensor& 
                                                               const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   int64_t rank = grad_output.dim();
-  std::vector<lazy_tensors::int64> output_size{grad_output.size(rank - 2),
-                                               grad_output.size(rank - 1)};
+  std::vector<int64_t> output_size{grad_output.size(rank - 2), grad_output.size(rank - 1)};
   if (!IsSupportedAdaptiveAvgPool(Helpers::I64List(self.sizes()), output_size,
                                   /*pool_dim=*/2)) {
     return FALLBACK_ATEN_OP(_adaptive_avg_pool2d_backward, grad_output, self);
@@ -423,13 +421,13 @@ at::Tensor LazyNativeFunctions::_log_softmax(const at::Tensor& self, int64_t dim
 }
 
 ir::NodePtr LogSoftmaxBackwardUseInOp(const ir::Value& grad_output, const ir::Value& output,
-                                      lazy_tensors::int64 dim) {
+                                      int64_t dim) {
   return ir::MakeNode<ir::ops::LogSoftmaxBackwardUseIn>(
       grad_output, output, Helpers::GetCanonicalDimensionIndex(dim, grad_output.shape().rank()));
 }
 
 LazyTensor log_softmax_backward(const LazyTensor& grad_output, const LazyTensor& output,
-                                lazy_tensors::int64 dim) {
+                                int64_t dim) {
   return bridge::raf_backend::CreateFrom(
       grad_output, LogSoftmaxBackwardUseInOp(grad_output.GetIrValue(), output.GetIrValue(), dim));
 }
@@ -622,7 +620,7 @@ at::Tensor LazyNativeFunctions::all(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::all(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false));
 }
 
@@ -636,7 +634,7 @@ at::Tensor LazyNativeFunctions::any(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::any(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false));
 }
 
@@ -1462,9 +1460,8 @@ at::Tensor& LazyNativeFunctions::exp_(at::Tensor& self) {
 at::Tensor LazyNativeFunctions::expand(const at::Tensor& self, at::IntArrayRef size,
                                        bool implicit) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::expand(bridge::raf_backend::GetLtcTensor(self),
-                         lazy_tensors::util::ToVector<lazy_tensors::int64>(size)));
+  return bridge::AtenFromLtcTensor(LazyTensor::expand(bridge::raf_backend::GetLtcTensor(self),
+                                                      lazy_tensors::util::ToVector<int64_t>(size)));
 }
 
 at::Tensor LazyNativeFunctions::expm1(const at::Tensor& self) {
@@ -2194,7 +2191,7 @@ at::Tensor LazyNativeFunctions::max_unpool2d(const at::Tensor& self, const at::T
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::max_unpool(
       bridge::raf_backend::GetLtcTensor(self), bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size)));
+      lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
 at::Tensor LazyNativeFunctions::max_unpool2d_backward(const at::Tensor& grad_output,
@@ -2205,7 +2202,7 @@ at::Tensor LazyNativeFunctions::max_unpool2d_backward(const at::Tensor& grad_out
   return bridge::AtenFromLtcTensor(LazyTensor::max_unpool_backward(
       bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
       bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size)));
+      lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
 at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::Tensor& indices,
@@ -2214,7 +2211,7 @@ at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::T
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::max_unpool(
       bridge::raf_backend::GetLtcTensor(self), bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size)));
+      lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
 at::Tensor LazyNativeFunctions::max_unpool3d_backward(
@@ -2224,24 +2221,23 @@ at::Tensor LazyNativeFunctions::max_unpool3d_backward(
   return bridge::AtenFromLtcTensor(LazyTensor::max_unpool_backward(
       bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
       bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size)));
+      lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
 at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::mean(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false, dtype));
 }
 
 at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, at::IntArrayRef dim, bool keepdim,
                                      c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::mean(bridge::raf_backend::GetLtcTensor(self),
-                       lazy_tensors::util::ToVector<lazy_tensors::int64>(dim),
-                       /*keep_reduced_dimensions=*/keepdim, dtype));
+  return bridge::AtenFromLtcTensor(LazyTensor::mean(bridge::raf_backend::GetLtcTensor(self),
+                                                    lazy_tensors::util::ToVector<int64_t>(dim),
+                                                    /*keep_reduced_dimensions=*/keepdim, dtype));
 }
 
 at::Tensor LazyNativeFunctions::min(const at::Tensor& self) {
@@ -2639,7 +2635,7 @@ at::Tensor LazyNativeFunctions::prod(const at::Tensor& self, c10::optional<at::S
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::prod(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false, PromoteIntegralType(self.scalar_type(), dtype)));
 }
 
@@ -2729,9 +2725,8 @@ at::Tensor& LazyNativeFunctions::reciprocal_(at::Tensor& self) {
 
 at::Tensor LazyNativeFunctions::reflection_pad2d(const at::Tensor& self, at::IntArrayRef padding) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::reflection_pad2d(bridge::raf_backend::GetLtcTensor(self),
-                                   lazy_tensors::util::ToVector<lazy_tensors::int64>(padding)));
+  return bridge::AtenFromLtcTensor(LazyTensor::reflection_pad2d(
+      bridge::raf_backend::GetLtcTensor(self), lazy_tensors::util::ToVector<int64_t>(padding)));
 }
 
 at::Tensor LazyNativeFunctions::reflection_pad2d_backward(const at::Tensor& grad_output,
@@ -2740,7 +2735,7 @@ at::Tensor LazyNativeFunctions::reflection_pad2d_backward(const at::Tensor& grad
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::reflection_pad2d_backward(
       bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(padding)));
+      lazy_tensors::util::ToVector<int64_t>(padding)));
 }
 
 at::Tensor LazyNativeFunctions::relu(const at::Tensor& self) {
@@ -3168,28 +3163,27 @@ at::Tensor LazyNativeFunctions::std(const at::Tensor& self, bool unbiased) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::std(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false, /*correction=*/unbiased ? 1 : 0));
 }
 
 at::Tensor LazyNativeFunctions::std(const at::Tensor& self, at::IntArrayRef dim, bool unbiased,
                                     bool keepdim) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::std(bridge::raf_backend::GetLtcTensor(self),
-                      lazy_tensors::util::ToVector<lazy_tensors::int64>(dim), keepdim,
-                      /*correction=*/unbiased ? 1 : 0));
+  return bridge::AtenFromLtcTensor(LazyTensor::std(
+      bridge::raf_backend::GetLtcTensor(self), lazy_tensors::util::ToVector<int64_t>(dim), keepdim,
+      /*correction=*/unbiased ? 1 : 0));
 }
 
 at::Tensor LazyNativeFunctions::std(const at::Tensor& self, c10::optional<at::IntArrayRef> dim,
                                     c10::optional<int64_t> correction, bool keepdim) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  return bridge::AtenFromLtcTensor(LazyTensor::std(
-      self_tensor,
-      dim ? lazy_tensors::util::ToVector<lazy_tensors::int64>(*dim)
-          : lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
-      keepdim, correction ? *correction : 1));
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::std(self_tensor,
+                      dim ? lazy_tensors::util::ToVector<int64_t>(*dim)
+                          : lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
+                      keepdim, correction ? *correction : 1));
 }
 
 at::Tensor LazyNativeFunctions::sub(const at::Tensor& self, const at::Tensor& other,
@@ -3245,16 +3239,16 @@ at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, c10::optional<at::Sc
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(LazyTensor::sum(
-      self_tensor, lazy_tensors::util::Iota<lazy_tensors::int64>(self_tensor.shape().get().rank()),
+      self_tensor, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
       /*keep_reduced_dimensions=*/false, dtype));
 }
 
 at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, at::IntArrayRef dim, bool keepdim,
                                     c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::sum(bridge::raf_backend::GetLtcTensor(self),
-                      lazy_tensors::util::ToVector<lazy_tensors::int64>(dim), keepdim, dtype));
+  return bridge::AtenFromLtcTensor(LazyTensor::sum(bridge::raf_backend::GetLtcTensor(self),
+                                                   lazy_tensors::util::ToVector<int64_t>(dim),
+                                                   keepdim, dtype));
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> LazyNativeFunctions::svd(const at::Tensor& self,
@@ -3487,7 +3481,7 @@ at::Tensor LazyNativeFunctions::upsample_bilinear2d(const at::Tensor& self,
                             scales_w);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_bilinear2d(
-      self_tensor, lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size), align_corners));
+      self_tensor, lazy_tensors::util::ToVector<int64_t>(output_size), align_corners));
 }
 
 at::Tensor LazyNativeFunctions::upsample_bilinear2d_backward(
@@ -3501,8 +3495,8 @@ at::Tensor LazyNativeFunctions::upsample_bilinear2d_backward(
                             align_corners, scales_h, scales_w);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_bilinear2d_backward(
-      grad_output_tensor, lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(input_size), align_corners));
+      grad_output_tensor, lazy_tensors::util::ToVector<int64_t>(output_size),
+      lazy_tensors::util::ToVector<int64_t>(input_size), align_corners));
 }
 
 at::Tensor LazyNativeFunctions::upsample_nearest2d(
@@ -3513,7 +3507,7 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(
   if (input_tensor.GetDevice().hw_type != DeviceType::TPU) {
     return AtenRAFTypeDefault::upsample_nearest2d(input, output_size, scale_factors);
   }
-  absl::Span<const lazy_tensors::int64> input_dims = input_tensor.shape().get().dimensions();
+  absl::Span<const int64_t> input_dims = input_tensor.shape().get().dimensions();
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_nearest2d(
       input_tensor, GetOutputSizeWithScale(input_dims, scale_factors, output_size)));
 }
@@ -3527,8 +3521,7 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(
     return AtenRAFTypeDefault::upsample_nearest2d_backward(grad_output, output_size, input_size,
                                                            scale_factors);
   }
-  std::vector<lazy_tensors::int64> input_dim =
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(input_size);
+  std::vector<int64_t> input_dim = lazy_tensors::util::ToVector<int64_t>(input_size);
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_nearest2d_backward(
       grad_output_tensor, GetOutputSizeWithScale(input_dim, scale_factors, output_size),
       input_dim));
@@ -3545,7 +3538,7 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(const at::Tensor& self,
     return FALLBACK_ATEN_OP(upsample_nearest2d, self, output_size, scales_h, scales_w);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_nearest2d(
-      self_tensor, lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size)));
+      self_tensor, lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
 at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(const at::Tensor& grad_output,
@@ -3561,8 +3554,8 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(const at::Tensor& gr
                             scales_h, scales_w);
   }
   return bridge::AtenFromLtcTensor(LazyTensor::upsample_nearest2d_backward(
-      grad_output_tensor, lazy_tensors::util::ToVector<lazy_tensors::int64>(output_size),
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(input_size)));
+      grad_output_tensor, lazy_tensors::util::ToVector<int64_t>(output_size),
+      lazy_tensors::util::ToVector<int64_t>(input_size)));
 }
 
 at::Tensor LazyNativeFunctions::var(const at::Tensor& self, bool unbiased) {
@@ -3570,7 +3563,7 @@ at::Tensor LazyNativeFunctions::var(const at::Tensor& self, bool unbiased) {
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
   return bridge::AtenFromLtcTensor(
       LazyTensor::var(bridge::raf_backend::GetLtcTensor(self),
-                      lazy_tensors::util::Iota<lazy_tensors::int64>(
+                      lazy_tensors::util::Iota<int64_t>(
                           bridge::raf_backend::GetLtcTensor(self).shape().get().rank()),
                       /*correction=*/unbiased ? 1 : 0,
                       /*keep_reduced_dimensions=*/false));
@@ -3591,7 +3584,7 @@ at::Tensor LazyNativeFunctions::var(const at::Tensor& self, c10::optional<at::In
   return bridge::AtenFromLtcTensor(
       LazyTensor::var(self_tensor,
                       dim ? Helpers::I64List(*dim)
-                          : lazy_tensors::util::Iota<lazy_tensors::int64>(
+                          : lazy_tensors::util::Iota<int64_t>(
                                 bridge::raf_backend::GetLtcTensor(self).shape().get().rank()),
                       correction ? *correction : 1, keepdim));
 }

@@ -41,8 +41,7 @@ void LoweringContext::AddParameter(const Output& output, size_t index,
   LTC_LOG(FATAL) << "Not implemented.";
 }
 
-void LoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
-                                 lazy_tensors::int64 param_number,
+void LoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index, int64_t param_number,
                                  const lazy_tensors::ShapeIndex& param_index) {
 }
 

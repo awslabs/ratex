@@ -16,7 +16,7 @@ namespace ops {
 
 class ConstantPadNd : public Node {
  public:
-  ConstantPadNd(const Value& input, std::vector<lazy_tensors::int64> pad, const at::Scalar& value);
+  ConstantPadNd(const Value& input, std::vector<int64_t> pad, const at::Scalar& value);
 
   std::string ToString() const override;
 
@@ -26,12 +26,12 @@ class ConstantPadNd : public Node {
     return value_;
   }
 
-  const std::vector<lazy_tensors::int64>& pad() const {
+  const std::vector<int64_t>& pad() const {
     return pad_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> pad_;
+  std::vector<int64_t> pad_;
   at::Scalar value_;
 };
 

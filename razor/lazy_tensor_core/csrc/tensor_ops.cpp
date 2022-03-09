@@ -18,16 +18,14 @@ namespace {
 // Returns the sub-tensor at the given index in the given dimension. Its rank
 // is one less than the input, in other words the singleton dimension is
 // squeezed out.
-LazyTensor IndexAcrossDims(const LazyTensor& input, lazy_tensors::int64 dim,
-                           lazy_tensors::int64 index) {
+LazyTensor IndexAcrossDims(const LazyTensor& input, int64_t dim, int64_t index) {
   return LazyTensor::squeeze(LazyTensor::slice(input, dim, index, index + 1, 1), dim);
 }
 
 }  // namespace
 
-LazyTensor Cross(const LazyTensor& input, const LazyTensor& other,
-                 c10::optional<lazy_tensors::int64> dim) {
-  lazy_tensors::int64 canonical_dim;
+LazyTensor Cross(const LazyTensor& input, const LazyTensor& other, c10::optional<int64_t> dim) {
+  int64_t canonical_dim;
   if (dim) {
     canonical_dim = Helpers::GetCanonicalDimensionIndex(*dim, input.shape().get().rank());
   } else {
@@ -62,8 +60,7 @@ LazyTensor KlDivBackward(const LazyTensor& grad_output, const LazyTensor& input,
                          const LazyTensor& target, ReductionMode reduction, bool log_target) {
   auto input_shape_ref = input.shape();
   LazyTensor expanded_grad_output = LazyTensor::expand(
-      grad_output,
-      lazy_tensors::util::ToVector<lazy_tensors::int64>(input_shape_ref.get().dimensions()));
+      grad_output, lazy_tensors::util::ToVector<int64_t>(input_shape_ref.get().dimensions()));
   LazyTensor grad_input;
   if (!log_target) {
     grad_input = LazyTensor::where(
@@ -80,11 +77,11 @@ LazyTensor KlDivBackward(const LazyTensor& grad_output, const LazyTensor& input,
   return grad_input;
 }
 
-LazyTensor MakeMatrixWithDiagonal(const LazyTensor& input, lazy_tensors::int64 diagonal) {
-  lazy_tensors::int64 size = input.shape().get().dimensions(0);
+LazyTensor MakeMatrixWithDiagonal(const LazyTensor& input, int64_t diagonal) {
+  int64_t size = input.shape().get().dimensions(0);
   LazyTensor identity = LazyTensor::eye(size, size, input.GetDevice(), input.dtype());
-  auto padding = diagonal >= 0 ? std::vector<lazy_tensors::int64>{diagonal, 0, 0, diagonal}
-                               : std::vector<lazy_tensors::int64>{0, -diagonal, -diagonal, 0};
+  auto padding = diagonal >= 0 ? std::vector<int64_t>{diagonal, 0, 0, diagonal}
+                               : std::vector<int64_t>{0, -diagonal, -diagonal, 0};
   return LazyTensor::constant_pad_nd(LazyTensor::mul(identity, input), padding, 0);
 }
 
@@ -106,8 +103,7 @@ LazyTensor SmoothL1Loss(const LazyTensor& input, const LazyTensor& target, Reduc
   LazyTensor l1_loss = LazyTensor::sub(abs_diff, half_beta, one);
   LazyTensor elementwise_loss =
       LazyTensor::where(LazyTensor::lt(abs_diff, beta_scalar), squared_loss, l1_loss);
-  auto all_dimensions =
-      lazy_tensors::util::Iota<lazy_tensors::int64>((*broadcasted_input.shape()).rank());
+  auto all_dimensions = lazy_tensors::util::Iota<int64_t>((*broadcasted_input.shape()).rank());
   switch (reduction) {
     case ReductionMode::kNone:
       return elementwise_loss;
@@ -170,7 +166,7 @@ LazyTensor SoftplusBackward(const LazyTensor& grad_output, const LazyTensor& inp
       LazyTensor::mul(grad_output, LazyTensor::div(z, LazyTensor::add(z, one_vec, 1))));
 }
 
-LazyTensor Select(const LazyTensor& input, lazy_tensors::int64 dim, lazy_tensors::int64 index) {
+LazyTensor Select(const LazyTensor& input, int64_t dim, int64_t index) {
   auto shape = input.shape();
   dim = Helpers::GetCanonicalDimensionIndex(dim, shape.get().rank());
   LazyTensor result = LazyTensor::narrow(input, dim, index, 1);
@@ -179,7 +175,7 @@ LazyTensor Select(const LazyTensor& input, lazy_tensors::int64 dim, lazy_tensors
 }
 
 LazyTensor EmbeddingDenseBackward(const LazyTensor& grad_output, const LazyTensor& indices,
-                                  lazy_tensors::int64 num_weights, lazy_tensors::int64 padding_idx,
+                                  int64_t num_weights, int64_t padding_idx,
                                   bool scale_grad_by_freq) {
   LTC_CHECK_EQ(indices.dtype(), at::ScalarType::Long)
       << "Embedding indices are expected to be of scalar type Long";
@@ -187,7 +183,7 @@ LazyTensor EmbeddingDenseBackward(const LazyTensor& grad_output, const LazyTenso
   // The weight must be of rank 2, which means the rank of grad_output is one
   // more than the indices.
   LTC_CHECK_EQ(grad_output.shape().get().rank(), indices_shape_ref.get().rank() + 1);
-  lazy_tensors::int64 numel = lazy_tensors::ShapeUtil::ElementsIn(indices_shape_ref.get());
+  int64_t numel = lazy_tensors::ShapeUtil::ElementsIn(indices_shape_ref.get());
   LazyTensor grad = LazyTensor::view(grad_output, {numel, grad_output.size(-1)});
   LazyTensor grad_weight = LazyTensor::full({num_weights, grad_output.size(-1)}, 0,
                                             grad_output.GetDevice(), grad_output.dtype());
@@ -207,8 +203,8 @@ LazyTensor EmbeddingDenseBackward(const LazyTensor& grad_output, const LazyTenso
   // padding_idx.
   LazyTensor skip_padding =
       LazyTensor::unsqueeze(LazyTensor::ne(indices_rank1, static_cast<double>(padding_idx)), 1);
-  skip_padding = LazyTensor::expand(skip_padding, lazy_tensors::util::ToVector<lazy_tensors::int64>(
-                                                      grad.shape().get().dimensions()));
+  skip_padding = LazyTensor::expand(
+      skip_padding, lazy_tensors::util::ToVector<int64_t>(grad.shape().get().dimensions()));
   LazyTensor zero_grad = LazyTensor::full_like(grad, 0, grad.GetDevice(), grad.dtype());
   return LazyTensor::index_put(grad_weight, {indices_rank1},
                                /*start_dim=*/0,

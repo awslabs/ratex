@@ -15,7 +15,7 @@ namespace torch_lazy_tensors {
 
 // Creates a minor-to-major layout from given dimensions. The dynamic_dimensions
 // slice should be either empty, or of the same size as dimensions.
-lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const int64_t> dimensions,
                                           lazy_tensors::Span<const bool> dynamic_dimensions,
                                           lazy_tensors::PrimitiveType type);
 
@@ -23,9 +23,9 @@ lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const lazy_tensors:
 // the specified device type. The type of device can affect the choice of the
 // layout. The dynamic_dimensions slice should be either empty, or of the same
 // size as dimensions.
-lazy_tensors::Shape MakeArrayShapeFromDimensions(
-    lazy_tensors::Span<const lazy_tensors::int64> dimensions,
-    lazy_tensors::Span<const bool> dynamic_dimensions, lazy_tensors::PrimitiveType type,
-    DeviceType device_type);
+lazy_tensors::Shape MakeArrayShapeFromDimensions(lazy_tensors::Span<const int64_t> dimensions,
+                                                 lazy_tensors::Span<const bool> dynamic_dimensions,
+                                                 lazy_tensors::PrimitiveType type,
+                                                 DeviceType device_type);
 
 }  // namespace torch_lazy_tensors

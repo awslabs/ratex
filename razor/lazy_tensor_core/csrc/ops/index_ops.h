@@ -42,9 +42,9 @@ struct CanonicalIndexInfo {
   // The permutation to be applied to the result. This is needed for indexed
   // updates, since a permutation is applied to the base to bring non-null
   // indices to front. This is the inverse of that permutation.
-  std::vector<lazy_tensors::int64> result_permutation;
+  std::vector<int64_t> result_permutation;
   // The dimension number at which indexing starts.
-  lazy_tensors::int64 start_dim = 0;
+  int64_t start_dim = 0;
 };
 
 // Transform the given base and indices to a form supported by the LazyTensor
@@ -60,23 +60,22 @@ ir::Value EnsureRank1(const ir::Value& index);
 // Implements indexing by tensors of long according to the top-level
 // description.
 LazyTensor IndexByTensors(const LazyTensor& base, lazy_tensors::Span<const LazyTensor> indices,
-                          lazy_tensors::int64 start_dim);
+                          int64_t start_dim);
 
 ir::Value IndexPutByTensors(const LazyTensor& base, lazy_tensors::Span<const LazyTensor> indices,
-                            lazy_tensors::int64 start_dim, const LazyTensor& updates,
-                            bool accumulate,
-                            lazy_tensors::Span<const lazy_tensors::int64> result_permutation);
+                            int64_t start_dim, const LazyTensor& updates, bool accumulate,
+                            lazy_tensors::Span<const int64_t> result_permutation);
 
-ir::NodePtr IndexFill(const LazyTensor& base, lazy_tensors::int64 dim, const LazyTensor& index,
+ir::NodePtr IndexFill(const LazyTensor& base, int64_t dim, const LazyTensor& index,
                       const at::Scalar& value);
 
-ir::NodePtr IndexFill(const LazyTensor& base, lazy_tensors::int64 dim, const LazyTensor& index,
+ir::NodePtr IndexFill(const LazyTensor& base, int64_t dim, const LazyTensor& index,
                       const LazyTensor& value);
 
-ir::Value IndexAdd(const LazyTensor& base, lazy_tensors::int64 dim, const LazyTensor& index,
+ir::Value IndexAdd(const LazyTensor& base, int64_t dim, const LazyTensor& index,
                    const LazyTensor& source);
 
-ir::Value IndexCopy(const LazyTensor& base, lazy_tensors::int64 dim, const LazyTensor& index,
+ir::Value IndexCopy(const LazyTensor& base, int64_t dim, const LazyTensor& index,
                     const LazyTensor& source);
 
 }  // namespace torch_lazy_tensors

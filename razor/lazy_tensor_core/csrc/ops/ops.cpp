@@ -98,7 +98,7 @@ NodePtr ReluOp(const Value& input) {
   return node;
 }
 
-NodePtr TransposeOp(const Value& input, lazy_tensors::int64 dim0, lazy_tensors::int64 dim1) {
+NodePtr TransposeOp(const Value& input, int64_t dim0, int64_t dim1) {
   return MakeNode<Permute>(input, Helpers::MakeTransposePermutation(
                                       /*dim0=*/dim0, /*dim1=*/dim1,
                                       /*rank=*/input.shape().rank()));
@@ -144,13 +144,12 @@ NodePtr SigmoidBackward(const Value& grad_output, const Value& output) {
   return grad_output * (ScalarOp(1, output.shape()) - output) * output;
 }
 
-NodePtr LogSoftmaxBackwardOp(const Value& grad_output, const Value& output,
-                             lazy_tensors::int64 dim) {
+NodePtr LogSoftmaxBackwardOp(const Value& grad_output, const Value& output, int64_t dim) {
   return MakeNode<LogSoftmaxBackward>(
       grad_output, output, Helpers::GetCanonicalDimensionIndex(dim, grad_output.shape().rank()));
 }
 
-NodePtr SoftmaxBackwardOp(const Value& grad_output, const Value& output, lazy_tensors::int64 dim) {
+NodePtr SoftmaxBackwardOp(const Value& grad_output, const Value& output, int64_t dim) {
   return MakeNode<SoftmaxBackward>(
       grad_output, output, Helpers::GetCanonicalDimensionIndex(dim, grad_output.shape().rank()));
 }
@@ -217,10 +216,9 @@ NodePtr ARange(const at::Scalar& start, const at::Scalar& end, const at::Scalar&
   lazy_tensors::Literal values;
   switch (type) {
     case lazy_tensors::PrimitiveType::BF16:
-      values = Helpers::Range<lazy_tensors::bfloat16>(
-          static_cast<lazy_tensors::bfloat16>(start.toFloat()),
-          static_cast<lazy_tensors::bfloat16>(end.toFloat()),
-          static_cast<lazy_tensors::bfloat16>(step.toFloat()));
+      values = Helpers::Range<at::BFloat16>(static_cast<at::BFloat16>(start.toFloat()),
+                                            static_cast<at::BFloat16>(end.toFloat()),
+                                            static_cast<at::BFloat16>(step.toFloat()));
       break;
     case lazy_tensors::PrimitiveType::F32:
       values = Helpers::Range<float>(start.toFloat(), end.toFloat(), step.toFloat());
@@ -229,28 +227,28 @@ NodePtr ARange(const at::Scalar& start, const at::Scalar& end, const at::Scalar&
       values = Helpers::Range<double>(start.toDouble(), end.toDouble(), step.toDouble());
       break;
     case lazy_tensors::PrimitiveType::U8:
-      values = Helpers::Range<lazy_tensors::uint8>(start.toByte(), end.toByte(), step.toByte());
+      values = Helpers::Range<uint8_t>(start.toByte(), end.toByte(), step.toByte());
       break;
     case lazy_tensors::PrimitiveType::S8:
-      values = Helpers::Range<lazy_tensors::int8>(start.toChar(), end.toChar(), step.toChar());
+      values = Helpers::Range<int8_t>(start.toChar(), end.toChar(), step.toChar());
       break;
     case lazy_tensors::PrimitiveType::S16:
-      values = Helpers::Range<lazy_tensors::int16>(start.toShort(), end.toShort(), step.toShort());
+      values = Helpers::Range<int16_t>(start.toShort(), end.toShort(), step.toShort());
       break;
     case lazy_tensors::PrimitiveType::U16:
-      values = Helpers::Range<lazy_tensors::uint16>(start.toInt(), end.toInt(), step.toInt());
+      values = Helpers::Range<uint16_t>(start.toInt(), end.toInt(), step.toInt());
       break;
     case lazy_tensors::PrimitiveType::S32:
-      values = Helpers::Range<lazy_tensors::int32>(start.toInt(), end.toInt(), step.toInt());
+      values = Helpers::Range<int16_t>(start.toInt(), end.toInt(), step.toInt());
       break;
     case lazy_tensors::PrimitiveType::U32:
-      values = Helpers::Range<lazy_tensors::uint32>(start.toLong(), end.toLong(), step.toLong());
+      values = Helpers::Range<uint32_t>(start.toLong(), end.toLong(), step.toLong());
       break;
     case lazy_tensors::PrimitiveType::S64:
-      values = Helpers::Range<lazy_tensors::int64>(start.toLong(), end.toLong(), step.toLong());
+      values = Helpers::Range<int64_t>(start.toLong(), end.toLong(), step.toLong());
       break;
     case lazy_tensors::PrimitiveType::U64:
-      values = Helpers::Range<lazy_tensors::uint64>(start.toLong(), end.toLong(), step.toLong());
+      values = Helpers::Range<uint64_t>(start.toLong(), end.toLong(), step.toLong());
       break;
     default:
       LTC_ERROR() << "Type not supported: " << type;
@@ -266,12 +264,12 @@ NodePtr BroadcastTensors(lazy_tensors::Span<const Value> tensors) {
 }
 
 NodePtr Norm(const Value& input, const c10::optional<at::Scalar>& p,
-             c10::optional<at::ScalarType> dtype,
-             lazy_tensors::Span<const lazy_tensors::int64> dims, bool keepdim) {
+             c10::optional<at::ScalarType> dtype, lazy_tensors::Span<const int64_t> dims,
+             bool keepdim) {
   ScopePusher ir_scope(at::aten::norm.toQualString());
-  auto dimensions = lazy_tensors::util::ToVector<lazy_tensors::int64>(dims);
+  auto dimensions = lazy_tensors::util::ToVector<int64_t>(dims);
   if (dimensions.empty()) {
-    dimensions = lazy_tensors::util::Iota<lazy_tensors::int64>(input.shape().rank());
+    dimensions = lazy_tensors::util::Iota<int64_t>(input.shape().rank());
   }
   if (!p.has_value() || p->toDouble() == 2.0) {
     NodePtr square = input * input;
@@ -301,8 +299,7 @@ NodePtr Norm(const Value& input, const c10::optional<at::Scalar>& p,
   return Pow(result, norm_exp_inv);
 }
 
-NodePtr Identity(lazy_tensors::int64 lines, lazy_tensors::int64 cols,
-                 lazy_tensors::PrimitiveType element_type) {
+NodePtr Identity(int64_t lines, int64_t cols, lazy_tensors::PrimitiveType element_type) {
   return GenericOp(OpKind(at::aten::eye),
                    lazy_tensors::ShapeUtil::MakeShape(element_type, {lines, cols}),
                    /*num_outputs=*/1, lazy_tensors::util::MHash(lines, cols));

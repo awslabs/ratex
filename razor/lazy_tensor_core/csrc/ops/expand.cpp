@@ -14,7 +14,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Expand::Expand(const Value& input, std::vector<lazy_tensors::int64> size)
+Expand::Expand(const Value& input, std::vector<int64_t> size)
     : Node(ir::OpKind(at::aten::expand), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(size)),
       size_(std::move(size)) {

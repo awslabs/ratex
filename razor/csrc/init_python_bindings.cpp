@@ -30,12 +30,12 @@ namespace {
 
 using namespace ir;
 
-std::vector<std::vector<lazy_tensors::int64>> CreateReduceGroups(const py::list& groups) {
-  std::vector<std::vector<lazy_tensors::int64>> replica_groups;
+std::vector<std::vector<int64_t>> CreateReduceGroups(const py::list& groups) {
+  std::vector<std::vector<int64_t>> replica_groups;
   for (auto& group : groups) {
     replica_groups.emplace_back();
     for (auto& replica_id : group.cast<py::list>()) {
-      replica_groups.back().push_back(replica_id.cast<lazy_tensors::int64>());
+      replica_groups.back().push_back(replica_id.cast<int64_t>());
     }
   }
   return replica_groups;
@@ -131,16 +131,15 @@ void InitRAFModuleBindings(py::module m) {
   });
 
   // TODO: Remove this function and use LTC binding after we have control over LTC
-  m.def("_raf_all_gather",
-        [](const at::Tensor& input, lazy_tensors::int64 dim, const py::list& groups) {
-          std::vector<std::vector<lazy_tensors::int64>> replica_groups = CreateReduceGroups(groups);
-          const LazyTensor& input_ltc = bridge::GetLtcTensor(input);
-          std::vector<ir::Value> input_values({input_ltc.GetIrValue()});
-          ir::NodePtr node =
-              ir::MakeNode<ir::ops::RAFAllGather>(input_values, dim, std::move(replica_groups));
-          LazyTensor ret = bridge::raf_backend::CreateFrom(input_ltc, ir::Value(node, 0));
-          return bridge::AtenFromLtcTensor(std::move(ret));
-        });
+  m.def("_raf_all_gather", [](const at::Tensor& input, int64_t dim, const py::list& groups) {
+    std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
+    const LazyTensor& input_ltc = bridge::GetLtcTensor(input);
+    std::vector<ir::Value> input_values({input_ltc.GetIrValue()});
+    ir::NodePtr node =
+        ir::MakeNode<ir::ops::RAFAllGather>(input_values, dim, std::move(replica_groups));
+    LazyTensor ret = bridge::raf_backend::CreateFrom(input_ltc, ir::Value(node, 0));
+    return bridge::AtenFromLtcTensor(std::move(ret));
+  });
 
   m.def("_raf_create_token", [](const std::string& device) { return CreateToken(device); });
 

@@ -16,8 +16,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-RAFAllGather::RAFAllGather(lazy_tensors::Span<const Value> operands, lazy_tensors::int64 dim,
-                           std::vector<std::vector<lazy_tensors::int64>> groups)
+RAFAllGather::RAFAllGather(lazy_tensors::Span<const Value> operands, int64_t dim,
+                           std::vector<std::vector<int64_t>> groups)
     : Node(raf_all_gather, operands, operands.size(), lazy_tensors::util::MHash(dim, groups)),
       dim_(dim),
       groups_(std::move(groups)) {

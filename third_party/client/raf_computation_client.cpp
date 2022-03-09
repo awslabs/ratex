@@ -67,32 +67,29 @@ void PopulateRn(lazy_tensors::Literal& literal, void* buf) {
   using namespace lazy_tensors;
   switch (literal.shape().element_type()) {
     case PrimitiveType::S8:
-      return PopulateRn(
-          literal, Span<const int8>(reinterpret_cast<const int8*>(buf), literal.value().numel()));
+      return PopulateRn(literal, Span<const int8_t>(reinterpret_cast<const int8_t*>(buf),
+                                                    literal.value().numel()));
     case PrimitiveType::S32:
-      return PopulateRn(
-          literal, Span<const int32>(reinterpret_cast<const int32*>(buf), literal.value().numel()));
+      return PopulateRn(literal, Span<const int32_t>(reinterpret_cast<const int32_t*>(buf),
+                                                     literal.value().numel()));
     case PrimitiveType::S64:
-      return PopulateRn(
-          literal, Span<const int64>(reinterpret_cast<const int64*>(buf), literal.value().numel()));
+      return PopulateRn(literal, Span<const int64_t>(reinterpret_cast<const int64_t*>(buf),
+                                                     literal.value().numel()));
     case PrimitiveType::PRED:
       return PopulateRn(
           literal, Span<const bool>(reinterpret_cast<const bool*>(buf), literal.value().numel()));
     case PrimitiveType::U8:
-      return PopulateRn(literal,
-                        Span<const uint8>(reinterpret_cast<const lazy_tensors::uint8*>(buf),
-                                          literal.value().numel()));
+      return PopulateRn(literal, Span<const uint8_t>(reinterpret_cast<const uint8_t*>(buf),
+                                                     literal.value().numel()));
     case PrimitiveType::U32:
-      return PopulateRn(literal,
-                        Span<const uint32>(reinterpret_cast<const lazy_tensors::uint32*>(buf),
-                                           literal.value().numel()));
+      return PopulateRn(literal, Span<const uint32_t>(reinterpret_cast<const uint32_t*>(buf),
+                                                      literal.value().numel()));
     case PrimitiveType::U64:
-      return PopulateRn(literal,
-                        Span<const uint64>(reinterpret_cast<const lazy_tensors::uint64*>(buf),
-                                           literal.value().numel()));
+      return PopulateRn(literal, Span<const uint64_t>(reinterpret_cast<const uint64_t*>(buf),
+                                                      literal.value().numel()));
     case PrimitiveType::F16:
-      return PopulateRn(literal, Span<const half>(reinterpret_cast<const lazy_tensors::half*>(buf),
-                                                  literal.value().numel()));
+      return PopulateRn(literal, Span<const at::Half>(reinterpret_cast<const at::Half*>(buf),
+                                                      literal.value().numel()));
     case PrimitiveType::F32:
       return PopulateRn(
           literal, Span<const float>(reinterpret_cast<const float*>(buf), literal.value().numel()));

@@ -15,8 +15,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Std::Std(const Value& input, std::vector<lazy_tensors::int64> dimensions,
-         bool keep_reduced_dimensions, lazy_tensors::int64 correction)
+Std::Std(const Value& input, std::vector<int64_t> dimensions, bool keep_reduced_dimensions,
+         int64_t correction)
     : Node(ir::OpKind(at::aten::std), {input},
            /*num_outputs=*/1,
            lazy_tensors::util::MHash(dimensions, keep_reduced_dimensions, correction)),

@@ -779,13 +779,12 @@ Var RAFNodeLowering::LowerAdaptiveAvgPool2d(const ir::ops::AdaptiveAvgPool2d* no
 Var RAFNodeLowering::LowerGenericSlice(const ir::ops::GenericSlice* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
-  std::vector<lazy_tensors::int64> limit_indices(node->base_indices().begin(),
-                                                 node->base_indices().end());
+  std::vector<int64_t> limit_indices(node->base_indices().begin(), node->base_indices().end());
   std::transform(limit_indices.begin(), limit_indices.end(), node->sizes().begin(),
-                 limit_indices.begin(), std::plus<lazy_tensors::int64>());
+                 limit_indices.begin(), std::plus<int64_t>());
   Expr begin = MakeConstant(TupleInt(node->base_indices()));
   Expr end = MakeConstant(TupleInt(limit_indices));
-  Expr strides = MakeConstant(TupleInt(std::vector<lazy_tensors::int64>(limit_indices.size(), 1)));
+  Expr strides = MakeConstant(TupleInt(std::vector<int64_t>(limit_indices.size(), 1)));
   Expr slice_mode = MakeConstant(String("end"));
   return BindSymbol(
       raf::ir::Call(Op::Get("raf.op.strided_slice"), {x, begin, end, strides, slice_mode}));
@@ -887,8 +886,8 @@ TensorValue MakeTensor(void* data, int64_t* shape, int ndim, raf::Device to_dev,
 }
 
 template <typename T>
-TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<int64> shape) {
-  int64 numel = 1;
+TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<int64_t> shape) {
+  int64_t numel = 1;
   for (const auto& x : shape) {
     numel = numel * x;
   }
@@ -914,14 +913,14 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   TensorValue tv;
   raf::Device dev = ToRAFDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
   auto raf_dtype = ToRAFDType(node->shape().element_type());
-  Span<const int64> dimensions = node->shape().dimensions();
+  Span<const int64_t> dimensions = node->shape().dimensions();
 // 1. Switch case based on the LTC dtype.
 // 2. Get the scalar data from PyTorch and convert to the primitive C type.
 // 3. Make a Meta constant expression using the scalar data.
 #define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                            \
   case lazy_tensors::PrimitiveType::LTC_TYPE: {                                               \
     tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), raf_dtype, dev, \
-                            std::vector<int64>(dimensions.begin(), dimensions.end()));        \
+                            std::vector<int64_t>(dimensions.begin(), dimensions.end()));      \
     break;                                                                                    \
   }
 
@@ -943,7 +942,7 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
     case lazy_tensors::PrimitiveType::BF16: {
       tv = MakeScalar<uint16_t>(c10::BFloat16(static_cast<float>(node->value().toDouble())).x,
                                 raf_dtype, dev,
-                                std::vector<int64>(dimensions.begin(), dimensions.end()));
+                                std::vector<int64_t>(dimensions.begin(), dimensions.end()));
       break;
     }
     default:
@@ -993,7 +992,7 @@ Var RAFNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
 Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = ops[0];
-  std::vector<lazy_tensors::int64> pad_vec(node->pad());
+  std::vector<int64_t> pad_vec(node->pad());
 
   // Meta and PyTorch have different padding axis order. Appending zeros to full axis and reverse it
   while (pad_vec.size() < node->operand(0).shape().dimensions_size() * 2)

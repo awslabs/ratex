@@ -16,7 +16,7 @@ namespace ir {
 namespace ops {
 
 Nms::Nms(const Value& boxes, const Value& scores, const Value& score_threshold,
-         const Value& iou_threshold, lazy_tensors::int64 output_size)
+         const Value& iou_threshold, int64_t output_size)
     : Node(ltc_nms, {boxes, scores, score_threshold, iou_threshold},
            /*num_outputs=*/2, lazy_tensors::util::MHash(output_size)),
       output_size_(output_size) {

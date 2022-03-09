@@ -16,18 +16,18 @@ namespace ops {
 
 class Expand : public Node {
  public:
-  Expand(const Value& input, std::vector<lazy_tensors::int64> size);
+  Expand(const Value& input, std::vector<int64_t> size);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  const std::vector<lazy_tensors::int64>& size() const {
+  const std::vector<int64_t>& size() const {
     return size_;
   };
 
  private:
-  std::vector<lazy_tensors::int64> size_;
+  std::vector<int64_t> size_;
 };
 
 }  // namespace ops

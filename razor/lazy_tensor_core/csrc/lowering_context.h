@@ -72,8 +72,7 @@ class LoweringContext {
   // indices can use the same storage. The underlying back-end can safely ignore
   // this information, but it can be used to implement efficient in-place
   // operations in a semantically functional model.
-  virtual void SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
-                          lazy_tensors::int64 param_number,
+  virtual void SetUpAlias(const lazy_tensors::ShapeIndex& output_index, int64_t param_number,
                           const lazy_tensors::ShapeIndex& param_index);
 
   size_t GetEmittedNodeCount() const {

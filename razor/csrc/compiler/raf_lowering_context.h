@@ -78,7 +78,7 @@ class RAFLoweringContext : public ir::LoweringContext {
   //                   const lazy_tensors::Shape& shape,
   //                   const std::string& name) override;
 
-  void SetUpAlias(const lazy_tensors::ShapeIndex& output_index, lazy_tensors::int64 param_number,
+  void SetUpAlias(const lazy_tensors::ShapeIndex& output_index, int64_t param_number,
                   const lazy_tensors::ShapeIndex& param_index) override;
 
   // Retrieves the lowered operation for a output. If the requested output is

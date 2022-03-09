@@ -18,13 +18,13 @@ namespace ops {
 // IR node for log(softmax) operation.
 class LogSoftmax : public Node {
  public:
-  LogSoftmax(const Value& input, lazy_tensors::int64 dim, c10::optional<at::ScalarType> dtype);
+  LogSoftmax(const Value& input, int64_t dim, c10::optional<at::ScalarType> dtype);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   }
 
@@ -34,7 +34,7 @@ class LogSoftmax : public Node {
 
  private:
   // The dimension along which the result is computed.
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
   c10::optional<at::ScalarType> dtype_;
 };
 

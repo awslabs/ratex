@@ -46,7 +46,7 @@ class Literal {
   void* untyped_data(const ShapeIndex& shape_index = {}) {
     LTC_LOG(FATAL) << "Not implemented yet.";
   }
-  int64 size_bytes(const ShapeIndex& shape_index = {}) const {
+  int64_t size_bytes(const ShapeIndex& shape_index = {}) const {
     return value_.numel() * value_.element_size();
   }
 
@@ -61,7 +61,7 @@ class Literal {
   }
 
   template <typename NativeT>
-  void Set(lazy_tensors::Span<const int64> multi_index, NativeT value) {
+  void Set(lazy_tensors::Span<const int64_t> multi_index, NativeT value) {
     if (multi_index.empty()) {
       value_.fill_(value);
       return;
@@ -85,38 +85,29 @@ class Literal {
 };
 
 template <>
-inline void Literal::Set<lazy_tensors::uint32>(lazy_tensors::Span<const int64> multi_index,
-                                               lazy_tensors::uint32 value) {
+inline void Literal::Set<uint32_t>(lazy_tensors::Span<const int64_t> multi_index, uint32_t value) {
   Set<int64_t>(multi_index, static_cast<int64_t>(value));
 }
 
 template <>
-inline void Literal::Set<lazy_tensors::uint64>(lazy_tensors::Span<const int64> multi_index,
-                                               lazy_tensors::uint64 value) {
+inline void Literal::Set<uint64_t>(lazy_tensors::Span<const int64_t> multi_index, uint64_t value) {
   LTC_LOG(FATAL) << "Not implemented yet.";
 }
 
 template <>
-inline void Literal::Set<lazy_tensors::bfloat16>(lazy_tensors::Span<const int64> multi_index,
-                                                 lazy_tensors::bfloat16 value) {
+inline void Literal::Set<at::BFloat16>(lazy_tensors::Span<const int64_t> multi_index,
+                                       at::BFloat16 value) {
   LTC_LOG(FATAL) << "Not implemented yet.";
 }
 
 template <>
-inline void Literal::Set<lazy_tensors::half>(lazy_tensors::Span<const int64> multi_index,
-                                             lazy_tensors::half value) {
+inline void Literal::Set<at::Half>(lazy_tensors::Span<const int64_t> multi_index, at::Half value) {
   LTC_LOG(FATAL) << "Not implemented yet.";
 }
 
 template <>
-inline void Literal::Set<lazy_tensors::complex64>(lazy_tensors::Span<const int64> multi_index,
-                                                  lazy_tensors::complex64 value) {
-  LTC_LOG(FATAL) << "Not implemented yet.";
-}
-
-template <>
-inline void Literal::Set<lazy_tensors::complex128>(lazy_tensors::Span<const int64> multi_index,
-                                                   lazy_tensors::complex128 value) {
+inline void Literal::Set<std::complex<double>>(lazy_tensors::Span<const int64_t> multi_index,
+                                               std::complex<double> value) {
   LTC_LOG(FATAL) << "Not implemented yet.";
 }
 

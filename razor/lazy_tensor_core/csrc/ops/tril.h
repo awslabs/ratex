@@ -16,18 +16,18 @@ namespace ops {
 // matrices input.
 class Tril : public Node {
  public:
-  Tril(const Value& input, lazy_tensors::int64 diagonal);
+  Tril(const Value& input, int64_t diagonal);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 diagonal() const {
+  int64_t diagonal() const {
     return diagonal_;
   }
 
  private:
-  lazy_tensors::int64 diagonal_;
+  int64_t diagonal_;
 };
 
 }  // namespace ops

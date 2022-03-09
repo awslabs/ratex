@@ -16,19 +16,19 @@ namespace ops {
 
 class LogSoftmaxBackwardUseIn : public Node {
  public:
-  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output, lazy_tensors::int64 dim);
+  LogSoftmaxBackwardUseIn(const Value& grad_output, const Value& output, int64_t dim);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   }
 
  private:
   // The dimension along which the result is computed.
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
 };
 
 }  // namespace ops

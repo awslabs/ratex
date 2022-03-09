@@ -16,7 +16,7 @@ namespace ir {
 namespace ops {
 
 UpdateSlice::UpdateSlice(const Value& input, const Value& source,
-                         lazy_tensors::Span<const lazy_tensors::int64> base_indices)
+                         lazy_tensors::Span<const int64_t> base_indices)
     : Node(ltc_update_slice, {input, source},
            /*num_outputs=*/1, lazy_tensors::util::MHash(base_indices)),
       base_indices_(base_indices.begin(), base_indices.end()) {

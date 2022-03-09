@@ -24,7 +24,7 @@ class RAFModelState {
 
  private:
   bool enable_amp_ = false;
-  std::unordered_set<lazy_tensors::int64> model_state_;
+  std::unordered_set<int64_t> model_state_;
 };
 
 RAFModelState* GetRAFModelState();

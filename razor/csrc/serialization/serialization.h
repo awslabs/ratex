@@ -21,7 +21,6 @@ using LTCProgramShape = lazy_tensors::ProgramShape;
 using LTCGenericComputationRAF = compiler::raf_backend::GenericComputationRAF;
 using LTCComputation = lazy_tensors::ComputationClient::Computation;
 using LTCBaseComputation = razor::BaseComputationClient::BaseComputation;
-using lazy_tensors::int64;
 using lazy_tensors::PrimitiveType;
 
 class GenericComputationRAFNode : public Object {

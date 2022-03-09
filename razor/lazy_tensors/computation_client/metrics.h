@@ -23,10 +23,10 @@ namespace metrics {
 
 struct Sample {
   Sample() = default;
-  Sample(int64 timestamp_ns, double value) : timestamp_ns(timestamp_ns), value(value) {
+  Sample(int64_t timestamp_ns, double value) : timestamp_ns(timestamp_ns), value(value) {
   }
 
-  int64 timestamp_ns = 0;
+  int64_t timestamp_ns = 0;
   double value = 0;
 };
 
@@ -46,7 +46,7 @@ class MetricData {
 
   size_t TotalSamples() const;
 
-  void AddSample(int64 timestamp_ns, double value);
+  void AddSample(int64_t timestamp_ns, double value);
 
   // Returns a vector with all the current samples, from the oldest to the
   // newer. If accumulator is not nullptr, it will receive the current value of
@@ -73,16 +73,16 @@ class CounterData {
   CounterData() : value_(0) {
   }
 
-  void AddValue(lazy_tensors::int64 value) {
+  void AddValue(int64_t value) {
     value_ += value;
   }
 
-  lazy_tensors::int64 Value() const {
+  int64_t Value() const {
     return value_;
   }
 
  private:
-  std::atomic<lazy_tensors::int64> value_;
+  std::atomic<int64_t> value_;
 };
 
 class MetricsArena {
@@ -140,7 +140,7 @@ class Metric {
 
   double Accumulator() const;
 
-  void AddSample(int64 timestamp_ns, double value);
+  void AddSample(int64_t timestamp_ns, double value);
 
   void AddSample(double value);
 
@@ -168,11 +168,11 @@ class Counter {
  public:
   explicit Counter(std::string name);
 
-  void AddValue(lazy_tensors::int64 value) {
+  void AddValue(int64_t value) {
     GetData()->AddValue(value);
   }
 
-  lazy_tensors::int64 Value() const {
+  int64_t Value() const {
     return GetData()->Value();
   }
 
@@ -229,7 +229,7 @@ class TimedSection {
   }
 
   ~TimedSection() {
-    int64 now = sys_util::NowNs();
+    int64_t now = sys_util::NowNs();
     metric_->AddSample(now, now - start_);
   }
 
@@ -239,7 +239,7 @@ class TimedSection {
 
  private:
   Metric* metric_;
-  int64 start_;
+  int64_t start_;
 };
 
 #define LTC_TIMED(name)                                                             \

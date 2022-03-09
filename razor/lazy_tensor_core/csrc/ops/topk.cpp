@@ -13,8 +13,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-TopK::TopK(const Value& input, lazy_tensors::int64 k, lazy_tensors::int64 dim, bool largest,
-           bool sorted)
+TopK::TopK(const Value& input, int64_t k, int64_t dim, bool largest, bool sorted)
     : Node(ir::OpKind(at::aten::topk), {input},
            /*num_outputs=*/2, lazy_tensors::util::MHash(k, dim, largest, sorted)),
       k_(k),

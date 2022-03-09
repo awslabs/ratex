@@ -15,8 +15,8 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Unselect::Unselect(const Value& target, const Value& source, lazy_tensors::int64 dim,
-                   lazy_tensors::int64 start, lazy_tensors::int64 end, lazy_tensors::int64 stride)
+Unselect::Unselect(const Value& target, const Value& source, int64_t dim, int64_t start,
+                   int64_t end, int64_t stride)
     : Node(ltc_unselect, {target, source}, target.shape(),
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim, start, end, stride)),
       dim_(dim),

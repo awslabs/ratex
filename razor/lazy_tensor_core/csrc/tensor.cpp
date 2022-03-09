@@ -277,9 +277,9 @@ bool TensorsHaveIR(const std::vector<LazyTensor>& tensors) {
 class LazyTensor::DeviceContextArena {
   struct DeviceContext {
     std::mutex lock;
-    std::map<lazy_tensors::int64, std::weak_ptr<Data>> tensors_data;
-    lazy_tensors::uint64 seed = 101;
-    lazy_tensors::uint64 running_seed = 101;
+    std::map<int64_t, std::weak_ptr<Data>> tensors_data;
+    uint64_t seed = 101;
+    uint64_t running_seed = 101;
     ir::Value seed_ir_value;
   };
 
@@ -320,8 +320,8 @@ class LazyTensor::DeviceContextArena {
 
   ir::Value GetRngSeed(const Device& device) {
     static const at::ScalarType kSeedType = at::ScalarType::Long;
-    static const lazy_tensors::uint64 kSeedMul = 214013;
-    static const lazy_tensors::uint64 kSeedAdd = 2531011;
+    static const uint64_t kSeedMul = 214013;
+    static const uint64_t kSeedAdd = 2531011;
     DeviceContext* devctx = GetDeviceContext(device);
     std::lock_guard<std::mutex> lock(devctx->lock);
     if (!devctx->seed_ir_value) {
@@ -340,13 +340,13 @@ class LazyTensor::DeviceContextArena {
     return devctx->seed_ir_value;
   }
 
-  lazy_tensors::uint64 GetRunningSeed(const Device& device) {
+  uint64_t GetRunningSeed(const Device& device) {
     DeviceContext* devctx = GetDeviceContext(device);
     std::lock_guard<std::mutex> lock(devctx->lock);
     return devctx->running_seed;
   }
 
-  void SetRngSeed(const Device& device, lazy_tensors::uint64 seed) {
+  void SetRngSeed(const Device& device, uint64_t seed) {
     DeviceContext* devctx = GetDeviceContext(device);
     std::lock_guard<std::mutex> lock(devctx->lock);
     devctx->seed = seed;
@@ -397,11 +397,10 @@ class LazyTensor::DeviceContextArena {
 };
 
 struct DeviceDataInfo : public lazy_tensors::client::Data::Info {
-  DeviceDataInfo(lazy_tensors::int64 tensor_id, bool read_only)
-      : tensor_id(tensor_id), read_only(read_only) {
+  DeviceDataInfo(int64_t tensor_id, bool read_only) : tensor_id(tensor_id), read_only(read_only) {
   }
 
-  lazy_tensors::int64 tensor_id = 0;
+  int64_t tensor_id = 0;
   bool read_only = false;
 };
 
@@ -499,7 +498,7 @@ LazyTensor::Data* LazyTensor::data() const {
   return data_.get();
 }
 
-lazy_tensors::int64 LazyTensor::size(lazy_tensors::int64 dim) const {
+int64_t LazyTensor::size(int64_t dim) const {
   auto tensor_shape = shape();
   int rank = tensor_shape.get().rank();
   int dim_index = Helpers::GetCanonicalDimensionIndex(dim, rank);
@@ -543,7 +542,7 @@ const Device& LazyTensor::GetDevice() const {
   return data()->device;
 }
 
-lazy_tensors::int64 LazyTensor::GetUniqueId() const {
+int64_t LazyTensor::GetUniqueId() const {
   return data()->unique_id;
 }
 
@@ -739,12 +738,12 @@ ir::Value LazyTensor::GetIrValueForScalar(const at::Scalar& value, const Device&
 }
 
 ir::Value LazyTensor::GetIrValueForScalar(const at::Scalar& value, lazy_tensors::PrimitiveType type,
-                                          lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+                                          lazy_tensors::Span<const int64_t> dimensions,
                                           const Device& device) {
   ir::Value ir_value = GetIrValueForScalar(value, type, device);
   if (!dimensions.empty()) {
-    ir_value = ir::MakeNode<ir::ops::Expand>(
-        ir_value, lazy_tensors::util::ToVector<lazy_tensors::int64>(dimensions));
+    ir_value =
+        ir::MakeNode<ir::ops::Expand>(ir_value, lazy_tensors::util::ToVector<int64_t>(dimensions));
   }
   return ir_value;
 }
@@ -774,8 +773,8 @@ View::IrNode LazyTensor::GetViewUpdate(const std::shared_ptr<View>& view) const 
 
 std::shared_ptr<View> LazyTensor::UpdateView(std::shared_ptr<View> view, ir::Value ir_value) const {
   if (ir_value.shape().dimensions() != view->shape().dimensions()) {
-    LTC_CHECK_EQ(lazy_tensors::util::Multiply<lazy_tensors::int64>(ir_value.shape().dimensions()),
-                 lazy_tensors::util::Multiply<lazy_tensors::int64>(view->shape().dimensions()));
+    LTC_CHECK_EQ(lazy_tensors::util::Multiply<int64_t>(ir_value.shape().dimensions()),
+                 lazy_tensors::util::Multiply<int64_t>(view->shape().dimensions()));
 
     ViewInfo view_info(ViewInfo::Type::kReshape, ir_value.shape(), view->shape());
     view = view->CreateSubView(view_info.shape, view_info);
@@ -890,10 +889,10 @@ std::vector<lazy_tensors::ComputationClient::DataPtr> LazyTensor::GatherTensorsD
     const std::vector<LazyTensor>& tensors, lazy_tensors::Span<const size_t> indices,
     lazy_tensors::Span<const lazy_tensors::ComputationClient::DataPtr> tensors_data) {
   std::vector<lazy_tensors::ComputationClient::DataPtr> result_tensors_data;
-  std::unordered_map<lazy_tensors::int64, size_t> uid_index_map;
+  std::unordered_map<int64_t, size_t> uid_index_map;
   size_t indices_index = 0;
   for (size_t i = 0; i < tensors.size(); ++i) {
-    lazy_tensors::int64 tensor_id = tensors[i].GetUniqueId();
+    int64_t tensor_id = tensors[i].GetUniqueId();
     auto it = uid_index_map.find(tensor_id);
     if (it != uid_index_map.end()) {
       // Current tensor is a duplicate of a previously processed tensor that had
@@ -1081,7 +1080,7 @@ LazyTensor::SyncTensorCollection LazyTensor::CollectSyncTensors(
   std::vector<at::Tensor> at_tensors;
   std::vector<std::string> devices;
   std::vector<size_t> at_tensor_index;
-  std::unordered_set<lazy_tensors::int64> tensor_ids;
+  std::unordered_set<int64_t> tensor_ids;
   // The force_ltc_data controls aliasing compilation, so effectively the same
   // graph with on/off force_ltc_data should not match, hash wise.
   coll.hash = lazy_tensors::util::MHash(config.force_ltc_data);
@@ -1406,10 +1405,10 @@ LazyTensor::OpByOpAsync LazyTensor::SyncTensorsGraphOpByOp(
 void LazyTensor::BuildInputOutputAliases(const std::vector<LazyTensor>& tensors,
                                          lazy_tensors::Span<const size_t> indices,
                                          ir::LoweringContext* lowering_ctx) {
-  std::unordered_map<lazy_tensors::int64, size_t> output_tensor_id_map;
+  std::unordered_map<int64_t, size_t> output_tensor_id_map;
   for (size_t i = 0; i < indices.size(); ++i) {
     size_t tensor_index = indices[i];
-    lazy_tensors::int64 tensor_id = tensors[tensor_index].GetUniqueId();
+    int64_t tensor_id = tensors[tensor_index].GetUniqueId();
     output_tensor_id_map[tensor_id] = i;
   }
   const std::vector<lazy_tensors::ComputationClient::DataPtr>& parameters_data =
@@ -1424,7 +1423,7 @@ void LazyTensor::BuildInputOutputAliases(const std::vector<LazyTensor>& tensors,
         const lazy_tensors::Shape& root_shape = lowering_ctx->GetResultShape(output_index);
         if (lazy_tensors::Shape(parameters_data[i]->shape()) == root_shape &&
             alias_map[output_index] < 0) {
-          lowering_ctx->SetUpAlias({static_cast<lazy_tensors::int64>(output_index)}, i, {});
+          lowering_ctx->SetUpAlias({static_cast<int64_t>(output_index)}, i, {});
           alias_map[output_index] = i;
 
           LTC_VLOG(6) << "Aliased paramter " << i << " with output " << output_index << ": "
@@ -1531,8 +1530,8 @@ std::shared_ptr<LazyTensor::Async> LazyTensor::SyncTensorsGraphInternal(
                                   compile_result.device.ToString(), std::move(cached_computation));
 }
 
-lazy_tensors::int64 LazyTensor::GetNextTensorId() {
-  static std::atomic<lazy_tensors::int64>* id_generator = new std::atomic<lazy_tensors::int64>(1);
+int64_t LazyTensor::GetNextTensorId() {
+  static std::atomic<int64_t>* id_generator = new std::atomic<int64_t>(1);
   return id_generator->fetch_add(1);
 }
 
@@ -1540,11 +1539,11 @@ ir::Value LazyTensor::GetRngSeed(const Device& device) {
   return DeviceContextArena::Get()->GetRngSeed(device);
 }
 
-void LazyTensor::SetRngSeed(const Device& device, lazy_tensors::uint64 seed) {
+void LazyTensor::SetRngSeed(const Device& device, uint64_t seed) {
   DeviceContextArena::Get()->SetRngSeed(device, seed);
 }
 
-lazy_tensors::uint64 LazyTensor::GetRunningSeed(const Device& device) {
+uint64_t LazyTensor::GetRunningSeed(const Device& device) {
   return DeviceContextArena::Get()->GetRunningSeed(device);
 }
 

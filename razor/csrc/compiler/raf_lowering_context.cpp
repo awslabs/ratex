@@ -149,7 +149,7 @@ Var RAFLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client:
 }
 
 void RAFLoweringContext::SetUpAlias(const lazy_tensors::ShapeIndex& output_index,
-                                    lazy_tensors::int64 param_number,
+                                    int64_t param_number,
                                     const lazy_tensors::ShapeIndex& param_index) {
   // std::cout << "SetUpAlias" << std::endl;
   // std::cout << "output_index = " << std::endl;

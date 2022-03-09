@@ -14,33 +14,31 @@ namespace ops {
 
 class Diagonal : public Node {
  public:
-  Diagonal(const Value& input, lazy_tensors::int64 offset, lazy_tensors::int64 dim1,
-           lazy_tensors::int64 dim2);
+  Diagonal(const Value& input, int64_t offset, int64_t dim1, int64_t dim2);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 offset() const {
+  int64_t offset() const {
     return offset_;
   }
 
-  lazy_tensors::int64 dim1() const {
+  int64_t dim1() const {
     return dim1_;
   }
 
-  lazy_tensors::int64 dim2() const {
+  int64_t dim2() const {
     return dim2_;
   }
 
-  static lazy_tensors::Shape MakeDiagonalShape(const lazy_tensors::Shape& shape,
-                                               lazy_tensors::int64 offset, lazy_tensors::int64 dim1,
-                                               lazy_tensors::int64 dim2);
+  static lazy_tensors::Shape MakeDiagonalShape(const lazy_tensors::Shape& shape, int64_t offset,
+                                               int64_t dim1, int64_t dim2);
 
  private:
-  lazy_tensors::int64 offset_;
-  lazy_tensors::int64 dim1_;
-  lazy_tensors::int64 dim2_;
+  int64_t offset_;
+  int64_t dim1_;
+  int64_t dim2_;
 };
 
 }  // namespace ops

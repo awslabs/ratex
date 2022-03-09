@@ -26,8 +26,7 @@ std::vector<Value> GetOperandList(lazy_tensors::Span<const Value> operands, cons
 }  // namespace
 
 AllReduce::AllReduce(AllReduceType reduce_type, lazy_tensors::Span<const Value> operands,
-                     const Value& token, double scale,
-                     std::vector<std::vector<lazy_tensors::int64>> groups)
+                     const Value& token, double scale, std::vector<std::vector<int64_t>> groups)
     : Node(ltc_cross_replica_sum, GetOperandList(operands, token),
            /*num_outputs=*/operands.size() + 1,
            lazy_tensors::util::MHash(lazy_tensors::util::GetEnumValue(reduce_type), scale, groups)),

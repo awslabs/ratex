@@ -15,19 +15,19 @@ namespace ops {
 
 class Flip : public Node {
  public:
-  Flip(const Value& input, std::vector<lazy_tensors::int64> dims);
+  Flip(const Value& input, std::vector<int64_t> dims);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& dims() const {
+  const std::vector<int64_t>& dims() const {
     return dims_;
   }
 
  private:
   // The dimensions which are flipped.
-  std::vector<lazy_tensors::int64> dims_;
+  std::vector<int64_t> dims_;
 };
 
 }  // namespace ops

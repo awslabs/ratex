@@ -117,7 +117,7 @@ NodePtr Fmod(const Value& dividend, const Value& divisor);
 
 NodePtr Not(const Value& input);
 
-NodePtr TransposeOp(const Value& input, lazy_tensors::int64 dim0, lazy_tensors::int64 dim1);
+NodePtr TransposeOp(const Value& input, int64_t dim0, int64_t dim1);
 
 NodePtr HardSigmoid(const Value& input);
 
@@ -133,10 +133,9 @@ NodePtr SiLU(const Value& input);
 
 NodePtr SigmoidBackward(const Value& grad_output, const Value& output);
 
-NodePtr LogSoftmaxBackwardOp(const Value& grad_output, const Value& output,
-                             lazy_tensors::int64 dim);
+NodePtr LogSoftmaxBackwardOp(const Value& grad_output, const Value& output, int64_t dim);
 
-NodePtr SoftmaxBackwardOp(const Value& grad_output, const Value& output, lazy_tensors::int64 dim);
+NodePtr SoftmaxBackwardOp(const Value& grad_output, const Value& output, int64_t dim);
 
 NodePtr Clamp(const Value& input, const Value& min, const Value& max);
 
@@ -172,11 +171,10 @@ NodePtr ARange(const at::Scalar& start, const at::Scalar& end, const at::Scalar&
 NodePtr BroadcastTensors(lazy_tensors::Span<const Value> tensors);
 
 NodePtr Norm(const Value& input, const c10::optional<at::Scalar>& p,
-             c10::optional<at::ScalarType> dtype,
-             lazy_tensors::Span<const lazy_tensors::int64> dims, bool keepdim);
+             c10::optional<at::ScalarType> dtype, lazy_tensors::Span<const int64_t> dims,
+             bool keepdim);
 
-NodePtr Identity(lazy_tensors::int64 lines, lazy_tensors::int64 cols,
-                 lazy_tensors::PrimitiveType element_type);
+NodePtr Identity(int64_t lines, int64_t cols, lazy_tensors::PrimitiveType element_type);
 
 NodePtr Elu(const Value& input, const at::Scalar& alpha, const at::Scalar& scale,
             const at::Scalar& input_scale);

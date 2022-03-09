@@ -31,25 +31,24 @@ class LayoutManager {
     return mgr;
   }
 
-  const std::vector<lazy_tensors::int64>* GetLayout(
-      lazy_tensors::Span<const lazy_tensors::int64> dimensions) const {
+  const std::vector<int64_t>* GetLayout(lazy_tensors::Span<const int64_t> dimensions) const {
     auto it = layouts_.find(dimensions);
     return it != layouts_.end() ? &it->second->layout : nullptr;
   }
 
  private:
   struct LayoutEntry {
-    std::vector<lazy_tensors::int64> dimensions;
-    std::vector<lazy_tensors::int64> layout;
+    std::vector<int64_t> dimensions;
+    std::vector<int64_t> layout;
   };
 
   struct DimensionsHasher {
-    size_t operator()(const lazy_tensors::Span<const lazy_tensors::int64>& dimensions) const {
+    size_t operator()(const lazy_tensors::Span<const int64_t>& dimensions) const {
       return lazy_tensors::util::HashReduce(lazy_tensors::util::MHash(dimensions));
     }
   };
 
-  using LayoutMap = std::unordered_map<lazy_tensors::Span<const lazy_tensors::int64>,
+  using LayoutMap = std::unordered_map<lazy_tensors::Span<const int64_t>,
                                        std::shared_ptr<LayoutEntry>, DimensionsHasher>;
 
   LayoutManager() {
@@ -81,20 +80,19 @@ class LayoutManager {
     }
   }
 
-  static std::vector<lazy_tensors::int64> ParseIntList(const std::string& list_str) {
+  static std::vector<int64_t> ParseIntList(const std::string& list_str) {
     std::vector<std::string> parts = absl::StrSplit(list_str, ',');
-    std::vector<lazy_tensors::int64> ints;
+    std::vector<int64_t> ints;
     for (const auto& int_str : parts) {
       ints.push_back(std::stol(int_str));
     }
     return ints;
   }
 
-  static std::vector<lazy_tensors::int64> ParseLayout(const std::string& list_str,
-                                                      lazy_tensors::int64 rank) {
-    std::vector<lazy_tensors::int64> ints = ParseIntList(list_str);
+  static std::vector<int64_t> ParseLayout(const std::string& list_str, int64_t rank) {
+    std::vector<int64_t> ints = ParseIntList(list_str);
     LTC_CHECK_EQ(ints.size(), rank) << list_str;
-    std::set<lazy_tensors::int64> unique_ints;
+    std::set<int64_t> unique_ints;
     for (auto dim : ints) {
       LTC_CHECK_GE(dim, 0) << list_str;
       LTC_CHECK_LT(dim, rank) << list_str;
@@ -107,19 +105,18 @@ class LayoutManager {
   LayoutMap layouts_;
 };
 
-double PaddingFactor(lazy_tensors::int64 size, int padding) {
+double PaddingFactor(int64_t size, int padding) {
   int rem = static_cast<int>(size % padding);
   return 1.0 + (rem > 0 ? static_cast<double>(padding - rem) / static_cast<double>(size) : 0.0);
 }
 
-lazy_tensors::Shape MakeShapeWithSortedLayout(
-    lazy_tensors::Span<const lazy_tensors::int64> dimensions, lazy_tensors::PrimitiveType type) {
+lazy_tensors::Shape MakeShapeWithSortedLayout(lazy_tensors::Span<const int64_t> dimensions,
+                                              lazy_tensors::PrimitiveType type) {
   // Place bigger dimensions on most minor layout locations.
-  std::vector<lazy_tensors::int64> layout =
-      lazy_tensors::util::Iota<lazy_tensors::int64>(dimensions.size(), dimensions.size() - 1, -1);
-  std::sort(layout.begin(), layout.end(), [&](lazy_tensors::int64 a, lazy_tensors::int64 b) {
-    return dimensions[a] > dimensions[b];
-  });
+  std::vector<int64_t> layout =
+      lazy_tensors::util::Iota<int64_t>(dimensions.size(), dimensions.size() - 1, -1);
+  std::sort(layout.begin(), layout.end(),
+            [&](int64_t a, int64_t b) { return dimensions[a] > dimensions[b]; });
   return lazy_tensors::ShapeUtil::MakeShapeWithLayout(type, dimensions, layout);
 }
 
@@ -134,7 +131,7 @@ lazy_tensors::Shape* SetDynamicDimensions(lazy_tensors::Shape* shape,
   return shape;
 }
 
-lazy_tensors::Shape MakeTpuShape(lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+lazy_tensors::Shape MakeTpuShape(lazy_tensors::Span<const int64_t> dimensions,
                                  lazy_tensors::Span<const bool> dynamic_dimensions,
                                  lazy_tensors::PrimitiveType type) {
   static double max_padding_factor =
@@ -152,9 +149,9 @@ lazy_tensors::Shape MakeTpuShape(lazy_tensors::Span<const lazy_tensors::int64> d
 }
 
 lazy_tensors::Shape MakeShapeWithLayout(lazy_tensors::PrimitiveType type,
-                                        lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+                                        lazy_tensors::Span<const int64_t> dimensions,
                                         lazy_tensors::Span<const bool> dynamic_dimensions,
-                                        lazy_tensors::Span<const lazy_tensors::int64> layout) {
+                                        lazy_tensors::Span<const int64_t> layout) {
   lazy_tensors::Shape shape =
       lazy_tensors::ShapeUtil::MakeShapeWithLayout(type, dimensions, layout);
   SetDynamicDimensions(&shape, dynamic_dimensions);
@@ -163,7 +160,7 @@ lazy_tensors::Shape MakeShapeWithLayout(lazy_tensors::PrimitiveType type,
 
 }  // namespace
 
-lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const lazy_tensors::int64> dimensions,
+lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const int64_t> dimensions,
                                           lazy_tensors::Span<const bool> dynamic_dimensions,
                                           lazy_tensors::PrimitiveType type) {
   lazy_tensors::Shape shape =
@@ -172,10 +169,10 @@ lazy_tensors::Shape MakeTorchTensorLayout(lazy_tensors::Span<const lazy_tensors:
   return shape;
 }
 
-lazy_tensors::Shape MakeArrayShapeFromDimensions(
-    lazy_tensors::Span<const lazy_tensors::int64> dimensions,
-    lazy_tensors::Span<const bool> dynamic_dimensions, lazy_tensors::PrimitiveType type,
-    DeviceType device_type) {
+lazy_tensors::Shape MakeArrayShapeFromDimensions(lazy_tensors::Span<const int64_t> dimensions,
+                                                 lazy_tensors::Span<const bool> dynamic_dimensions,
+                                                 lazy_tensors::PrimitiveType type,
+                                                 DeviceType device_type) {
   auto layout_ptr = LayoutManager::Get()->GetLayout(dimensions);
   if (layout_ptr != nullptr) {
     return MakeShapeWithLayout(type, dimensions, dynamic_dimensions, *layout_ptr);

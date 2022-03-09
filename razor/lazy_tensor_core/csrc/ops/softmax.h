@@ -17,13 +17,13 @@ namespace ops {
 
 class Softmax : public Node {
  public:
-  Softmax(const Value& input, lazy_tensors::int64 dim, c10::optional<at::ScalarType> dtype);
+  Softmax(const Value& input, int64_t dim, c10::optional<at::ScalarType> dtype);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   }
 
@@ -32,7 +32,7 @@ class Softmax : public Node {
   }
 
  private:
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
   c10::optional<at::ScalarType> dtype_;
 };
 

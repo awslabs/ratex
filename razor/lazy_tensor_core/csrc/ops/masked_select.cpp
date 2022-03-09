@@ -17,7 +17,7 @@ namespace {
 
 lazy_tensors::Shape NodeOutputShape(const Value& input) {
   const lazy_tensors::Shape& input_shape = input.shape();
-  lazy_tensors::int64 input_elements = lazy_tensors::ShapeUtil::ElementsIn(input_shape);
+  int64_t input_elements = lazy_tensors::ShapeUtil::ElementsIn(input_shape);
   lazy_tensors::PrimitiveType size_type = GetShapeDimensionType(/*device=*/nullptr);
   lazy_tensors::Shape result_shape =
       lazy_tensors::ShapeUtil::MakeShape(input_shape.element_type(), {input_elements});

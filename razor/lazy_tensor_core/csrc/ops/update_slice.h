@@ -16,18 +16,18 @@ namespace ops {
 class UpdateSlice : public Node {
  public:
   UpdateSlice(const Value& input, const Value& source,
-              lazy_tensors::Span<const lazy_tensors::int64> base_indices);
+              lazy_tensors::Span<const int64_t> base_indices);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& base_indices() const {
+  const std::vector<int64_t>& base_indices() const {
     return base_indices_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> base_indices_;
+  std::vector<int64_t> base_indices_;
 };
 
 }  // namespace ops

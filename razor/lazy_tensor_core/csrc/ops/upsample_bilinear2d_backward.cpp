@@ -16,8 +16,8 @@ namespace ir {
 namespace ops {
 
 UpsampleBilinearBackward::UpsampleBilinearBackward(const Value& input,
-                                                   std::vector<lazy_tensors::int64> output_size,
-                                                   std::vector<lazy_tensors::int64> input_size,
+                                                   std::vector<int64_t> output_size,
+                                                   std::vector<int64_t> input_size,
                                                    bool align_corners)
     : Node(ir::OpKind(at::aten::upsample_bilinear2d_backward), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(output_size, input_size, align_corners)),

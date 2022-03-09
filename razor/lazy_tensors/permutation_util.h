@@ -14,15 +14,15 @@
 
 namespace lazy_tensors {
 
-std::vector<int64> InversePermutation(lazy_tensors::Span<const int64> input_permutation);
+std::vector<int64_t> InversePermutation(lazy_tensors::Span<const int64_t> input_permutation);
 
-bool IsPermutation(lazy_tensors::Span<const int64> permutation);
+bool IsPermutation(lazy_tensors::Span<const int64_t> permutation);
 
-bool IsIdentityPermutation(lazy_tensors::Span<const int64> permutation);
+bool IsIdentityPermutation(lazy_tensors::Span<const int64_t> permutation);
 
 template <typename Container>
 inline std::vector<typename Container::value_type> PermuteInverse(
-    const Container& input, lazy_tensors::Span<const int64> permutation) {
+    const Container& input, lazy_tensors::Span<const int64_t> permutation) {
   using T = typename Container::value_type;
   lazy_tensors::Span<const T> data(input);
   CHECK(IsPermutation(permutation));

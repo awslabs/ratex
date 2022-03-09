@@ -14,14 +14,14 @@ namespace ops {
 
 class IndexPut : public Node {
  public:
-  IndexPut(const ir::Value& base, const ir::Value& indices, lazy_tensors::int64 start_dim,
+  IndexPut(const ir::Value& base, const ir::Value& indices, int64_t start_dim,
            const ir::Value& values, bool accumulate);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 start_dim() const {
+  int64_t start_dim() const {
     return start_dim_;
   }
 
@@ -31,7 +31,7 @@ class IndexPut : public Node {
 
  private:
   // The dimension number at which indexing starts.
-  lazy_tensors::int64 start_dim_;
+  int64_t start_dim_;
   // Whether to accumulate instead of set.
   bool accumulate_;
 };

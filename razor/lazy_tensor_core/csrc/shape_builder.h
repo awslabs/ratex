@@ -19,19 +19,18 @@ class ShapeBuilder {
   explicit ShapeBuilder(lazy_tensors::PrimitiveType type) : type_(type) {
   }
 
-  ShapeBuilder& Add(const lazy_tensors::Shape& shape, lazy_tensors::int64 dim);
+  ShapeBuilder& Add(const lazy_tensors::Shape& shape, int64_t dim);
 
-  ShapeBuilder& Add(const lazy_tensors::Shape& shape,
-                    lazy_tensors::Span<const lazy_tensors::int64> dimensions);
+  ShapeBuilder& Add(const lazy_tensors::Shape& shape, lazy_tensors::Span<const int64_t> dimensions);
 
-  ShapeBuilder& Add(lazy_tensors::int64 size);
+  ShapeBuilder& Add(int64_t size);
 
   lazy_tensors::Shape Build() const;
 
  private:
   struct ShapeDim {
     const lazy_tensors::Shape* shape = nullptr;
-    lazy_tensors::int64 dim_or_size = -1;
+    int64_t dim_or_size = -1;
   };
 
   lazy_tensors::PrimitiveType type_;

@@ -13,7 +13,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-Gather::Gather(const Value& input, lazy_tensors::int64 dim, const Value& index)
+Gather::Gather(const Value& input, int64_t dim, const Value& index)
     : Node(ir::OpKind(at::aten::gather), {input, index},
            /*num_outputs=*/1, lazy_tensors::util::MHash(dim)),
       dim_(dim) {

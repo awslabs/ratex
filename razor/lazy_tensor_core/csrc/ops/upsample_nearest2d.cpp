@@ -15,7 +15,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-UpsampleNearest::UpsampleNearest(const Value& input, std::vector<lazy_tensors::int64> output_size)
+UpsampleNearest::UpsampleNearest(const Value& input, std::vector<int64_t> output_size)
     : Node(ir::OpKind(at::aten::upsample_nearest2d), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(output_size)),
       output_size_(std::move(output_size)) {

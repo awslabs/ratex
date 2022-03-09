@@ -14,7 +14,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-MinInDim::MinInDim(const Value& input, lazy_tensors::int64 dim, bool keepdim)
+MinInDim::MinInDim(const Value& input, int64_t dim, bool keepdim)
     : Node(ir::OpKind(at::aten::min), {input},
            /*num_outputs=*/2, lazy_tensors::util::MHash(dim, keepdim)),
       dim_(dim),

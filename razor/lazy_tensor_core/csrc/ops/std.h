@@ -17,14 +17,14 @@ namespace ops {
 
 class Std : public Node {
  public:
-  Std(const Value& input, std::vector<lazy_tensors::int64> dimensions, bool keep_reduced_dimensions,
-      lazy_tensors::int64 correction);
+  Std(const Value& input, std::vector<int64_t> dimensions, bool keep_reduced_dimensions,
+      int64_t correction);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  const std::vector<lazy_tensors::int64>& dimensions() const {
+  const std::vector<int64_t>& dimensions() const {
     return dimensions_;
   }
 
@@ -32,14 +32,14 @@ class Std : public Node {
     return keep_reduced_dimensions_;
   }
 
-  lazy_tensors::int64 correction() const {
+  int64_t correction() const {
     return correction_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> dimensions_;
+  std::vector<int64_t> dimensions_;
   bool keep_reduced_dimensions_;
-  lazy_tensors::int64 correction_;
+  int64_t correction_;
 };
 
 }  // namespace ops

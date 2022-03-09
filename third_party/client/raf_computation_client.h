@@ -24,8 +24,8 @@ class RAFComputationClient : public BaseComputationClient {
         : BaseData(std::move(device), GetShapeData(std::move(shape)), is_param), handle(handle) {
     }
 
-    int64 get_handle() const {
-      return reinterpret_cast<int64>(handle.get());
+    int64_t get_handle() const {
+      return reinterpret_cast<int64_t>(handle.get());
     }
 
     OpaqueHandle GetOpaqueHandle() override {

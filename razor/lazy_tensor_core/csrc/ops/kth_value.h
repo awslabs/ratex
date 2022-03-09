@@ -14,17 +14,17 @@ namespace ops {
 
 class KthValue : public Node {
  public:
-  KthValue(const Value& input, lazy_tensors::int64 k, lazy_tensors::int64 dim, bool keepdim);
+  KthValue(const Value& input, int64_t k, int64_t dim, bool keepdim);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 k() const {
+  int64_t k() const {
     return k_;
   };
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   };
 
@@ -33,8 +33,8 @@ class KthValue : public Node {
   }
 
  private:
-  lazy_tensors::int64 k_;
-  lazy_tensors::int64 dim_;
+  int64_t k_;
+  int64_t dim_;
   bool keepdim_;
 };
 

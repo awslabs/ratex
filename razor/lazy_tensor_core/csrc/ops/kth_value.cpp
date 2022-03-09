@@ -13,7 +13,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-KthValue::KthValue(const Value& input, lazy_tensors::int64 k, lazy_tensors::int64 dim, bool keepdim)
+KthValue::KthValue(const Value& input, int64_t k, int64_t dim, bool keepdim)
     : Node(ir::OpKind(at::aten::kthvalue), {input},
            /*num_outputs=*/2, lazy_tensors::util::MHash(k, dim, keepdim)),
       k_(k),

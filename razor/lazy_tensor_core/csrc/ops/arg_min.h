@@ -14,13 +14,13 @@ namespace ops {
 
 class ArgMin : public Node {
  public:
-  ArgMin(const Value& input, lazy_tensors::int64 dim, bool keepdim);
+  ArgMin(const Value& input, int64_t dim, bool keepdim);
 
   std::string ToString() const override;
 
   NodePtr Clone(OpList operands) const override;
 
-  lazy_tensors::int64 dim() const {
+  int64_t dim() const {
     return dim_;
   };
 
@@ -29,7 +29,7 @@ class ArgMin : public Node {
   }
 
  private:
-  lazy_tensors::int64 dim_;
+  int64_t dim_;
   bool keepdim_;
 };
 

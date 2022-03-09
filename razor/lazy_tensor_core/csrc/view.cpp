@@ -45,15 +45,13 @@ ir::Value ApplyViewInfo(ir::Value ir_value, const ViewInfo& view_info) {
       return ir::MakeNode<ir::ops::Permute>(ir_value, view_info.permutation);
     case ViewInfo::Type::kReshape:
       return ir::MakeNode<ir::ops::View>(
-          ir_value,
-          lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.shape.dimensions()));
+          ir_value, lazy_tensors::util::ToVector<int64_t>(view_info.shape.dimensions()));
     case ViewInfo::Type::kResize:
       return ir::MakeNode<ir::ops::Resize>(
-          ir_value,
-          lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.shape.dimensions()));
+          ir_value, lazy_tensors::util::ToVector<int64_t>(view_info.shape.dimensions()));
     case ViewInfo::Type::kAsStrided:
       return ir::MakeNode<ir::ops::AsStrided>(
-          ir_value, lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.shape.dimensions()),
+          ir_value, lazy_tensors::util::ToVector<int64_t>(view_info.shape.dimensions()),
           view_info.as_strided->stride, view_info.as_strided->offset);
     case ViewInfo::Type::kDiagonal:
       return ir::MakeNode<ir::ops::Diagonal>(ir_value, view_info.diagonal->offset,
@@ -92,18 +90,16 @@ ir::Value ApplyUpdate(ir::Value ir_value, const Alias::UpdateData& update_data) 
         break;
       case ViewInfo::Type::kReshape:
         result = ir::MakeNode<ir::ops::View>(
-            result,
-            lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.source_shape.dimensions()));
+            result, lazy_tensors::util::ToVector<int64_t>(view_info.source_shape.dimensions()));
         break;
       case ViewInfo::Type::kResize:
         result = ir::MakeNode<ir::ops::Resize>(
-            result,
-            lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.source_shape.dimensions()));
+            result, lazy_tensors::util::ToVector<int64_t>(view_info.source_shape.dimensions()));
         break;
       case ViewInfo::Type::kAsStrided:
         result = ir::MakeNode<ir::ops::AsStridedViewUpdate>(
             tmp_values[i - 1], result,
-            lazy_tensors::util::ToVector<lazy_tensors::int64>(view_info.source_shape.dimensions()),
+            lazy_tensors::util::ToVector<int64_t>(view_info.source_shape.dimensions()),
             view_info.as_strided->stride, view_info.as_strided->offset);
         break;
       case ViewInfo::Type::kDiagonal:
@@ -129,7 +125,7 @@ ViewInfo::ViewInfo(Type view_type, lazy_tensors::Shape shape, lazy_tensors::Shap
 }
 
 ViewInfo::ViewInfo(Type view_type, lazy_tensors::Shape source_shape,
-                   std::vector<lazy_tensors::int64> permutation)
+                   std::vector<int64_t> permutation)
     : view_type(view_type),
       shape(ir::ops::Permute::MakePermuteShape(source_shape, permutation)),
       source_shape(std::move(source_shape)),

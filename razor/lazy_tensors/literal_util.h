@@ -31,7 +31,7 @@ template <typename NativeT>
 template <typename NativeT>
 /* static */ Literal LiteralUtil::CreateR1(lazy_tensors::Span<const NativeT> values) {
   Literal literal(ShapeUtil::MakeShape(primitive_util::NativeToPrimitiveType<NativeT>(),
-                                       {static_cast<int64>(values.size())}));
+                                       {static_cast<int64_t>(values.size())}));
   literal.PopulateR1(values);
   return literal;
 }

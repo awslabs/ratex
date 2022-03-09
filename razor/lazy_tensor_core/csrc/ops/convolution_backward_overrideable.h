@@ -17,25 +17,23 @@ namespace ops {
 class ConvolutionBackwardOverrideable : public Node {
  public:
   ConvolutionBackwardOverrideable(const Value& grad_output, const Value& input, const Value& weight,
-                                  std::vector<lazy_tensors::int64> stride,
-                                  std::vector<lazy_tensors::int64> padding,
-                                  std::vector<lazy_tensors::int64> dilation, bool transposed,
-                                  std::vector<lazy_tensors::int64> output_padding,
-                                  lazy_tensors::int64 groups);
+                                  std::vector<int64_t> stride, std::vector<int64_t> padding,
+                                  std::vector<int64_t> dilation, bool transposed,
+                                  std::vector<int64_t> output_padding, int64_t groups);
 
   NodePtr Clone(OpList operands) const override;
 
   std::string ToString() const override;
 
-  const std::vector<lazy_tensors::int64>& stride() const {
+  const std::vector<int64_t>& stride() const {
     return stride_;
   }
 
-  const std::vector<lazy_tensors::int64>& padding() const {
+  const std::vector<int64_t>& padding() const {
     return padding_;
   }
 
-  const std::vector<lazy_tensors::int64>& dilation() const {
+  const std::vector<int64_t>& dilation() const {
     return dilation_;
   }
 
@@ -43,21 +41,21 @@ class ConvolutionBackwardOverrideable : public Node {
     return transposed_;
   }
 
-  const std::vector<lazy_tensors::int64>& output_padding() const {
+  const std::vector<int64_t>& output_padding() const {
     return output_padding_;
   }
 
-  lazy_tensors::int64 groups() const {
+  int64_t groups() const {
     return groups_;
   }
 
  private:
-  std::vector<lazy_tensors::int64> stride_;
-  std::vector<lazy_tensors::int64> padding_;
-  std::vector<lazy_tensors::int64> dilation_;
-  std::vector<lazy_tensors::int64> output_padding_;
+  std::vector<int64_t> stride_;
+  std::vector<int64_t> padding_;
+  std::vector<int64_t> dilation_;
+  std::vector<int64_t> output_padding_;
   bool transposed_;
-  lazy_tensors::int64 groups_;
+  int64_t groups_;
 };
 
 }  // namespace ops

@@ -14,7 +14,7 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-ReflectionPad2d::ReflectionPad2d(const Value& input, std::vector<lazy_tensors::int64> padding)
+ReflectionPad2d::ReflectionPad2d(const Value& input, std::vector<int64_t> padding)
     : Node(OpKind(at::aten::reflection_pad2d), {input},
            /*num_outputs=*/1, lazy_tensors::util::MHash(padding)),
       padding_(std::move(padding)) {
