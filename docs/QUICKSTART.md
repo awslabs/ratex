@@ -1,9 +1,9 @@
 <!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
-# PyTorch/RAF
+# Build Razor from Source
 
-Note that PyTorch/RAF is a PyTorch extension, so the PyTorch source code has to be available during the compilation. Accordingly, we require to set the environment variable `PYTORCH_SOURCE_PATH` before the compilation.
+Note that Razor is a PyTorch extension, so the PyTorch headers and shared libraries have to be available during the compilation. Accordingly, we require to set the environment variable `PYTORCH_SOURCE_PATH` before the compilation.
 
 In this guide, we will use the following directory organization:
 
@@ -16,28 +16,9 @@ $HOME
 
 And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
 
-### 1. Preparation
+## 1. Prepare Environment and PyTorch
 
-#### 1.0 Install prerequisites
-
-Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md
-
-#### 1.1 Clone a copy of the PyTorch repo
-
-```
-git clone git@github.com:pytorch/pytorch.git --recursive
-cd pytorch
-git submodule sync
-git submodule update --init --recursive --jobs 0
-```
-
-#### 1.2 Clone a copy of the razor (this repo)
-
-```
-git clone git@github.com:meta-project/razor.git --recursive
-```
-
-#### 1.3 Create a Python virtual environment (optional but recommanded)
+### 1.0 Create a Python virtual environment (optional but recommanded)
 
 Note that PyTorch now requires Python 3.7+. If your system has Python 3.7-, it is recommended to use Conda.
 
@@ -67,29 +48,72 @@ python3 -m pip install six numpy cython decorator scipy tornado typed_ast ordere
 export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 ```
 
-### 4. Build PyTorch
+### 1.1 Install prerequisites
 
-Note that you need to make sure you are now at the PyTorch source folder (`pytorch/`).
-You can directly run `bash $RAZOR_HOME/scripts/build_torch.sh` that performs all the following steps.
-If you are not interested in details, you can directly jump to the last step of this section
-to test whether the installation was successed.
+Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md
 
-#### 4.1. Suggested build environment
+### 1.2A Install PyTorch from PYPI (recommanded)
+
+One option to prepare PyTorch is via `pip install`, so that you could save the time to build PyTorch from source. For example, we simply pip install the nightly build PyTorch:
+
+```
+python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+```
+
+On the other hand, the PyTorch official wheel has two issues the prevent us from directly using it to build Razor:
+
+1. The PyTorch wheel does not have all header files, so we still need to clone the PyTorch repo. In this way, Razor will find the corresponding header files via `PYTORCH_SOURCE_PATH`.
+
+  ```
+  # First getting the git-hash for the PyTorch we just installed
+  PYTORCH_GIT_SHA=$(python3 -c "import torch; print(torch.version.git_version)")
+  # Clone PyTorch (no need to clone submodules)
+  git clone git@github.com:pytorch/pytorch.git
+  cd pytorch
+  git checkout $PYTORCH_GIT_SHA
+  python3 -m pip install -r requirements.txt
+  ```
+
+2. The PyTorch wheel was built without ABI. Since RAF is built with ABI, this results in incompatibile and compilation errors. Fortunately, PyTorch also releases libtorch with ABIs along with the nightly release, so we just need to download the corresponding libtorch and replace it.
+
+  ```
+  # First check the PyTorch is not built with ABI. You should see "False" if you install from nightly
+  python3 -c "import torch; print(torch._C._GLIBCXX_USE_CXX11_ABI)"
+  # Then we download the libtorch with ABIs and manually install it
+  wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-cxx11-abi-shared-with-deps-latest.zip
+  unzip libtorch-cxx11-abi-shared-with-deps-latest.zip
+  PYTORCH_INSTALL_PATH=$(dirname `python3 -c "import torch; print(torch.__file__)"`)
+  cp -rf libtorch/* $PYTORCH_INSTALL_PATH/
+  # Now we check the PyTorch again. This time you should see "True".
+  python3 -c "import torch; print(torch._C._GLIBCXX_USE_CXX11_ABI)"
+  ```
+
+### 1.2B Build PyTorch from source
+
+Alternatively, you could also build PyTorch from source. We first clone the PyTorch repo. Note that we need to clone submodules for PyTorch compilation.
+
+```
+git clone git@github.com:pytorch/pytorch.git --recursive
+cd pytorch
+git submodule sync
+git submodule update --init --recursive --jobs 0
+```
+
+Then we set some environment variables. Note that you need to make sure you are now at the PyTorch source folder (`pytorch/`).
 
 ```
 export CMAKE_C_COMPILER_LAUNCHER=ccache
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
-export CC=clang-8
-export CXX=clang++-8
+export CC=gcc
+export CXX=g++
 export BUILD_CPP_TESTS=0
 export DEBUG=0
 export TORCH_HOME="$(pwd)"
 export USE_CUDA=0 # We will use our own CUDA backend so we turn off the one in PyTorch.
-export USE_MKL=1 # To accelerate mode tracing.
 ```
 
-##### Install MKL
+(optional) Install MKL to facilitate graph-tracing:
 ```
 # Add GPG key
 cd /tmp
@@ -101,22 +125,20 @@ wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.li
 apt-get update
 # Install. Make sure to install 2020 or later version!
 apt install -y intel-mkl-2020.0-088
+# Enable MKL when building PyTorch
+export USE_MKL=1 # To accelerate mode tracing.
 ```
 
-#### 4.2. Install required Python packages (under `pytorch/`)
+Finally we could build PyTorch and install the wheel. Note that you need to make sure you are now at the PyTorch source folder (`pytorch/`).
+
 ```
 python3 -m pip install -r requirements.txt
-```
-
-#### 4.3. Build PyTorch and install wheel (under `pytorch/`)
-
-```
 python3 -m pip install wheel
 python3 setup.py bdist_wheel -d build/pip/public/pytorch
 python3 -m pip install build/pip/public/pytorch/*.whl --force-reinstall
 ```
 
-#### 4.5 Test Build
+### 1.3 Test Build
 
 ```
 # Switch to another place to make sure Python doesn't load torch in the current directory.
@@ -125,16 +147,21 @@ cd $HOME
 python3 -c "import torch; print(torch.__file__)"
 ```
 
-### 5. Build RAF/TVM
+## 2. Build RAF/TVM
+
+Now it's time to work on Razor. Let's first clone the repo:
+
+```
+git clone git@github.com:meta-project/razor.git --recursive
+```
 
 Since RAF and TVM do not have release wheels, we have to build them by ourselves for now.
 When they are available, we should be able to simply use `pip install` to let pip download
 and install their wheels.
 
-Same as building PyTorch, you can directly run `bash ./scripts/build_third_party.sh`
-under `razor/` to perform the following steps.
+You can directly run `bash ./scripts/build_third_party.sh` under `razor/` to perform the following steps.
 
-#### 5.1 Compile RAF/TVM (under `razor/`)
+### 2.1 Compile RAF/TVM (under `razor/`)
 
 Note that you can also compile RAF with other configurations, such as
 CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
@@ -161,7 +188,7 @@ Troubleshootings:
 razor/third_party/raf/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
 ```
 
-#### 5.2 Build/Install Meta/TVM wheels (under `razor/`)
+### 2.2 Build/Install RAF/TVM wheels (under `razor/`)
 
 ```
 export BASE_DIR=`pwd`
@@ -177,7 +204,7 @@ python3 setup.py bdist_wheel -d ../build/pip/public/raf
 python3 -m pip install ../build/pip/public/raf/*.whl --upgrade --force-reinstall --no-deps
 ```
 
-#### 5.3 Test Build
+### 2.3 Test Build
 
 Again, you should see the paths under site-packages or dist-packages instead of the source folder.
 
@@ -186,12 +213,11 @@ python3 -c "import tvm"
 python3 -c "import raf"
 ```
 
-### 6. Build PyTorch/RAF
+## 3. Build Razor
 
-#### 6.1 Build (under `razor/`)
+### 3.1 Build (under `razor/`)
 
-Same as building PyTorch, you can directly run `bash ./scripts/build_torch_mnm.sh`
-under `razor/` to perform the following steps.
+You can directly run `bash ./scripts/build_razor.sh` under `razor/` to perform the following steps.
 
 First make sure the environment is set:
 
@@ -199,8 +225,8 @@ First make sure the environment is set:
 export CMAKE_C_COMPILER_LAUNCHER=ccache
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
-export CC=clang-8
-export CXX=clang++-8
+export CC=gcc
+export CXX=g++
 export BUILD_CPP_TESTS=0
 ```
 
@@ -212,30 +238,22 @@ python3 -m pip install ./build/pip/public/razor/*.whl --force-reinstall --no-dep
 ```
 
 Troubleshootings:
-* If you encounter the following error, try to find `libpython3.6m.so.*` in your system. It might be just at the other place such as `/usr/lib/x86_64-linux-gnu/libpython3.6m.so.*`. Afterward, manually create symbolic links to `/usr/lib`.
+* If you encounter the following error, try to find `libpython3.7m.so.*` in your system. It might be just at the other place such as `/usr/lib/x86_64-linux-gnu/libpython3.7m.so.*`. Afterward, manually create symbolic links to `/usr/lib`.
 ```
 make[2]: *** No rule to make target '/usr/lib/libpython3.6m.so', needed by 'test_ptltc'.  Stop.
 ```
-* If you encounter the following error, check your build environment in the beginning of this step, amd make sure using `clang`.
-```
-In file included from /usr/include/c++/7/list:63:0,
-                 from /home/ubuntu/torch-mnm-venv/razor/lazy_tensor_core/lazy_tensors/computation_client/cache.h:5,
-                 from /home/ubuntu/torch-mnm-venv/razor/lazy_tensor_core/test/cpp/test_ltc_util_cache.cpp:5:
-/usr/include/c++/7/bits/stl_list.h:326:27: error: #if with no expression
- #if _GLIBCXX_USE_CXX11_ABI
-```
 
-#### 6.2 Test Build
+### 3.2 Test Build
 
 ```
 cd $HOME
 python3 -c "import razor"
 ```
 
-### 7. Run LeNet Example
+## 4. Run LeNet Example
 
 ```
-cd razor/docs/wiki
+cd razor/docs
 python3 -m pip install torchvision --no-deps # otherwise it will install PyTorch from wheel...
 python3 -m pip install Pillow
 python3 lenet.py

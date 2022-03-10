@@ -118,18 +118,6 @@ def generate_raf_aten_code(base_dir):
         sys.exit(1)
 
 
-def build_extra_libraries(base_dir, build_mode=None):
-    build_libs_cmd = [os.path.join(base_dir, "build_razor_libs.sh")]
-    cxx_abi = getattr(torch._C, "_GLIBCXX_USE_CXX11_ABI", None)
-    if cxx_abi is not None:
-        build_libs_cmd += ["-O", "-D_GLIBCXX_USE_CXX11_ABI={}".format(int(cxx_abi))]
-    if build_mode is not None:
-        build_libs_cmd += [build_mode]
-    if subprocess.call(build_libs_cmd) != 0:
-        print("Failed to build external libraries: {}".format(build_libs_cmd), file=sys.stderr)
-        sys.exit(1)
-
-
 def _compile_parallel(
     self,
     sources,
@@ -266,8 +254,6 @@ include_dirs = [
     os.path.join(third_party_path, "raf/3rdparty/tvm/3rdparty/compiler-rt"),
     os.path.join(third_party_path, "raf/3rdparty/tvm/3rdparty/dmlc-core/include"),
     os.path.join(third_party_path, "raf/3rdparty/tvm/3rdparty/dlpack/include"),
-    os.path.join(pytorch_source_dir, "torch/csrc"),
-    os.path.join(pytorch_source_dir, "torch/lib/tmp_install/include"),
 ]
 
 tvm_library_dir = os.path.dirname(tvm._ffi.libinfo.find_lib_path()[0])
@@ -296,6 +282,7 @@ extra_compile_args = [
     "-Wno-unknown-pragmas",
     "-Wno-deprecated-declarations",
     "-Wno-return-type",
+    "-Wunused-macros",
 ]
 
 if re.match(r"clang", os.getenv("CC", "")):

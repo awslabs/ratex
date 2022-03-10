@@ -8,8 +8,8 @@ set -ex
 export CMAKE_C_COMPILER_LAUNCHER=ccache
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 export CMAKE_CUDA_COMPILER_LAUNCHER=ccache
-export CC=clang-8
-export CXX=clang++-8
+export CC=gcc
+export CXX=g++
 export BUILD_CPP_TESTS=0
 
 if [ -z $PYTORCH_SOURCE_PATH ]; then
