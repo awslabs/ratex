@@ -9,7 +9,7 @@ from importlib import import_module
 import torch
 from raf import distributed as dist
 
-from . import _functional as F
+from . import utils
 from .optimizer import Optimizer
 
 
@@ -82,7 +82,7 @@ class Adam(Optimizer):
 
     @torch.no_grad()
     def step(self, closure=None):
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches, too-many-statements
         """Performs a single optimization step.
 
         Args:
@@ -144,24 +144,30 @@ class Adam(Optimizer):
                     state["step"] += 1
                     state_step = state["step"]
 
-                    updated_param_with_grad_local = F.adam(
-                        [param_with_grad_local],
-                        [grad],
-                        [exp_avg],
-                        [exp_avg_sq],
-                        [],
-                        [state_step],
-                        amsgrad=group["amsgrad"],
-                        beta1=beta1,
-                        beta2=beta2,
-                        lr=group["lr"],
-                        weight_decay=group["weight_decay"],
-                        eps=group["eps"],
-                    )
+                    bias_correction1 = 1 - beta1 ** state_step
+                    bias_correction2 = 1 - beta2 ** state_step
 
+                    if group["weight_decay"] != 0:
+                        grad = grad.add(param_with_grad_local, alpha=group["weight_decay"])
+
+                    # Decay the first and second moment running average coefficient
+                    exp_avg.mul_(utils.tensor_like(beta1, exp_avg)).add_(grad, alpha=1 - beta1)
+                    exp_avg_sq.mul_(utils.tensor_like(beta2, exp_avg_sq)).addcmul_(
+                        grad, grad, value=1 - beta2
+                    )
+                    if group["amsgrad"]:
+                        raise NotImplementedError("amsgrad==True is not yet supported")
+                    denom = (
+                        exp_avg_sq.sqrt()
+                        / utils.tensor_like(math.sqrt(bias_correction2), exp_avg_sq)
+                    ).add(utils.tensor_like(group["eps"], exp_avg_sq))
+
+                    step_size = group["lr"] / bias_correction1
+                    param_with_grad_local.addcdiv_(exp_avg, denom, value=-step_size)
                     if param.dtype == torch.float16:
-                        state["param"][:] = updated_param_with_grad_local
-                        updated_param_with_grad_local = updated_param_with_grad_local.half()
+                        updated_param_with_grad_local = param_with_grad_local.half()
+                    else:
+                        updated_param_with_grad_local = param_with_grad_local
 
                     if self._need_partition(param_with_grad_global):
                         # This line will be eventually replaced by allgather,
@@ -171,8 +177,8 @@ class Adam(Optimizer):
                             dim=0, index=index, src=updated_param_with_grad_local
                         )
                         index = None
-                    else:
-                        param_with_grad_global[:] = updated_param_with_grad_local
+                    elif param.dtype == torch.float16:
+                        param_with_grad_global.copy_(updated_param_with_grad_local)
 
                     if self._lm:
                         updated_param_with_grad_local = None
