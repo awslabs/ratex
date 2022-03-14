@@ -449,8 +449,8 @@ std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::_pack_padded_sequence(
   return at::native::_pack_padded_sequence(input, cpu_tensors[0], batch_first);
 }
 
-at::Tensor LazyNativeFunctions::_s_where(const at::Tensor& condition, const at::Tensor& self,
-                                         const at::Tensor& other) {
+at::Tensor LazyNativeFunctions::where(const at::Tensor& condition, const at::Tensor& self,
+                                      const at::Tensor& other) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::where(bridge::raf_backend::GetLtcTensor(condition),
                                                      bridge::raf_backend::GetLtcTensor(self),
@@ -491,23 +491,9 @@ at::Tensor LazyNativeFunctions::abs(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::abs(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::abs_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::abs_(self_tensor);
-  return self;
-}
-
 at::Tensor LazyNativeFunctions::acos(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::acos(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::acos_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::acos_(self_tensor);
-  return self;
 }
 
 at::Tensor LazyNativeFunctions::acosh(const at::Tensor& self) {
@@ -533,29 +519,6 @@ at::Tensor LazyNativeFunctions::add(const at::Tensor& self, const at::Scalar& ot
                     });
 }
 
-at::Tensor& LazyNativeFunctions::add_(at::Tensor& self, const at::Tensor& other,
-                                      const at::Scalar& alpha) {
-  LTC_FN_COUNTER("raf::");
-  at::native::alpha_check(at::result_type(self, other), alpha);
-  CheckBinaryOpTypePromotion(self, self, other);
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::add_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()),
-                   alpha);
-  return self;
-}
-
-at::Tensor& LazyNativeFunctions::add_(at::Tensor& self, const at::Scalar& other,
-                                      const at::Scalar& alpha) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::add_(self_tensor, other, alpha);
-    return self;
-  }
-  return AtenRAFTypeDefault::add_(self, other, alpha);
-}
-
 at::Tensor LazyNativeFunctions::addcdiv(const at::Tensor& self, const at::Tensor& tensor1,
                                         const at::Tensor& tensor2, const at::Scalar& value) {
   LTC_FN_COUNTER("raf::");
@@ -564,36 +527,12 @@ at::Tensor LazyNativeFunctions::addcdiv(const at::Tensor& self, const at::Tensor
       bridge::raf_backend::GetLtcTensor(tensor2)));
 }
 
-at::Tensor& LazyNativeFunctions::addcdiv_(at::Tensor& self, const at::Tensor& tensor1,
-                                          const at::Tensor& tensor2, const at::Scalar& value) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::addcdiv_(self_tensor, value, bridge::raf_backend::GetLtcTensor(tensor1),
-                         bridge::raf_backend::GetLtcTensor(tensor2));
-    return self;
-  }
-  return FALLBACK_ATEN_OP(addcdiv_, self, tensor1, tensor2, value);
-}
-
 at::Tensor LazyNativeFunctions::addcmul(const at::Tensor& self, const at::Tensor& tensor1,
                                         const at::Tensor& tensor2, const at::Scalar& value) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::addcmul(
       bridge::raf_backend::GetLtcTensor(self), value, bridge::raf_backend::GetLtcTensor(tensor1),
       bridge::raf_backend::GetLtcTensor(tensor2)));
-}
-
-at::Tensor& LazyNativeFunctions::addcmul_(at::Tensor& self, const at::Tensor& tensor1,
-                                          const at::Tensor& tensor2, const at::Scalar& value) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::addcmul_(self_tensor, value, bridge::raf_backend::GetLtcTensor(tensor1),
-                         bridge::raf_backend::GetLtcTensor(tensor2));
-    return self;
-  }
-  return FALLBACK_ATEN_OP(addcmul_, self, tensor1, tensor2, value);
 }
 
 at::Tensor LazyNativeFunctions::addmm(const at::Tensor& self, const at::Tensor& mat1,
@@ -711,25 +650,8 @@ at::Tensor LazyNativeFunctions::asin(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::asin(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::asin_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::asin_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(asin_, self);
-}
-
 at::Tensor LazyNativeFunctions::asinh(const at::Tensor& self) {
   return FALLBACK_ATEN_OP(asinh, self);
-}
-
-at::Tensor& LazyNativeFunctions::asinh_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::asinh_(self_tensor);
-  return self;
 }
 
 at::Tensor LazyNativeFunctions::atan(const at::Tensor& self) {
@@ -751,35 +673,6 @@ at::Tensor LazyNativeFunctions::atan2(const at::Tensor& self, const at::Tensor& 
                     [&](const LazyTensor& xself, const LazyTensor& xother, at::ScalarType dtype) {
                       return LazyTensor::atan2(xself, xother, dtype);
                     });
-}
-
-at::Tensor& LazyNativeFunctions::atan2_(at::Tensor& self, const at::Tensor& other) {
-  LTC_FN_COUNTER("raf::");
-  // razor::Atan2 doesn't support integer types.
-  if (!bridge::IsInteropView(self) && self.is_floating_point() && other.is_floating_point()) {
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::atan2_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return FALLBACK_ATEN_OP(atan2_, self, other);
-}
-
-at::Tensor& LazyNativeFunctions::atan_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::atan_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(atan_, self);
-}
-
-at::Tensor& LazyNativeFunctions::atanh_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::atanh_(self_tensor);
-  return self;
 }
 
 at::Tensor LazyNativeFunctions::avg_pool2d(const at::Tensor& self, at::IntArrayRef kernel_size,
@@ -857,20 +750,6 @@ at::Tensor LazyNativeFunctions::baddbmm(const at::Tensor& self, const at::Tensor
   return bridge::AtenFromLtcTensor(LazyTensor::baddbmm(
       bridge::raf_backend::GetLtcTensor(self), bridge::raf_backend::GetLtcTensor(batch1),
       bridge::raf_backend::GetLtcTensor(batch2), beta, alpha));
-}
-
-at::Tensor& LazyNativeFunctions::baddbmm_(at::Tensor& self, const at::Tensor& batch1,
-                                          const at::Tensor& batch2, const at::Scalar& beta,
-                                          const at::Scalar& alpha) {
-  LTC_FN_COUNTER("raf::");
-  // razor::dot doesn't support integer types.
-  if (!at::native::is_floating_point(batch1) || !at::native::is_floating_point(batch2)) {
-    return FALLBACK_ATEN_OP(baddbmm_, self, batch1, batch2, beta, alpha);
-  }
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::baddbmm_(self_tensor, bridge::raf_backend::GetLtcTensor(batch1),
-                       bridge::raf_backend::GetLtcTensor(batch2), beta, alpha);
-  return self;
 }
 
 at::Tensor LazyNativeFunctions::bernoulli(const at::Tensor& self,
@@ -1022,16 +901,6 @@ at::Tensor LazyNativeFunctions::ceil(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::ceil(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::ceil_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::ceil_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(ceil_, self);
-}
-
 at::Tensor LazyNativeFunctions::cholesky(const at::Tensor& self, bool upper) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
@@ -1052,31 +921,10 @@ at::Tensor LazyNativeFunctions::clamp(const at::Tensor& self, const c10::optiona
       LazyTensor::clamp(bridge::raf_backend::GetLtcTensor(self), min, max));
 }
 
-at::Tensor& LazyNativeFunctions::clamp_(at::Tensor& self, const c10::optional<at::Scalar>& min,
-                                        const c10::optional<at::Scalar>& max) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::clamp_(self_tensor, min, max);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(clamp_, self, min, max);
-}
-
 at::Tensor LazyNativeFunctions::clamp_max(const at::Tensor& self, const at::Scalar& max) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::clamp(bridge::raf_backend::GetLtcTensor(self), c10::nullopt, max));
-}
-
-at::Tensor& LazyNativeFunctions::clamp_max_(at::Tensor& self, const at::Scalar& max) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::clamp_(self_tensor, c10::nullopt, max);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(clamp_max_, self, max);
 }
 
 at::Tensor& LazyNativeFunctions::clamp_max_out(const at::Tensor& self, const at::Tensor& max,
@@ -1091,16 +939,6 @@ at::Tensor LazyNativeFunctions::clamp_min(const at::Tensor& self, const at::Scal
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::clamp(bridge::raf_backend::GetLtcTensor(self), min, c10::nullopt));
-}
-
-at::Tensor& LazyNativeFunctions::clamp_min_(at::Tensor& self, const at::Scalar& min) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::clamp_(self_tensor, min, c10::nullopt);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(clamp_min_, self, min);
 }
 
 at::Tensor& LazyNativeFunctions::clamp_min_out(const at::Tensor& self, const at::Tensor& min,
@@ -1168,29 +1006,9 @@ at::Tensor LazyNativeFunctions::cos(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::cos(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::cos_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::cos_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(cos_, self);
-}
-
 at::Tensor LazyNativeFunctions::cosh(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::cosh(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::cosh_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::cosh_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(cosh_, self);
 }
 
 at::Tensor LazyNativeFunctions::cross(const at::Tensor& self, const at::Tensor& other,
@@ -1245,7 +1063,7 @@ at::Tensor LazyNativeFunctions::div(const at::Tensor& self, const at::Tensor& ot
                                     c10::optional<c10::string_view> rounding_mode) {
   LTC_FN_COUNTER("raf::");
   at::ScalarType dtype = at::result_type(self, other);
-  auto operands = GetBinaryOperands(self, other);
+  auto operands = GetBinaryOperands(self, UnwrapNumber(other, dtype));
   return bridge::AtenFromLtcTensor(
       LazyTensor::div(operands.first, operands.second, rounding_mode, dtype));
 }
@@ -1253,34 +1071,6 @@ at::Tensor LazyNativeFunctions::div(const at::Tensor& self, const at::Tensor& ot
 at::Tensor LazyNativeFunctions::div(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::div(bridge::raf_backend::GetLtcTensor(self), other));
-}
-
-at::Tensor& LazyNativeFunctions::div_(at::Tensor& self, const at::Tensor& other) {
-  return div_(self, other, /*rounding_mode=*/c10::nullopt);
-}
-
-at::Tensor& LazyNativeFunctions::div_(at::Tensor& self, const at::Tensor& other,
-                                      c10::optional<c10::string_view> rounding_mode) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::div_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()),
-                     rounding_mode);
-    return self;
-  }
-  return AtenRAFTypeDefault::div_(self, other, rounding_mode);
-}
-
-at::Tensor& LazyNativeFunctions::div_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::div_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::div_(self, other);
 }
 
 at::Tensor LazyNativeFunctions::dot(const at::Tensor& self, const at::Tensor& tensor) {
@@ -1301,17 +1091,6 @@ at::Tensor LazyNativeFunctions::elu(const at::Tensor& self, const at::Scalar& al
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::elu(bridge::raf_backend::GetLtcTensor(self), alpha, scale, input_scale));
-}
-
-at::Tensor& LazyNativeFunctions::elu_(at::Tensor& self, const at::Scalar& alpha,
-                                      const at::Scalar& scale, const at::Scalar& input_scale) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::elu_(self_tensor, alpha, scale, input_scale);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(elu_, self, alpha, scale, input_scale);
 }
 
 at::Tensor LazyNativeFunctions::elu_backward(const at::Tensor& grad_output, const at::Scalar& alpha,
@@ -1380,39 +1159,9 @@ at::Tensor LazyNativeFunctions::eq(const at::Tensor& self, const at::Tensor& oth
                                                   bridge::raf_backend::GetLtcTensor(other)));
 }
 
-at::Tensor& LazyNativeFunctions::eq_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::eq_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::eq_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::eq_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::eq_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::eq_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::erf(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::erf(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::erf_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::erf_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(erf_, self);
 }
 
 at::Tensor LazyNativeFunctions::erfc(const at::Tensor& self) {
@@ -1420,41 +1169,14 @@ at::Tensor LazyNativeFunctions::erfc(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::erfc(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::erfc_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::erfc_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(erfc_, self);
-}
-
 at::Tensor LazyNativeFunctions::erfinv(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::erfinv(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::erfinv_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::erfinv_(self_tensor);
-  return self;
-}
-
 at::Tensor LazyNativeFunctions::exp(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::exp(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::exp_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::exp_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(exp_, self);
 }
 
 at::Tensor LazyNativeFunctions::expand(const at::Tensor& self, at::IntArrayRef size,
@@ -1467,16 +1189,6 @@ at::Tensor LazyNativeFunctions::expand(const at::Tensor& self, at::IntArrayRef s
 at::Tensor LazyNativeFunctions::expm1(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::expm1(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::expm1_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::expm1_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(expm1_, self);
 }
 
 at::Tensor& LazyNativeFunctions::exponential_(at::Tensor& self, double lambd,
@@ -1537,16 +1249,6 @@ at::Tensor LazyNativeFunctions::floor(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::floor(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::floor_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::floor_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(floor_, self);
-}
-
 at::Tensor LazyNativeFunctions::fmod(const at::Tensor& self, const at::Tensor& other) {
   LTC_FN_COUNTER("raf::");
   return DoBinaryOp(self, other,
@@ -1563,41 +1265,9 @@ at::Tensor LazyNativeFunctions::fmod(const at::Tensor& self, const at::Scalar& o
                     });
 }
 
-at::Tensor& LazyNativeFunctions::fmod_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::fmod_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::fmod_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::fmod_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::fmod_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::fmod_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::frac(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::frac(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::frac_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::frac_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(frac_, self);
 }
 
 at::Tensor LazyNativeFunctions::gather(const at::Tensor& self, int64_t dim, const at::Tensor& index,
@@ -1616,26 +1286,6 @@ at::Tensor LazyNativeFunctions::ge(const at::Tensor& self, const at::Tensor& oth
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::ge(bridge::raf_backend::GetLtcTensor(self),
                                                   bridge::raf_backend::GetLtcTensor(other)));
-}
-
-at::Tensor& LazyNativeFunctions::ge_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::ge_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::ge_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::ge_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::ge_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::ge_(self, other);
 }
 
 at::Tensor LazyNativeFunctions::gelu(const at::Tensor& self, c10::string_view approximate) {
@@ -1671,26 +1321,6 @@ at::Tensor LazyNativeFunctions::gt(const at::Tensor& self, const at::Tensor& oth
                                                   bridge::raf_backend::GetLtcTensor(other)));
 }
 
-at::Tensor& LazyNativeFunctions::gt_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::gt_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::gt_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::gt_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::gt_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::gt_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::hardshrink(const at::Tensor& self, const at::Scalar& lambda) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
@@ -1701,13 +1331,6 @@ at::Tensor LazyNativeFunctions::hardsigmoid(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::hardsigmoid(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::hardsigmoid_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::hardsigmoid_(self_tensor);
-  return self;
 }
 
 at::Tensor LazyNativeFunctions::hardsigmoid_backward(const at::Tensor& grad_output,
@@ -1731,17 +1354,6 @@ at::Tensor LazyNativeFunctions::hardtanh(const at::Tensor& self, const at::Scala
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::clamp(bridge::raf_backend::GetLtcTensor(self), min_val, max_val));
-}
-
-at::Tensor& LazyNativeFunctions::hardtanh_(at::Tensor& self, const at::Scalar& min_val,
-                                           const at::Scalar& max_val) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::clamp_(self_tensor, min_val, max_val);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(hardtanh_, self, min_val, max_val);
 }
 
 at::Tensor LazyNativeFunctions::hardtanh_backward(const at::Tensor& grad_output,
@@ -1876,41 +1488,11 @@ at::Tensor LazyNativeFunctions::le(const at::Tensor& self, const at::Tensor& oth
                                                   bridge::raf_backend::GetLtcTensor(other)));
 }
 
-at::Tensor& LazyNativeFunctions::le_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::le_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::le_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::le_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::le_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::le_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::leaky_relu(const at::Tensor& self,
                                            const at::Scalar& negative_slope) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::leaky_relu(bridge::raf_backend::GetLtcTensor(self), negative_slope.to<double>()));
-}
-
-at::Tensor& LazyNativeFunctions::leaky_relu_(at::Tensor& self, const at::Scalar& negative_slope) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::leaky_relu_(self_tensor, negative_slope.to<double>());
-    return self;
-  }
-  return FALLBACK_ATEN_OP(leaky_relu_, self, negative_slope);
 }
 
 at::Tensor LazyNativeFunctions::leaky_relu_backward(const at::Tensor& grad_output,
@@ -1935,49 +1517,15 @@ at::Tensor LazyNativeFunctions::log10(const at::Tensor& self) {
                                                         ir::OpKind(at::aten::log10), 10.0));
 }
 
-at::Tensor& LazyNativeFunctions::log10_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::log_base_(self_tensor, ir::OpKind(at::aten::log10), 10.0);
-  return self;
-}
-
 at::Tensor LazyNativeFunctions::log1p(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::log1p(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::log1p_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::log1p_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(log1p_, self);
 }
 
 at::Tensor LazyNativeFunctions::log2(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::log_base(bridge::raf_backend::GetLtcTensor(self),
                                                         ir::OpKind(at::aten::log2), 2.0));
-}
-
-at::Tensor& LazyNativeFunctions::log2_(at::Tensor& self) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::log_base_(self_tensor, ir::OpKind(at::aten::log2), 2.0);
-  return self;
-}
-
-at::Tensor& LazyNativeFunctions::log_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::log_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(log_, self);
 }
 
 at::Tensor LazyNativeFunctions::log_sigmoid_backward(const at::Tensor& grad_output,
@@ -2057,26 +1605,6 @@ at::Tensor LazyNativeFunctions::masked_select(const at::Tensor& self, const at::
 at::Tensor LazyNativeFunctions::max(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::max(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::lt_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::lt_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::lt_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::lt_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::lt_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::lt_(self, other);
 }
 
 std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::max(const at::Tensor& self, int64_t dim,
@@ -2314,28 +1842,6 @@ at::Tensor LazyNativeFunctions::mul(const at::Tensor& self, const at::Scalar& ot
                     });
 }
 
-at::Tensor& LazyNativeFunctions::mul_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::mul_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()));
-    return self;
-  }
-  return AtenRAFTypeDefault::mul_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::mul_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::mul_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::mul_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::mv(const at::Tensor& self, const at::Tensor& vec) {
   LTC_FN_COUNTER("raf::");
   // razor::dot doesn't support integer types.
@@ -2407,26 +1913,6 @@ at::Tensor LazyNativeFunctions::ne(const at::Tensor& self, const at::Tensor& oth
                                                   bridge::raf_backend::GetLtcTensor(other)));
 }
 
-at::Tensor& LazyNativeFunctions::ne_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::ne_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::ne_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::ne_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::ne_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::ne_(self, other);
-}
-
 at::Tensor LazyNativeFunctions::neg(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   LTC_CHECK(self.scalar_type() != at::kBool)
@@ -2434,16 +1920,6 @@ at::Tensor LazyNativeFunctions::neg(const at::Tensor& self) {
          "you are trying to invert a mask, use the `~` or `logical_not()` "
          "operator instead.";
   return bridge::AtenFromLtcTensor(LazyTensor::neg(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::neg_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::neg_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(neg_, self);
 }
 
 at::Tensor LazyNativeFunctions::nll_loss2d_backward(const at::Tensor& grad_output,
@@ -2609,28 +2085,6 @@ at::Tensor LazyNativeFunctions::pow(const at::Scalar& self, const at::Tensor& ex
       LazyTensor::pow(self, bridge::raf_backend::GetLtcTensor(exponent)));
 }
 
-at::Tensor& LazyNativeFunctions::pow_(at::Tensor& self, const at::Scalar& exponent) {
-  LTC_FN_COUNTER("raf::");
-  // razor::Pow() doesn't support integer types.
-  if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::pow_(self_tensor, exponent);
-    return self;
-  }
-  return AtenRAFTypeDefault::pow_(self, exponent);
-}
-
-at::Tensor& LazyNativeFunctions::pow_(at::Tensor& self, const at::Tensor& exponent) {
-  LTC_FN_COUNTER("raf::");
-  // razor::Pow() doesn't support integer types.
-  if (!bridge::IsInteropView(self) && at::native::is_floating_point(self)) {
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::pow_(self_tensor, bridge::raf_backend::GetLtcTensor(exponent));
-    return self;
-  }
-  return AtenRAFTypeDefault::pow_(self, exponent);
-}
-
 at::Tensor LazyNativeFunctions::prod(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -2713,16 +2167,6 @@ at::Tensor LazyNativeFunctions::reciprocal(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::reciprocal(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::reciprocal_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::reciprocal_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(reciprocal_, self);
-}
-
 at::Tensor LazyNativeFunctions::reflection_pad2d(const at::Tensor& self, at::IntArrayRef padding) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::reflection_pad2d(
@@ -2743,16 +2187,6 @@ at::Tensor LazyNativeFunctions::relu(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::relu(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::relu_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::relu_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(relu_, self);
-}
-
 at::Tensor LazyNativeFunctions::remainder(const at::Tensor& self, const at::Tensor& other) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::remainder(bridge::raf_backend::GetLtcTensor(self),
@@ -2763,26 +2197,6 @@ at::Tensor LazyNativeFunctions::remainder(const at::Tensor& self, const at::Scal
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::remainder(bridge::raf_backend::GetLtcTensor(self), other));
-}
-
-at::Tensor& LazyNativeFunctions::remainder_(at::Tensor& self, const at::Tensor& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::remainder_(self_tensor, bridge::raf_backend::GetLtcTensor(other));
-    return self;
-  }
-  return AtenRAFTypeDefault::remainder_(self, other);
-}
-
-at::Tensor& LazyNativeFunctions::remainder_(at::Tensor& self, const at::Scalar& other) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::remainder_(self_tensor, other);
-    return self;
-  }
-  return AtenRAFTypeDefault::remainder_(self, other);
 }
 
 at::Tensor LazyNativeFunctions::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
@@ -2835,16 +2249,6 @@ at::Tensor LazyNativeFunctions::round(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::round(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::round_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::round_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(round_, self);
-}
-
 at::Tensor LazyNativeFunctions::rrelu_with_noise(const at::Tensor& self, const at::Tensor& noise,
                                                  const at::Scalar& lower, const at::Scalar& upper,
                                                  bool training,
@@ -2875,16 +2279,6 @@ at::Tensor LazyNativeFunctions::rrelu_with_noise_backward(
 at::Tensor LazyNativeFunctions::rsqrt(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::rsqrt(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::rsqrt_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::rsqrt_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(rsqrt_, self);
 }
 
 at::Tensor LazyNativeFunctions::rsub(const at::Tensor& self, const at::Tensor& other,
@@ -2950,16 +2344,6 @@ at::Tensor LazyNativeFunctions::sigmoid(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::sigmoid(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::sigmoid_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sigmoid_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(sigmoid_, self);
-}
-
 at::Tensor LazyNativeFunctions::sigmoid_backward(const at::Tensor& grad_output,
                                                  const at::Tensor& output) {
   LTC_FN_COUNTER("raf::");
@@ -2972,44 +2356,14 @@ at::Tensor LazyNativeFunctions::sign(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::sign(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::sign_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sign_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(sign_, self);
-}
-
 at::Tensor LazyNativeFunctions::sin(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::sin(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::sin_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sin_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(sin_, self);
-}
-
 at::Tensor LazyNativeFunctions::sinh(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::sinh(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::sinh_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sinh_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(sinh_, self);
 }
 
 at::Tensor LazyNativeFunctions::slice(const at::Tensor& self, int64_t dim,
@@ -3100,16 +2454,6 @@ std::vector<at::Tensor> LazyNativeFunctions::split_with_sizes(const at::Tensor& 
 at::Tensor LazyNativeFunctions::sqrt(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::sqrt(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::sqrt_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sqrt_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(sqrt_, self);
 }
 
 at::Tensor LazyNativeFunctions::squeeze(const at::Tensor& self) {
@@ -3207,34 +2551,6 @@ at::Tensor LazyNativeFunctions::sub(const at::Tensor& self, const at::Scalar& ot
                     });
 }
 
-at::Tensor& LazyNativeFunctions::sub_(at::Tensor& self, const at::Tensor& other,
-                                      const at::Scalar& alpha) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    at::native::alpha_check(at::result_type(self, other), alpha);
-    CheckSubOperandTypes(self.scalar_type(), other.scalar_type());
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sub_(self_tensor, bridge::GetOrCreateLtcTensor(other, self_tensor.GetDevice()),
-                     alpha);
-    return self;
-  }
-  return AtenRAFTypeDefault::sub_(self, other, alpha);
-}
-
-at::Tensor& LazyNativeFunctions::sub_(at::Tensor& self, const at::Scalar& other,
-                                      const at::Scalar& alpha) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    CheckBinaryOpTypePromotion(self, self, other);
-    CheckSubOperandTypes(self.scalar_type(), GetScalarType(other));
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::sub_(self_tensor, other, alpha);
-    return self;
-  }
-  return AtenRAFTypeDefault::sub_(self, other, alpha);
-}
-
 at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -3297,29 +2613,9 @@ at::Tensor LazyNativeFunctions::tan(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::tan(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor& LazyNativeFunctions::tan_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::tan_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(tan_, self);
-}
-
 at::Tensor LazyNativeFunctions::tanh(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::tanh(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::tanh_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::tanh_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(tanh_, self);
 }
 
 at::Tensor LazyNativeFunctions::tanh_backward(const at::Tensor& grad_output,
@@ -3334,17 +2630,6 @@ at::Tensor LazyNativeFunctions::threshold(const at::Tensor& self, const at::Scal
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::threshold(
       bridge::raf_backend::GetLtcTensor(self), threshold.to<double>(), value.to<double>()));
-}
-
-at::Tensor& LazyNativeFunctions::threshold_(at::Tensor& self, const at::Scalar& threshold,
-                                            const at::Scalar& value) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::threshold_(self_tensor, threshold.to<double>(), value.to<double>());
-    return self;
-  }
-  return FALLBACK_ATEN_OP(threshold_, self, threshold, value);
 }
 
 at::Tensor LazyNativeFunctions::threshold_backward(const at::Tensor& grad_output,
@@ -3404,39 +2689,15 @@ at::Tensor LazyNativeFunctions::tril(const at::Tensor& self, int64_t diagonal) {
       LazyTensor::tril(bridge::raf_backend::GetLtcTensor(self), diagonal));
 }
 
-at::Tensor& LazyNativeFunctions::tril_(at::Tensor& self, int64_t diagonal) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::tril_(self_tensor, diagonal);
-  return self;
-}
-
 at::Tensor LazyNativeFunctions::triu(const at::Tensor& self, int64_t diagonal) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(
       LazyTensor::triu(bridge::raf_backend::GetLtcTensor(self), diagonal));
 }
 
-at::Tensor& LazyNativeFunctions::triu_(at::Tensor& self, int64_t diagonal) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  LazyTensor::triu_(self_tensor, diagonal);
-  return self;
-}
-
 at::Tensor LazyNativeFunctions::trunc(const at::Tensor& self) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::trunc(bridge::raf_backend::GetLtcTensor(self)));
-}
-
-at::Tensor& LazyNativeFunctions::trunc_(at::Tensor& self) {
-  if (!bridge::IsInteropView(self)) {
-    LTC_FN_COUNTER("raf::");
-    LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-    LazyTensor::trunc_(self_tensor);
-    return self;
-  }
-  return FALLBACK_ATEN_OP(trunc_, self);
 }
 
 std::vector<at::Tensor> LazyNativeFunctions::unbind(const at::Tensor& self, int64_t dim) {
