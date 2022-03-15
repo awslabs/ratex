@@ -10,10 +10,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RAZOR_DIR=$SCRIPT_DIR/../
-PATCH_DIR=$SCRIPT_DIR/torch_$VERSION
 PYTORCH_INSTALL_PATH=$(dirname `python3 -c "import torch; print(torch.__file__)"`)
 
-if [[ $VERSION = 1.11.0* ]]; then
+if [[ $VERSION = 1.11* ]]; then
+    PATCH_DIR=$SCRIPT_DIR/torch_1.11
     pushd .
     cd $RAZOR_DIR/
     git apply --check $PATCH_DIR/razor.patch
