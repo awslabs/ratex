@@ -3,16 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
-
-#include <c10/util/Logging.h>
-
-#define RAZOR_VLOG(n) ::c10::MessageLogger((char*)__FILE__, __LINE__, -n).stream()
+#include "razor_logging.h"
 
 namespace c10 {
 namespace detail {
 
-void setLogLevelFlag(int logging_level);
+void setLogLevelFlag(int logging_level) {
+  FLAGS_caffe2_log_level = logging_level;
+}
 
 }  // namespace detail
 }  // namespace c10

@@ -18,6 +18,7 @@
 #include "razor/csrc/compiler/utils.h"
 #include "razor/csrc/raf_model_state.h"
 #include "razor/csrc/aten_raf_bridge.h"
+#include "razor/csrc/utils/razor_logging.h"
 #include "client/raf_computation_client.h"
 #include "raf/registry.h"
 #include "raf/src/op/ty/utils.h"
@@ -166,6 +167,8 @@ void InitRAFModuleBindings(py::module m) {
   m.def("_raf_ltc_counter_metric", [](const std::string& name, int value) {
     lazy_tensors::metrics::Counter(name).AddValue(value);
   });
+
+  m.def("_set_razor_vlog_level", [](int value) { c10::detail::setLogLevelFlag(value); });
 }
 
 void InitRAFBindings(py::module m) {
