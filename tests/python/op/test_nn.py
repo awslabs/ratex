@@ -70,5 +70,35 @@ def test_pad():
     verify_step(Model(), [x], jit_script=False)
 
 
+def test_gelu():
+    """GeLU supports approximation since https://github.com/pytorch/pytorch/pull/72826"""
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x):
+            out = torch.nn.GELU("none")(x)
+            return out
+
+    shape = [5, 5]
+    x = torch.randn(*shape)
+    verify_step(Model(), [x])
+
+
+@pytest.mark.torch_1_11_test
+def test_gelu_old():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x):
+            out = torch.nn.GELU()(x)
+            return out
+
+    shape = [5, 5]
+    x = torch.randn(*shape)
+    verify_step(Model(), [x])
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

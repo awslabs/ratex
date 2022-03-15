@@ -92,6 +92,33 @@ function unit_test() {
     return 0
 }
 
+# Run compatibility unit tests for PyTorch 1.11
+function unit_test_torch_1_11() {
+    DEVICE=$1
+    export ENABLE_PARAM_ALIASING=true
+    export RAZOR_CACHE_DIR=""
+
+    if [[ $DEVICE == "GPU" ]]; then
+        export RAZOR_DEVICE=GPU
+    elif [[ $DEVICE == "CPU" ]]; then
+        export RAZOR_DEVICE=CPU
+    else
+        echo "Unrecognized devic: $DEVICE"
+        exit 1
+    fi
+    echo "==========================================================="
+    echo "[CLI] Running unit tests for PyTorch 1.11 with environment:"
+    echo "  RAZOR_DEVICE=$RAZOR_DEVICE"
+    echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
+    echo "  RAZOR_CACHE_DIR=$RAZOR_CACHE_DIR"
+    echo "==========================================================="
+    time python3 -m pytest tests/python/ -m torch_1_11_test
+    echo "=========================================="
+    echo "[CLI] Unit tests on $RAZOR_DEVICE are done"
+    echo "=========================================="
+    return 0
+}
+
 # Update CI badge
 function update_ci_badge() {
     PR=$1
