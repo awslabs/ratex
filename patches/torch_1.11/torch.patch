@@ -1,0 +1,11 @@
+--- _tensor.py	2022-03-11 17:58:28.832473664 +0000
++++ a.py	2022-03-11 18:32:49.054464767 +0000
+@@ -92,7 +92,7 @@
+             # does accurate alias tracking; however, the code below
+             # doesn't work because of
+             # https://github.com/pytorch/pytorch/issues/47442
+-            if self.is_sparse or self.device.type in ['xla', 'mlc', 'ort', 'meta', 'hpu']:
++            if self.is_sparse or self.device.type in ['lazy', 'xla', 'mlc', 'ort', 'meta', 'hpu']:
+                 new_tensor = self.clone()
+             else:
+                 new_storage = self.storage().__deepcopy__(memo)

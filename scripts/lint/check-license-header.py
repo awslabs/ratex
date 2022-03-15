@@ -17,7 +17,7 @@ Examples:
 """
 
 IGNORE_FILES = ["LICENSE", "README.md", ".gitignore", ".gitmodules"]
-IGNORE_FILE_EXTS = ["", ".json", ".png", ".txt"]
+IGNORE_FILE_EXTS = ["", ".json", ".png", ".txt", ".patch"]
 
 
 def copyright_line(line):

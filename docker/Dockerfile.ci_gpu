@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
+ARG PYTORCH_VERSION=nightly
 
 # Install basic dependencies.
 RUN apt-get update --fix-missing
@@ -34,9 +35,9 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 COPY install/ubuntu_install_apex.sh /install/ubuntu_install_apex.sh
 RUN bash /install/ubuntu_install_apex.sh
 
-# Install PyTorch
+# Install PyTorch w/o CUDA
 COPY install/ubuntu_install_torch.sh /install/ubuntu_install_torch.sh
-RUN bash /install/ubuntu_install_torch.sh
+RUN bash /install/ubuntu_install_torch.sh cpu $PYTORCH_VERSION
 ENV PYTORCH_SOURCE_PATH=/pytorch
 
 # To prevent `black` command line errors caused by ASCII encoding

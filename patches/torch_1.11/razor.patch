@@ -1,0 +1,25 @@
+diff --git a/razor/csrc/aten_raf_type.cpp b/razor/csrc/aten_raf_type.cpp
+index 0f60807..a46b94f 100644
+--- a/razor/csrc/aten_raf_type.cpp
++++ b/razor/csrc/aten_raf_type.cpp
+@@ -1288,18 +1288,13 @@ at::Tensor LazyNativeFunctions::ge(const at::Tensor& self, const at::Tensor& oth
+                                                   bridge::raf_backend::GetLtcTensor(other)));
+ }
+ 
+-at::Tensor LazyNativeFunctions::gelu(const at::Tensor& self, c10::string_view approximate) {
++at::Tensor LazyNativeFunctions::gelu(const at::Tensor& self) {
+   LTC_FN_COUNTER("raf::");
+-  auto gelu_type = at::native::get_gelutype_enum(approximate);
+-  LTC_CHECK_EQ(gelu_type, at::native::GeluType::None) << "Not supported GeLU approximation yet";
+   return bridge::AtenFromLtcTensor(LazyTensor::gelu(bridge::raf_backend::GetLtcTensor(self)));
+ }
+ 
+-at::Tensor LazyNativeFunctions::gelu_backward(const at::Tensor& grad, const at::Tensor& self,
+-                                              c10::string_view approximate) {
++at::Tensor LazyNativeFunctions::gelu_backward(const at::Tensor& grad, const at::Tensor& self) {
+   LTC_FN_COUNTER("raf::");
+-  auto gelu_type = at::native::get_gelutype_enum(approximate);
+-  LTC_CHECK_EQ(gelu_type, at::native::GeluType::None) << "Not supported GeLU approximation yet";
+   return bridge::AtenFromLtcTensor(LazyTensor::gelu_backward(
+       bridge::raf_backend::GetLtcTensor(grad), bridge::raf_backend::GetLtcTensor(self)));
+ }

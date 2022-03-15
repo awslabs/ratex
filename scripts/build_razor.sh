@@ -1,8 +1,6 @@
 #!/usr/bin
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-
-# Please make sure you are at the PyTorch folder when running this script.
 set -ex
 
 export CMAKE_C_COMPILER_LAUNCHER=ccache
@@ -16,6 +14,9 @@ if [ -z $PYTORCH_SOURCE_PATH ]; then
   echo "PYTORCH_SOURCE_PATH is not set"
   exit 1
 fi
+
+echo "Applying PyTorch patch..."
+bash ./patches/apply_patch.sh
 
 echo "Building razor wheels..."
 rm -rf ./build/pip/public/razor
