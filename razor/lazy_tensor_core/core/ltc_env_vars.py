@@ -1,6 +1,7 @@
+# Copyright (c) 2018 Google Inc. All Rights Reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-# Modifications Copyright (c) Facebook, Inc.
 
 MP_DEVICE = "XRT_MULTI_PROCESSING_DEVICE"
 LOCAL_WORKER = "XRT_LOCAL_WORKER"
