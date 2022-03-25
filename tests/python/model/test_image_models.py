@@ -11,9 +11,18 @@ import raf
 import pytest
 import torch.optim as optim
 import torchvision
-from razor.optimizer import LANS, SGD
+from razor.optimizer import LANS, SGD, Adam
 from razor.testing import TorchLeNet, fake_image_dataset, train, verify
-from razor.testing import with_seed, with_temp_cache, dryrun_dumped_ir_file
+from razor.testing import (
+    with_seed,
+    with_temp_cache,
+    dryrun_dumped_ir_file,
+    with_enable_param_aliasing,
+    get_most_recent_alias,
+    with_mock_distributed_context,
+)
+
+LENET_PARAM_NUM = 8
 
 
 @pytest.mark.parametrize("optimizer", [optim.SGD, SGD, LANS])
@@ -80,7 +89,48 @@ def test_compile_lenet_dp(mock_get_context):
         module = raf.ir.serialization.LoadJSON(module_json)
 
     text = raf.ir.AsText(module)
-    assert text.count("_allreduce") == 8
+    assert text.count("_allreduce") == LENET_PARAM_NUM
+
+
+@with_temp_cache
+@dryrun_dumped_ir_file
+@with_enable_param_aliasing
+@with_mock_distributed_context(world_size=2, rank=1, zero_opt_level=1)
+@pytest.mark.parametrize(
+    "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}, 1), (Adam, {"lr": 0.001}, 2)]
+)
+@pytest.mark.parametrize("grad_inplace", [True, False])
+def test_compile_lenet_zero1(optimizer, grad_inplace):
+    batch_size = 1
+    dataset = fake_image_dataset(batch_size, 1, 28, 10)
+    model = TorchLeNet()
+
+    train(
+        "lazy",
+        model,
+        dataset,
+        optimizer=optimizer[0],
+        optimizer_params=optimizer[1],
+        batch_size=batch_size,
+        num_epochs=1,
+        trim=True,
+        set_to_none=not grad_inplace,
+    )
+
+    # Last meta ir graph is the optimizer graph
+    meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
+    with open(meta_ir_file) as module_file:
+        module_json = module_file.read()
+        module = raf.ir.serialization.LoadJSON(module_json)
+
+    text = raf.ir.AsText(module)
+    alias = get_most_recent_alias()
+    assert text.count("_allgather") == LENET_PARAM_NUM
+
+    # If gradient is set to zero, expected alias num = #weights + #model_states
+    # If not, expected alias num = #grads + #weights + #model_states
+    expected_alias_num = LENET_PARAM_NUM * (grad_inplace + 1 + optimizer[2])
+    assert len(alias) >= expected_alias_num
 
 
 if __name__ == "__main__":

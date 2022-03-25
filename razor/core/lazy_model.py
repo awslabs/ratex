@@ -39,8 +39,8 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
     """
 
     dctx = dist.get_context()
-    if groups is None:
-        groups = [list(range(0, dctx.size))]
+    assert groups is None, "Razor doesn't support custom replica groups yet"
+    groups = [list(range(0, dctx.size))]
 
     if isinstance(inputs, torch.Tensor):
         token = _RAZORC._raf_create_token(inputs.device.type)
@@ -54,26 +54,38 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
     return results[0] if isinstance(inputs, torch.Tensor) else results
 
 
-def all_gather(value, dim=0, groups=None):
+def all_gather(value, dim=0, groups=None, output=None):
     """Performs an all-gather operation along a given dimension.
-
     Args:
-        value (torch.Tensor): The input tensor.
-        dim (int): The gather dimension. Default: 0
-        groups (list, optional): A list of list, representing the replica groups for
-        the all_gather() operation.
-        Example: [[0, 1, 2, 3], [4, 5, 6, 7]] defines two groups, one with the [0, 1, 2, 3]
-        replicas and one with the [4, 5, 6, 7] replicas. If None there will be only one group
-        with all the replicas in it.
-
+      value (torch.Tensor): The input tensor.
+      dim (int): The gather dimension.
+        Default: 0
+      groups (list, optional): A list of list, representing the replica groups for
+        the `all_gather()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
+          defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+          the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+          all the replicas in it.
+      output (torch.Tensor, optional): Optional output tensor.
     Returns:
-        A tensor which has, in the dim dimension, all the values from the participating replicas.
+      A tensor which has, in the ``dim`` dimension, all the values from the
+      participating replicas.
     """
     dctx = dist.get_context()
-    if groups is None:
-        groups = [list(range(0, dctx.size))]
-    result = _RAZORC._raf_all_gather(value, dim, groups)
-    return result
+    if dim < 0:
+        dim = value.dim() + dim
+    token = _RAZORC._raf_create_token(value.device.type)
+
+    assert groups is None, "Razor doesn't support custom replica groups yet"
+    groups = [list(range(0, dctx.size))]
+    shard_count = dctx.size
+
+    if output is not None:
+        # Call the out of place version of the all_gather
+        _RAZORC._ltc_all_gather_out(output, value, token, dim, shard_count, groups or [])
+        return output
+
+    result = _RAZORC._ltc_all_gather(value, token, dim, shard_count, groups or [])
+    return result[0]
 
 
 def reduce_gradients(optimizer, groups=None):
@@ -96,6 +108,4 @@ def reduce_gradients(optimizer, groups=None):
                 if group == "params":
                     for p in params:
                         if isinstance(p, torch.Tensor) and p.grad is not None:
-                            p.grad = all_reduce(
-                                REDUCE_SUM, p.grad, scale=1.0 / world_size, groups=groups
-                            )
+                            all_reduce(REDUCE_SUM, [p.grad], scale=1.0 / world_size, groups=groups)

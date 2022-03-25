@@ -12,6 +12,7 @@
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool2d.h"
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool3d.h"
 #include "lazy_tensor_core/csrc/ops/all.h"
+#include "lazy_tensor_core/csrc/ops/all_gather.h"
 #include "lazy_tensor_core/csrc/ops/all_reduce.h"
 #include "lazy_tensor_core/csrc/ops/amp_foreach_non_finite_check_and_unscale.h"
 #include "lazy_tensor_core/csrc/ops/amp_update_scale.h"
@@ -121,7 +122,6 @@
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensors/shape_util.h"
 
-#include "razor/csrc/ops/all_gather.h"
 #include "razor/csrc/ops/relay_expr.h"
 #include "razor/csrc/ops/relay_function.h"
 #include "razor/csrc/ops/log_softmax_backward_use_in.h"
@@ -224,7 +224,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ConstantPadNd);
   DECLARE_OP2(Scatter);
   DECLARE_OP2(AllReduce);
-  DECLARE_OP2(RAFAllGather);
+  DECLARE_OP2(AllGather);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -239,7 +239,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
-  lazy_tensors::Shape InferRAFAllGather(const ir::ops::RAFAllGather* node);
+  lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
 };
 
 #undef DECLARE_OP2
@@ -342,9 +342,8 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
         return LowerLogSoftmaxBackwardUseIn(ir::NodeCast<ir::ops::LogSoftmaxBackwardUseIn>(
             node, *ir::ops::raf_log_softmax_backward_use_in));
       }
-      if (node->op() == *ir::ops::raf_all_gather) {
-        return LowerRAFAllGather(
-            ir::NodeCast<ir::ops::RAFAllGather>(node, *ir::ops::raf_all_gather));
+      if (node->op() == *ir::ops::ltc_all_gather) {
+        return LowerAllGather(ir::NodeCast<ir::ops::AllGather>(node, *ir::ops::ltc_all_gather));
       }
       if (node->op() == *ir::ops::ltc_cross_replica_sum) {
         return LowerAllReduce(
@@ -1048,6 +1047,8 @@ Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) 
       scale = MakeConstant(ScalarValue::make(float(scale_value)));
     } else if (dtype.code == DTypeCode::kInt() && dtype.bits == 32) {
       scale = MakeConstant(ScalarValue::make(int(scale_value)));
+    } else if (dtype.code == DTypeCode::kFloat() && dtype.bits == 16) {
+      scale = MakeConstant(FloatValue::make(DataType::Float(16), scale_value));
     } else {
       LTC_LOG(FATAL) << "Unsupported Allreduce datatype "
                      << node->operands()[0].shape().element_type();
@@ -1065,17 +1066,21 @@ Var RAFNodeLowering::LowerAllReduce(const ir::ops::AllReduce* node) {
   return BuildAllReduce(ops, node);
 }
 
-Var BuildRAFAllGather(const std::vector<Var>& ops, const ir::ops::RAFAllGather* node) {
-  LTC_CHECK_EQ(ops.size(), 1U);
+Var BuildAllGather(const std::vector<Var>& ops, const ir::ops::AllGather* node) {
+  LTC_CHECK_EQ(ops.size(), 2U);
   Var x = ops[0];
+  // The last element in the operands is token
+  Var token = ops.back();
   Expr dim = MakeConstant(Int(node->dim()));
-  return BindSymbol(raf::ir::Call(Op::Get("raf.op._allgather"), {x, dim}));
+  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._allgather"), {x, dim}));
+  return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, token})));
 }
 
-Var RAFNodeLowering::LowerRAFAllGather(const ir::ops::RAFAllGather* node) {
-  LTC_CHECK_EQ(node->num_outputs(), 1);
-  Var x = loctx()->GetOutputOp(node->operand(0));
-  return BuildRAFAllGather({x}, node);
+Var RAFNodeLowering::LowerAllGather(const ir::ops::AllGather* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 2);
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildAllGather(ops, node);
 }
 
 lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
@@ -1128,9 +1133,8 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
         return InferRelayFunction(
             ir::NodeCast<ir::ops::RelayFunction>(node, *ir::ops::raf_relay_function));
       }
-      if (kind == *ir::ops::raf_all_gather) {
-        return InferRAFAllGather(
-            ir::NodeCast<ir::ops::RAFAllGather>(node, *ir::ops::raf_all_gather));
+      if (kind == *ir::ops::ltc_all_gather) {
+        return InferAllGather(ir::NodeCast<ir::ops::AllGather>(node, *ir::ops::ltc_all_gather));
       }
       if (kind == *ir::ops::ltc_cross_replica_sum) {
         return InferAllReduce(
@@ -1225,13 +1229,12 @@ lazy_tensors::Shape RAFNodeLowering::InferAllReduce(const ir::ops::AllReduce* no
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape RAFNodeLowering::InferRAFAllGather(const ir::ops::RAFAllGather* node) {
-  LTC_CHECK_EQ(node->operands().size(), 1U);
+lazy_tensors::Shape RAFNodeLowering::InferAllGather(const ir::ops::AllGather* node) {
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
-  Var out = BuildRAFAllGather(ops, node);
+  Var out = BuildAllGather(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

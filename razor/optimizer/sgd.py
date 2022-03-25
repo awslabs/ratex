@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from raf import distributed as dist
+from razor.core.lazy_model import all_gather
 
 from .optimizer import Optimizer
 
@@ -40,21 +41,17 @@ class SGD(Optimizer):
                 loss = closure()
 
         for group in self.param_groups:
-            momentum = None
             lr = group["lr"]
+            momentum = group["momentum"]
 
             for p in group["params"]:
                 if p.grad is not None:
                     state = self.state[p]
-
                     if group["momentum"] == 0:
                         p.add_(p.grad, alpha=-lr)
                         if self._lm:
                             self._lm.mark_step()
                         continue
-
-                    if momentum is None:
-                        momentum = torch.FloatTensor([group["momentum"]]).to(p.device)
 
                     if not state:
                         if self._need_partition(p):
@@ -86,14 +83,7 @@ class SGD(Optimizer):
                         momentum_buffer.mul_(momentum).add_(grad_slice)
 
                         new_weight_slice = data_slice + momentum_buffer * (-lr)
-
-                        # This line will be eventually replaced by allgather,
-                        # so the index doesn't matter
-                        p.scatter_(
-                            dim=0,
-                            index=torch.zeros_like(new_weight_slice, dtype=torch.int64),
-                            src=new_weight_slice,
-                        )
+                        all_gather(new_weight_slice, dim=0, output=p.data)
 
                         # Hints for LTC to not output the intermediate tensors
                         del grad_slice

@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from torch import nn, optim
 
 import raf
+from raf import distributed as dist
 import razor
 from razor.utils.cache import Cache, cache
 from ..lazy_tensor_core.core import lazy_model as lm
@@ -186,11 +187,54 @@ def dryrun_dumped_ir_file(orig_test):
                 {
                     "RAZOR_DRY_RUN": "true",
                     "RAZOR_SAVE_IR_FILE": str(Path(temp_dir) / "module.json"),
+                    "RAZOR_DUMP_ALIAS": str(Path(temp_dir) / "alias.txt"),
                 },
             ):
                 return orig_test(*args, **kwargs)
 
     return wrapper
+
+
+def with_enable_param_aliasing(orig_test, enable=True):
+    """A decorator for test functions to dump tensor files for verification."""
+
+    @functools.wraps(orig_test)
+    def wrapper(*args, **kwargs):
+
+        with patch.dict(
+            os.environ,
+            {
+                "ENABLE_PARAM_ALIASING": ("true" if enable else "false"),
+            },
+        ):
+            return orig_test(*args, **kwargs)
+
+    return wrapper
+
+
+def with_mock_distributed_context(world_size, rank, zero_opt_level=0, enable_data_parallel=False):
+    """
+    A decorator for testing fucntions with mock distributed context. This also sets the CPP values.
+    """
+
+    def test_helper(orig_test):
+        @functools.wraps(orig_test)
+        def wrapper(*args, **kwargs):
+            dctx = dist.get_context()
+            old_dctx = dctx.dumps()
+            dctx.size = world_size
+            dctx.rank = rank
+            dctx.zero_opt_level = zero_opt_level
+            dctx.enable_data_parallel = enable_data_parallel
+
+            retval = orig_test(*args, **kwargs)
+
+            dctx.loads(old_dctx)
+            return retval
+
+        return wrapper
+
+    return test_helper
 
 
 def fake_image_dataset(batch, channel, image_size, num_classes):
@@ -248,11 +292,9 @@ def train(
         for idx, (inputs, labels) in enumerate(dataloader):
             inputs = inputs.to(device)
             if force_one_hot:
-                labels = torch.from_numpy(np.eye(num_classes, dtype=np.float32)[labels])
+                labels = torch.from_numpy(np.eye(num_classes, dtype=np.float32)[labels]).to(dtype)
             labels = labels.to(device)
             with razor.amp.autocast(amp):
-                if not acc_grad_steps or idx % acc_grad_steps == 0:
-                    optimizer.zero_grad(set_to_none=set_to_none)
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 loss = loss / acc_grad_steps if acc_grad_steps else loss
@@ -260,11 +302,15 @@ def train(
                 if trim:
                     logger.log(logging.DEBUG, "Mark Step...")
                     lm.mark_step()
-                if reduce_gradients:
-                    razor.core.lazy_model.reduce_gradients(optimizer)
                 if not acc_grad_steps or idx % acc_grad_steps == (acc_grad_steps - 1):
+                    if reduce_gradients:
+                        razor.core.lazy_model.reduce_gradients(optimizer)
                     optimizer.step()
                     logger.log(logging.DEBUG, "Mark Step...")
+                    if set_to_none:
+                        optimizer.zero_grad(set_to_none=set_to_none)
+                    else:
+                        optimizer.zero_grad(inplace_update=True)
                     lm.mark_step()
             running_loss.append((loss, inputs.size(0)))
             if epilogue_closure:
@@ -310,6 +356,7 @@ def run_step(device, model_origin, args, jit_script=True):
         model = razor.jit.script(model)
     args = [arg.to(device) for arg in args]
     out = model(*args)
+    lm.mark_step()
     out = out.to("cpu")
     return out
 
@@ -348,7 +395,7 @@ def compile_model(model_origin, args, jit_script=True):
         meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
         run_step("lazy", model_origin, args, jit_script)
 
-        with open(meta_ir_file) as module_file:
+        with open(meta_ir_file, "r") as module_file:
             module_json = module_file.read()
             module = raf.ir.serialization.LoadJSON(module_json)
         return module
@@ -373,3 +420,14 @@ def check(m_x, m_y, *, rtol=1e-5, atol=1e-5):
     m_x = numpy(m_x)
     m_y = numpy(m_y)
     np.testing.assert_allclose(m_x, m_y, rtol=rtol, atol=atol)
+
+
+def get_most_recent_alias():
+    """Return the input to output alias of the most recent compiled module"""
+    alias_dump_file = os.environ["RAZOR_DUMP_ALIAS"]
+    assert alias_dump_file
+    alias = {}
+    with open(alias_dump_file, "r") as alias_file:
+        alias_text = alias_file.read()
+        alias = {line.split()[0]: line.split()[1] for line in alias_text.splitlines()}
+    return alias

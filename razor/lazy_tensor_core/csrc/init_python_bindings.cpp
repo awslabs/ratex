@@ -198,6 +198,28 @@ std::pair<at::Tensor, std::shared_ptr<ir::Value>> AllToAll(
       bridge::AtenFromLtcTensor(std::move(result)), std::make_shared<ir::Value>(new_token));
 }
 
+std::pair<at::Tensor, std::shared_ptr<ir::Value>> AllGather(
+    const at::Tensor& input, const std::shared_ptr<ir::Value>& token, int64_t dim,
+    int64_t shard_count, const std::vector<std::vector<int64_t>>& replica_groups) {
+  LazyTensor result;
+  ir::Value new_token;
+  std::tie(result, new_token) =
+      LazyTensor::all_gather(bridge::GetLtcTensor(input), *token, dim, shard_count, replica_groups);
+  return {bridge::AtenFromLtcTensor(std::move(result)), std::make_shared<ir::Value>(new_token)};
+}
+
+std::shared_ptr<ir::Value> AllGatherOut(at::Tensor& output, const at::Tensor& input,
+                                        const std::shared_ptr<ir::Value>& token, int64_t dim,
+                                        int64_t shard_count,
+                                        const std::vector<std::vector<int64_t>>& replica_groups) {
+  LazyTensor out = bridge::GetLtcTensor(output);
+  ir::Value new_token;
+  new_token = LazyTensor::all_gather_out(out, bridge::GetLtcTensor(input), *token, dim, shard_count,
+                                         replica_groups);
+
+  return std::make_shared<ir::Value>(new_token);
+}
+
 std::pair<at::Tensor, std::shared_ptr<ir::Value>> CollectivePermute(
     const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
     const std::vector<std::pair<int64_t, int64_t>>& source_target_pairs) {
@@ -504,23 +526,49 @@ void InitLtcModuleBindings(py::module m) {
     result_tuple[1] = new_token;
     return result_tuple;
   });
-  m.def(
-      "_ltc_collective_permute",
-      [](const at::Tensor& input, const std::shared_ptr<ir::Value>& token, const py::list& pairs) {
-        std::vector<std::pair<int64_t, int64_t>> source_target_pairs =
-            CreateSourceTargetPairs(pairs);
-        at::Tensor result;
-        std::shared_ptr<ir::Value> new_token;
-        {
-          NoGilSection nogil;
-          std::tie(result, new_token) = CollectivePermute(input, token, source_target_pairs);
-        }
-        auto result_tuple = py::tuple(2);
-        result_tuple[0] =
-            torch::autograd::make_variable(result, /*requires_grad=*/input.requires_grad());
-        result_tuple[1] = new_token;
-        return result_tuple;
-      });
+  m.def("_ltc_all_gather", [](const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
+                              int64_t dim, int64_t shard_count, const py::list& groups) {
+    std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
+    at::Tensor result;
+    std::shared_ptr<ir::Value> new_token;
+    {
+      NoGilSection nogil;
+      std::tie(result, new_token) = AllGather(input, token, dim, shard_count, replica_groups);
+    }
+    auto result_tuple = py::tuple(2);
+    result_tuple[0] =
+        torch::autograd::make_variable(result, /*requires_grad=*/input.requires_grad());
+    result_tuple[1] = new_token;
+    return result_tuple;
+  });
+  m.def("_ltc_all_gather_out",
+        [](at::Tensor& output, const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
+           int64_t dim, int64_t shard_count, const py::list& groups) {
+          std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
+          at::Tensor result;
+          std::shared_ptr<ir::Value> new_token;
+          {
+            NoGilSection nogil;
+            new_token = AllGatherOut(output, input, token, dim, shard_count, replica_groups);
+          }
+          return new_token;
+        });
+  m.def("_ltc_collective_permute", [](const at::Tensor& input,
+                                      const std::shared_ptr<ir::Value>& token,
+                                      const py::list& pairs) {
+    std::vector<std::pair<int64_t, int64_t>> source_target_pairs = CreateSourceTargetPairs(pairs);
+    at::Tensor result;
+    std::shared_ptr<ir::Value> new_token;
+    {
+      NoGilSection nogil;
+      std::tie(result, new_token) = CollectivePermute(input, token, source_target_pairs);
+    }
+    auto result_tuple = py::tuple(2);
+    result_tuple[0] =
+        torch::autograd::make_variable(result, /*requires_grad=*/input.requires_grad());
+    result_tuple[1] = new_token;
+    return result_tuple;
+  });
   m.def("_ltc_set_default_device",
         [](const std::string& device) { return SetCurrentThreadDevice(device); });
   m.def("_ltc_get_default_device", []() { return GetCurrentThreadDevice(); });
@@ -578,6 +626,7 @@ void InitLtcModuleBindings(py::module m) {
       py::arg("nodes_threshold") = 100, py::arg("device") = "");
   m.def("_ltc_memory_info",
         [](const std::string& device) -> py::object { return GetMemoryInfo(device); });
+  m.def("_ltc_clear_jit_cache", []() { LazyTensor::GetComputationCache()->Clear(); });
 }
 
 }  // namespace

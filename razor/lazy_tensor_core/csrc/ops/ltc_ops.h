@@ -45,6 +45,7 @@ extern const OpKindWrapper ltc_as_strided_view_update;
 extern const OpKindWrapper ltc_cast;
 extern const OpKindWrapper ltc_collective_permute;
 extern const OpKindWrapper ltc_cross_replica_sum;
+extern const OpKindWrapper ltc_all_gather;
 extern const OpKindWrapper ltc_device_data;
 extern const OpKindWrapper ltc_diagonal_view_update;
 extern const OpKindWrapper ltc_generic_slice;

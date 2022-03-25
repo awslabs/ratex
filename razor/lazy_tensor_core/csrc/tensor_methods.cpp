@@ -20,6 +20,7 @@
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool2d.h"
 #include "lazy_tensor_core/csrc/ops/adaptive_avg_pool3d.h"
 #include "lazy_tensor_core/csrc/ops/all.h"
+#include "lazy_tensor_core/csrc/ops/all_gather.h"
 #include "lazy_tensor_core/csrc/ops/all_reduce.h"
 #include "lazy_tensor_core/csrc/ops/all_to_all.h"
 #include "lazy_tensor_core/csrc/ops/amp_foreach_non_finite_check_and_unscale.h"
@@ -346,6 +347,24 @@ std::pair<LazyTensor, ir::Value> LazyTensor::all_to_all(
   ir::NodePtr node = ir::MakeNode<ir::ops::AllToAll>(
       input.GetIrValue(), token, split_dimension, concat_dimension, split_count, std::move(groups));
   return {input.CreateFrom(ir::Value(node, 0)), ir::Value(node, 1)};
+}
+
+std::pair<LazyTensor, ir::Value> LazyTensor::all_gather(const LazyTensor& input,
+                                                        const ir::Value& token, int64_t dim,
+                                                        int64_t shard_count,
+                                                        std::vector<std::vector<int64_t>> groups) {
+  ir::NodePtr node = ir::MakeNode<ir::ops::AllGather>(input.GetIrValue(), token, dim, shard_count,
+                                                      std::move(groups));
+  return {input.CreateFrom(ir::Value(node, 0)), ir::Value(node, 1)};
+}
+
+ir::Value LazyTensor::all_gather_out(LazyTensor& output, const LazyTensor& input,
+                                     const ir::Value& token, int64_t dim, int64_t shard_count,
+                                     std::vector<std::vector<int64_t>> groups) {
+  ir::NodePtr node = ir::MakeNode<ir::ops::AllGather>(input.GetIrValue(), token, dim, shard_count,
+                                                      std::move(groups));
+  output.SetIrValue(ir::Value(node, 0));
+  return ir::Value(node, 1);
 }
 
 LazyTensor LazyTensor::get_dimensions_size(const LazyTensor& input,

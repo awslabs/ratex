@@ -11,7 +11,6 @@
 #include "lazy_tensors/shape.h"
 #include "lazy_tensor_core/csrc/ops/device_data.h"
 #include "razor/csrc/aten_raf_bridge.h"
-#include "razor/csrc/ops/all_gather.h"
 #include "razor/csrc/ops/relay_expr.h"
 #include "razor/csrc/ops/relay_function.h"
 #include "razor/csrc/ops/raf_ops.h"
@@ -129,17 +128,6 @@ void InitRAFModuleBindings(py::module m) {
       LTC_LOG(FATAL) << "Unsupported type " << val->GetTypeKey();
     }
     return bridge::AtenFromLtcTensor(ret);
-  });
-
-  // TODO: Remove this function and use LTC binding after we have control over LTC
-  m.def("_raf_all_gather", [](const at::Tensor& input, int64_t dim, const py::list& groups) {
-    std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
-    const LazyTensor& input_ltc = bridge::GetLtcTensor(input);
-    std::vector<ir::Value> input_values({input_ltc.GetIrValue()});
-    ir::NodePtr node =
-        ir::MakeNode<ir::ops::RAFAllGather>(input_values, dim, std::move(replica_groups));
-    LazyTensor ret = bridge::raf_backend::CreateFrom(input_ltc, ir::Value(node, 0));
-    return bridge::AtenFromLtcTensor(std::move(ret));
   });
 
   m.def("_raf_create_token", [](const std::string& device) { return CreateToken(device); });

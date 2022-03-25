@@ -46,13 +46,5 @@ Pass InplaceUpdateAnalysis();
  */
 Pass InplaceUpdateByAlias(ir::Map<tvm::Integer, tvm::Integer> alias_map);
 
-/*!
- * \brief This pass will be used to apply ZeRO1 optimization, which partitions the model states into
- * N ranks, and allgather all the partial values to update the weight. Note that this pass only does
- * the last step, which finds the IR patterns and replaces with allgather ops. The actual optimizer
- * states buffer partition is done as we create the optimizer.
- */
-Pass PartitionOptimStatus();
-
 }  // namespace pass
 }  // namespace raf

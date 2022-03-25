@@ -41,6 +41,19 @@ class LazyTensor {
   static LazyTensor Create(ir::Value ir_value, const Device& device,
                            c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
 
+  struct CachedComputation {
+    CachedComputation(std::shared_ptr<lazy_tensors::ComputationClient::Computation> computation)
+        : computation(std::move(computation)) {
+    }
+
+    std::shared_ptr<lazy_tensors::ComputationClient::Computation> computation;
+  };
+
+  using ComputationCache = lazy_tensors::util::Cache<lazy_tensors::hash_t, CachedComputation,
+                                                     lazy_tensors::util::HashReducer>;
+
+  static ComputationCache* GetComputationCache();
+
   // Creates an empty/null tensor.
   LazyTensor() = default;
 
@@ -200,6 +213,15 @@ class LazyTensor {
                                                      int64_t split_dimension,
                                                      int64_t concat_dimension, int64_t split_count,
                                                      std::vector<std::vector<int64_t>> groups);
+
+  static std::pair<LazyTensor, ir::Value> all_gather(const LazyTensor& input,
+                                                     const ir::Value& token, int64_t dim,
+                                                     int64_t shard_count,
+                                                     std::vector<std::vector<int64_t>> groups);
+
+  static ir::Value all_gather_out(LazyTensor& output, const LazyTensor& input,
+                                  const ir::Value& token, int64_t dim, int64_t shard_count,
+                                  std::vector<std::vector<int64_t>> groups);
 
   static std::pair<LazyTensor, ir::Value> collective_permute(
       const LazyTensor& input, const ir::Value& token,
@@ -986,17 +1008,6 @@ class LazyTensor {
     std::vector<lazy_tensors::ComputationClient::DataPtr> parameters_data;
   };
 
-  struct CachedComputation {
-    CachedComputation(std::shared_ptr<lazy_tensors::ComputationClient::Computation> computation)
-        : computation(std::move(computation)) {
-    }
-
-    std::shared_ptr<lazy_tensors::ComputationClient::Computation> computation;
-  };
-
-  using ComputationCache = lazy_tensors::util::Cache<lazy_tensors::hash_t, CachedComputation,
-                                                     lazy_tensors::util::HashReducer>;
-
   struct Async {
     Async(SyncTensorCollection* coll,
           std::vector<lazy_tensors::ComputationClient::DataPtr> parameters_data,
@@ -1120,8 +1131,6 @@ class LazyTensor {
   std::vector<LazyTensor> MakeOutputTensors(ir::NodePtr node) const;
 
   ir::Value GetIrValueForTensor(const at::Tensor& tensor, const Device& device) const;
-
-  static ComputationCache* GetComputationCache();
 
   static SyncTensorCollection CollectSyncTensors(const std::vector<LazyTensor>& tensors,
                                                  const SyncTensorsConfig& config);

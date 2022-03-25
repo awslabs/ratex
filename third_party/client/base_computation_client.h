@@ -176,6 +176,8 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
  private:
   Options options_;
+
+  void DumpComputationAlias(const CompileInstance& instance, std::string path);
 };
 
 void PopulateLocalDevices(BaseComputationClient::Options* options);

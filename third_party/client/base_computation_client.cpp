@@ -144,6 +144,11 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
     } else {
       results.push_back(Compile(ins));
     }
+
+    std::string dump_alias_path = lazy_tensors::sys_util::GetEnvString("RAZOR_DUMP_ALIAS", "");
+    if (!dump_alias_path.empty()) {
+      DumpComputationAlias(ins, dump_alias_path);
+    }
   }
   return results;
 }
@@ -172,6 +177,18 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   String json(raf::ir::serialization::SaveJSON(ir_module));
 
   return Array<ObjectRef>({json, model_states, alias});
+}
+
+void BaseComputationClient::DumpComputationAlias(const CompileInstance& instance,
+                                                 std::string path) {
+  auto* computation =
+      static_cast<torch_lazy_tensors::compiler::raf_backend::GenericComputationRAF*>(
+          instance.computation.get());
+  std::string alias = "";
+  for (const auto& kv : computation->alias()) {
+    alias.append(std::to_string(kv.first) + " " + std::to_string(kv.second) + "\n");
+  }
+  Save(path, alias);
 }
 
 }  // namespace razor

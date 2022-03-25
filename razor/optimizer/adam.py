@@ -9,7 +9,8 @@ from importlib import import_module
 import torch
 from raf import distributed as dist
 
-from . import utils
+from razor.core.lazy_model import all_gather
+
 from .optimizer import Optimizer
 
 
@@ -151,16 +152,11 @@ class Adam(Optimizer):
                         grad = grad.add(param_with_grad_local, alpha=group["weight_decay"])
 
                     # Decay the first and second moment running average coefficient
-                    exp_avg.mul_(utils.tensor_like(beta1, exp_avg)).add_(grad, alpha=1 - beta1)
-                    exp_avg_sq.mul_(utils.tensor_like(beta2, exp_avg_sq)).addcmul_(
-                        grad, grad, value=1 - beta2
-                    )
+                    exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                    exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
                     if group["amsgrad"]:
                         raise NotImplementedError("amsgrad==True is not yet supported")
-                    denom = (
-                        exp_avg_sq.sqrt()
-                        / utils.tensor_like(math.sqrt(bias_correction2), exp_avg_sq)
-                    ).add(utils.tensor_like(group["eps"], exp_avg_sq))
+                    denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add(group["eps"])
 
                     step_size = group["lr"] / bias_correction1
                     param_with_grad_local.addcdiv_(exp_avg, denom, value=-step_size)
@@ -170,13 +166,9 @@ class Adam(Optimizer):
                         updated_param_with_grad_local = param_with_grad_local
 
                     if self._need_partition(param_with_grad_global):
-                        # This line will be eventually replaced by allgather,
-                        # so the index doesn't matter
-                        index = torch.zeros_like(updated_param_with_grad_local, dtype=torch.int64)
-                        param_with_grad_global.scatter_(
-                            dim=0, index=index, src=updated_param_with_grad_local
+                        all_gather(
+                            updated_param_with_grad_local, dim=0, output=param_with_grad_global
                         )
-                        index = None
                     elif param.dtype == torch.float16:
                         param_with_grad_global.copy_(updated_param_with_grad_local)
 

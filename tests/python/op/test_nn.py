@@ -72,6 +72,7 @@ def test_pad():
 
 def test_gelu():
     """GeLU supports approximation since https://github.com/pytorch/pytorch/pull/72826"""
+
     class Model(nn.Module):
         def __init__(self):
             super().__init__()

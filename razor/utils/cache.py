@@ -50,8 +50,6 @@ class Cache:
         if persist_dir != "":
             self.persist_path = Path(persist_dir)
             self.enable = True
-
-        if self.enable:
             self.persist_path.mkdir(parents=True, exist_ok=True)
             self.file_lock = FileLock(self.persist_path / (self.KEY_FILE + ".lock"))
 

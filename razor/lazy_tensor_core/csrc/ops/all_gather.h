@@ -11,10 +11,10 @@ namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
 
-class RAFAllGather : public Node {
+class AllGather : public Node {
  public:
-  RAFAllGather(lazy_tensors::Span<const Value> operands, int64_t dim,
-               std::vector<std::vector<int64_t>> groups);
+  AllGather(const Value& input, const Value& token, int64_t dim, int64_t shard_count,
+            std::vector<std::vector<int64_t>> groups);
 
   std::string ToString() const override;
 
@@ -24,12 +24,17 @@ class RAFAllGather : public Node {
     return dim_;
   }
 
+  int64_t shard_count() const {
+    return shard_count_;
+  }
+
   const std::vector<std::vector<int64_t>>& groups() const {
     return groups_;
   }
 
  private:
   int64_t dim_;
+  int64_t shard_count_;
   std::vector<std::vector<int64_t>> groups_;
 };
 

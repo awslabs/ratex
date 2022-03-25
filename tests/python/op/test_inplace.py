@@ -5,7 +5,8 @@ import pytest
 import torch
 import torch.nn as nn
 import raf
-from razor.testing import compile_model
+import numpy as np
+from razor.testing import compile_model, run_step, with_enable_param_aliasing
 
 
 def test_mul_():
@@ -37,6 +38,26 @@ def test_div():
     text = raf._ffi.ir.AsText(module)
     assert text.count("cast") == 0
     assert text.count("divide") == 1
+
+
+@with_enable_param_aliasing
+def test_mul_out():
+    class Model(nn.Module):
+        def __init__(self):
+            super(Model, self).__init__()
+
+        def forward(self, x, out):
+            torch.multiply(x, 2.0, out=out)
+            return x
+
+    x_np = np.random.rand(3, 2)
+    x_t = torch.from_numpy(x_np)
+    out_t = torch.from_numpy(x_np).to("lazy")
+    run_step("lazy", Model(), [x_t, out_t], jit_script=False)
+    out_np = out_t.to("cpu").numpy()
+    print(out_np)
+    print(x_np * 2.0)
+    torch.testing.assert_close(out_t.to("cpu").numpy(), x_np * 2.0)
 
 
 if __name__ == "__main__":

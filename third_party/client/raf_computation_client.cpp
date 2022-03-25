@@ -194,14 +194,13 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
     auto device = GetDefaultDevice();
     auto raf_device = ToRAFDevice(device);
 
-    if (dctx->zero_opt_level > 0) {
-      ir_module = raf::pass::PartitionOptimStatus()(ir_module);
-      ir_module = raf::pass::InferType()(ir_module);
-    }
-
     raf::pass::RAFSequential seq({
         raf::pass::InferType(),
         raf::pass::FoldConstant(),
+        raf::pass::DeadCodeElimination(),
+        raf::pass::InferType(),
+        raf::pass::SimplifyExpr(),
+        raf::pass::InferType(),
         raf::pass::DeadCodeElimination(),
         raf::pass::InferType(),
         raf::pass::LambdaLift(),
@@ -229,6 +228,7 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
     pass_ctx->config.Set("raf.memory_schedule", Bool(true));
     {
       tvm::With<pass::PassContext> ctx_scope(pass_ctx);
+      tvm::With<raf::Device> dev_ctx(raf_device);
       if (!alias_map.empty()) {
         ir_module = raf::pass::InplaceUpdateByAlias(alias_map)(ir_module);
       }
