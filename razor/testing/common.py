@@ -237,7 +237,7 @@ def with_mock_distributed_context(world_size, rank, zero_opt_level=0, enable_dat
     return test_helper
 
 
-def fake_image_dataset(batch, channel, image_size, num_classes):
+def fake_image_dataset(batch, channel, image_size, num_classes, dtype=torch.float32):
     """Fake an image dataset."""
     from torchvision import datasets, transforms  # pylint: disable=import-outside-toplevel
 
@@ -245,7 +245,13 @@ def fake_image_dataset(batch, channel, image_size, num_classes):
         size=batch,
         image_size=(channel, image_size, image_size),
         num_classes=num_classes,
-        transform=transforms.Compose([transforms.CenterCrop(image_size), transforms.ToTensor()]),
+        transform=transforms.Compose(
+            [
+                transforms.CenterCrop(image_size),
+                transforms.ToTensor(),
+                transforms.ConvertImageDtype(dtype),
+            ]
+        ),
     )
 
 

@@ -935,9 +935,14 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
     ADD_SCALAR_CASE(U16, Short, uint16_t);
     ADD_SCALAR_CASE(U32, Int, uint32_t);
     ADD_SCALAR_CASE(U64, Long, uint64_t);
-    ADD_SCALAR_CASE(F16, Double, float);
     ADD_SCALAR_CASE(F32, Double, float);
     ADD_SCALAR_CASE(F64, Double, double);
+    case lazy_tensors::PrimitiveType::F16: {
+      tv = MakeScalar<uint16_t>(
+          __truncXfYf2__<float, uint32_t, 23, uint16_t, uint16_t, 10>(node->value().toDouble()),
+          raf_dtype, dev, std::vector<int64_t>(dimensions.begin(), dimensions.end()));
+      break;
+    }
     case lazy_tensors::PrimitiveType::BF16: {
       tv = MakeScalar<uint16_t>(c10::BFloat16(static_cast<float>(node->value().toDouble())).x,
                                 raf_dtype, dev,
