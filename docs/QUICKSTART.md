@@ -231,6 +231,7 @@ export BUILD_CPP_TESTS=0
 ```
 
 ```
+bash ./patches/apply_patch.sh
 python3 -m pip install glob2 filelock
 rm -rf ./build/pip/public/razor
 python3 setup.py bdist_wheel -d ./build/pip/public/razor
