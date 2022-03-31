@@ -286,13 +286,16 @@ extra_compile_args = [
     "-Wno-unknown-pragmas",
     "-Wno-deprecated-declarations",
     "-Wno-return-type",
-    "-Wunused-macros",
 ]
 
 if re.match(r"clang", os.getenv("CC", "")):
     extra_compile_args += [
         "-Wno-macro-redefined",
         "-Wno-return-std-move",
+    ]
+else:
+    extra_compile_args += [
+        "-Wno-unused-function",
     ]
 
 if DEBUG:

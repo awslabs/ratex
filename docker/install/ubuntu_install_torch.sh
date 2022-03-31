@@ -18,7 +18,7 @@ if [ "$VERSION" == "nightly" ]; then
 else
     # Stable build
     python3 -m pip install torch==$VERSION+$PLATFORM -f https://download.pytorch.org/whl/$PLATFORM/torch_stable.html
-    LIBTORCH_LINK=https://download.pytorch.org/libtorch/$PLATFORM/libtorch-cxx11-abi-shared-with-deps-$VERSION%2Bcpu.zip
+    LIBTORCH_LINK=https://download.pytorch.org/libtorch/$PLATFORM/libtorch-cxx11-abi-shared-with-deps-$VERSION%2B$PLATFORM.zip
 fi
 
 
@@ -39,5 +39,6 @@ popd
 git clone https://github.com/pytorch/pytorch.git
 cd pytorch
 git checkout $PYTORCH_GIT_SHA
+cp -r torch/csrc/distributed $PYTORCH_INSTALL_PATH/include/torch/csrc/
 
 python3 -m pip install -r requirements.txt
