@@ -19,10 +19,9 @@ python3 -m pip install scikit-build==0.11.1
 python3 -m pip install pylint==2.4.3 cpplint black==20.8b1
 python3 -m pip install six numpy pytest cython decorator scipy tornado typed_ast \
                        pytest mypy orderedset antlr4-python3-runtime attrs requests \
-                       Pillow packaging psutil dataclasses pycparser pydot filelock
+                       Pillow packaging psutil pycparser pydot filelock
 python3 -m pip install astunparse numpy ninja pyyaml mkl mkl-include setuptools cffi \
                        typing_extensions future glob2 pygithub boto3
 python3 -m pip install datasets==1.15.1
-python3 -m pip install transformers==4.3
+python3 -m pip install transformers==4.17
 python3 -m pip install torchvision --no-deps
-

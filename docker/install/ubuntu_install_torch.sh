@@ -5,16 +5,21 @@
 set -ex
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: ubuntu_install_torch.sh <cpu|cu113> <nightly|version>"
+    echo "Usage: ubuntu_install_torch.sh <cpu|cu113> <nightly|pinned|version>"
     exit 1
 fi
 PLATFORM=$1
 VERSION=$2
 
+PINNED_NIGHTLY_VERSION=1.12.0.dev20220310
+
 if [ "$VERSION" == "nightly" ]; then
     # Nightly build
     python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/$PLATFORM/torch_nightly.html
     LIBTORCH_LINK=https://download.pytorch.org/libtorch/nightly/$PLATFORM/libtorch-cxx11-abi-shared-with-deps-latest.zip
+elif [ "$VERSION" == "pinned" ]; then
+    python3 -m pip install --force-reinstall --pre torch==$PINNED_NIGHTLY_VERSION+$PLATFORM -f https://download.pytorch.org/whl/nightly/$PLATFORM/torch_nightly.html
+    LIBTORCH_LINK=https://download.pytorch.org/libtorch/nightly/$PLATFORM/libtorch-cxx11-abi-shared-with-deps-$PINNED_NIGHTLY_VERSION%2B$PLATFORM.zip
 else
     # Stable build
     python3 -m pip install torch==$VERSION+$PLATFORM -f https://download.pytorch.org/whl/$PLATFORM/torch_stable.html

@@ -4,7 +4,7 @@
 
 # Build the docker image
 #
-# Usage: build.sh <CONTAINER_TYPE> [--dockerfile <DOCKERFILE_PATH>]
+# Usage: build.sh <CONTAINER_TYPE> [--dockerfile <DOCKERFILE_PATH>] [--build-arg <NAME>=<VALUE>]
 #
 # CONTAINER_TYPE: Type of the docker container used the run the build
 #                 (e.g., ci_gpu)
@@ -12,7 +12,7 @@
 # DOCKERFILE_PATH: (Optional) Path to the Dockerfile used for docker build.  If
 #                  this optional value is not supplied (via the --dockerfile
 #                  flag), will use Dockerfile.CONTAINER_TYPE in default
-#
+# DOCKERBUILD_ARG: (Optional) Additional docker build args.
 DOCKER_BINARY="docker"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -37,6 +37,14 @@ if [[ ! -f "${DOCKERFILE_PATH}" ]]; then
     exit 1
 fi
 
+# Docker build args
+DOCKER_BUILD_ARGS=""
+if [[ "$1" == "--build-arg" ]]; then
+    DOCKER_BUILD_ARGS="$1 $2"
+    echo "Build args: ${DOCKER_BUILD_ARGS}"
+    shift 2
+fi
+
 # Validate command line arguments.
 if [ "$#" -gt 0 ] || [ ! -e "${SCRIPT_DIR}/Dockerfile.${CONTAINER_TYPE}" ]; then
     supported_container_types=$( ls -1 ${SCRIPT_DIR}/Dockerfile.* | \
@@ -59,4 +67,4 @@ echo ""
 
 # Build the docker container.
 echo "Building container (${DOCKER_IMG_NAME})..."
-docker build -t ${DOCKER_IMG_NAME} -f "${DOCKERFILE_PATH}" "${DOCKER_CONTEXT_PATH}"
+docker build ${DOCKER_BUILD_ARGS} -t ${DOCKER_IMG_NAME} -f "${DOCKERFILE_PATH}" "${DOCKER_CONTEXT_PATH}"

@@ -1,44 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04
-ARG PYTORCH_VERSION=nightly
-
-# Install basic dependencies.
-RUN apt-get update --fix-missing
-COPY install/ubuntu_install_core.sh /install/ubuntu_install_core.sh
-RUN bash /install/ubuntu_install_core.sh
-
-# Install docker
-RUN apt-get install -y docker.io
-
-# Install Python packages
-COPY install/ubuntu_install_python.sh /install/ubuntu_install_python.sh
-RUN bash /install/ubuntu_install_python.sh
-
-# Install LLVM
-COPY install/ubuntu_install_llvm.sh /install/ubuntu_install_llvm.sh
-RUN bash /install/ubuntu_install_llvm.sh
-
-# AWS Batch setup
-COPY batch/entry.sh /batch/entry.sh
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y awscli
-RUN python3 -m pip install --upgrade awscli
-
-# Environment variables
-ENV PATH=/usr/local/cuda/bin:${PATH}
-ENV C_INCLUDE_PATH=/usr/local/cuda/include:${C_INCLUDE_PATH}
-ENV CPLUS_INCLUDE_PATH=/usr/local/cuda/include:${CPLUS_INCLUDE_PATH}
-ENV LIBRARY_PATH=/usr/local/cuda/lib64:${LIBRARY_PATH}
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
-
-# Install apex
-COPY install/ubuntu_install_apex.sh /install/ubuntu_install_apex.sh
-RUN bash /install/ubuntu_install_apex.sh
-
-# Install PyTorch with CUDA
-COPY install/ubuntu_install_torch.sh /install/ubuntu_install_torch.sh
-RUN bash /install/ubuntu_install_torch.sh cu113 $PYTORCH_VERSION
-ENV PYTORCH_SOURCE_PATH=/pytorch
+# The development docker image is built on the top of the CI image,
+# so it requires CI image to be built and available locally in advance.
+FROM razor.ci_gpu:latest
 
 # Install RMM
 COPY install/ubuntu_install_rmm.sh /install/ubuntu_install_rmm.sh
@@ -46,7 +10,3 @@ RUN bash /install/ubuntu_install_rmm.sh
 
 # Install more Python packages
 RUN python3 -m pip install h5py humanize
-
-# To prevent `black` command line errors caused by ASCII encoding
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
