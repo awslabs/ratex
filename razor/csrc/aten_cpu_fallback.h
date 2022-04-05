@@ -7,6 +7,7 @@
 
 #include <ATen/Operators.h>
 #include <ATen/native/CPUFallback.h>
+#include <c10/util/OptionalArrayRef.h>
 
 namespace torch_lazy_tensors {
 
@@ -70,10 +71,10 @@ class AtenRAFTypeDefault {
   static at::Tensor& sub_(at::Tensor& self, const at::Tensor& other, const at::Scalar& alpha);
   static at::Tensor& sub_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha);
   static at::Tensor upsample_nearest2d(const at::Tensor& input,
-                                       c10::optional<at::IntArrayRef> output_size,
+                                       at::OptionalIntArrayRef output_size,
                                        c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor upsample_nearest2d_backward(const at::Tensor& grad_output,
-                                                c10::optional<at::IntArrayRef> output_size,
+                                                at::OptionalIntArrayRef output_size,
                                                 at::IntArrayRef input_size,
                                                 c10::optional<at::ArrayRef<double>> scale_factors);
 };

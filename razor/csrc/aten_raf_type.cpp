@@ -10,6 +10,7 @@
 #include <ATen/native/Activation.h>
 #include <ATen/native/BinaryOps.h>
 #include <ATen/native/CPUFallback.h>
+#include <c10/util/OptionalArrayRef.h>
 
 #include <mutex>
 
@@ -159,7 +160,7 @@ std::pair<LazyTensor, LazyTensor> GetBinaryOperands(const at::Tensor& self,
 // The input is in format of {N, C, H, W} and the output will be {H, W}.
 std::vector<int64_t> GetOutputSizeWithScale(
     absl::Span<const int64_t> input_size, const c10::optional<at::ArrayRef<double>>& scale_factors,
-    const c10::optional<at::IntArrayRef>& output_size) {
+    const at::OptionalIntArrayRef& output_size) {
   if (!output_size) {
     LTC_CHECK(scale_factors);
     LTC_CHECK_EQ(scale_factors->size(), 2);
@@ -2519,7 +2520,7 @@ at::Tensor LazyNativeFunctions::std(const at::Tensor& self, at::IntArrayRef dim,
       /*correction=*/unbiased ? 1 : 0));
 }
 
-at::Tensor LazyNativeFunctions::std(const at::Tensor& self, c10::optional<at::IntArrayRef> dim,
+at::Tensor LazyNativeFunctions::std(const at::Tensor& self, at::OptionalIntArrayRef dim,
                                     c10::optional<int64_t> correction, bool keepdim) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -2761,7 +2762,7 @@ at::Tensor LazyNativeFunctions::upsample_bilinear2d_backward(
 }
 
 at::Tensor LazyNativeFunctions::upsample_nearest2d(
-    const at::Tensor& input, c10::optional<at::IntArrayRef> output_size,
+    const at::Tensor& input, at::OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_COUNTER("raf::");
   LazyTensor input_tensor = bridge::raf_backend::GetLtcTensor(input);
@@ -2774,7 +2775,7 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(
 }
 
 at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(
-    const at::Tensor& grad_output, c10::optional<at::IntArrayRef> output_size,
+    const at::Tensor& grad_output, at::OptionalIntArrayRef output_size,
     at::IntArrayRef input_size, c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_COUNTER("raf::");
   LazyTensor grad_output_tensor = bridge::raf_backend::GetLtcTensor(grad_output);
@@ -2838,7 +2839,7 @@ at::Tensor LazyNativeFunctions::var(const at::Tensor& self, at::IntArrayRef dim,
                                                    /*correction=*/unbiased ? 1 : 0, keepdim));
 }
 
-at::Tensor LazyNativeFunctions::var(const at::Tensor& self, c10::optional<at::IntArrayRef> dim,
+at::Tensor LazyNativeFunctions::var(const at::Tensor& self, at::OptionalIntArrayRef dim,
                                     c10::optional<int64_t> correction, bool keepdim) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);

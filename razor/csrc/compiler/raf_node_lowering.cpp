@@ -906,7 +906,7 @@ TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<in
 }
 
 Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
-  using ir::ops::operator<<;
+  using at::operator<<;
   using tvm::runtime::DLDataType2String;
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;

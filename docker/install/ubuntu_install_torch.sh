@@ -11,8 +11,9 @@ fi
 PLATFORM=$1
 VERSION=$2
 
-PINNED_NIGHTLY_VERSION=1.12.0.dev20220310
+PINNED_NIGHTLY_VERSION=1.12.0.dev20220404
 
+# Install PyTorch
 if [ "$VERSION" == "nightly" ]; then
     # Nightly build
     python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/$PLATFORM/torch_nightly.html
@@ -26,8 +27,6 @@ else
     LIBTORCH_LINK=https://download.pytorch.org/libtorch/$PLATFORM/libtorch-cxx11-abi-shared-with-deps-$VERSION%2B$PLATFORM.zip
 fi
 
-
-# Install PyTorch
 PYTORCH_GIT_SHA=$(python3 -c "import torch; print(torch.version.git_version)")
 PYTORCH_INSTALL_PATH=$(dirname `python3 -c "import torch; print(torch.__file__)"`)
 

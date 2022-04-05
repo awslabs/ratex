@@ -506,25 +506,25 @@ at::Tensor& AtenRAFTypeDefault::sub_(at::Tensor& self, const at::Scalar& other,
 }
 
 at::Tensor AtenRAFTypeDefault::upsample_nearest2d(
-    const at::Tensor& input, c10::optional<at::IntArrayRef> output_size,
+    const at::Tensor& input, at::OptionalIntArrayRef output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::upsample_nearest2d", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {input};
   auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::upsample_nearest2d(ltc_atens[0], output_size, scale_factors);
+  auto&& x_result = at::upsample_nearest2d(ltc_atens[0], output_size.value(), scale_factors);
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(input));
 }
 
 at::Tensor AtenRAFTypeDefault::upsample_nearest2d_backward(
-    const at::Tensor& grad_output, c10::optional<at::IntArrayRef> output_size,
+    const at::Tensor& grad_output, at::OptionalIntArrayRef output_size,
     at::IntArrayRef input_size, c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_TRACK(3);
   LTC_COUNTER("aten::upsample_nearest2d_backward", 1);
   std::vector<at::Tensor> ltc_atens_tensors = {grad_output};
   auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
   auto&& x_result =
-      at::upsample_nearest2d_backward(ltc_atens[0], output_size, input_size, scale_factors);
+      at::upsample_nearest2d_backward(ltc_atens[0], output_size.value(), input_size, scale_factors);
   return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(grad_output));
 }
 

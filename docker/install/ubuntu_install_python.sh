@@ -16,7 +16,7 @@ ln -s /usr/bin/python3.7 /usr/bin/python3
 python3 -m pip install -U --force-reinstall pip
 python3 -m pip install cmake
 python3 -m pip install scikit-build==0.11.1
-python3 -m pip install pylint==2.4.3 cpplint black==20.8b1
+python3 -m pip install pylint==2.4.3 cpplint black==22.3.0
 python3 -m pip install six numpy pytest cython decorator scipy tornado typed_ast \
                        pytest mypy orderedset antlr4-python3-runtime attrs requests \
                        Pillow packaging psutil pycparser pydot filelock

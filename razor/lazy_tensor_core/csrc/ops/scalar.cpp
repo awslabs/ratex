@@ -44,10 +44,6 @@ lazy_tensors::hash_t ScalarHash(const at::Scalar& s) {
                              : lazy_tensors::util::Hash(s.toLong());
 }
 
-std::ostream& operator<<(std::ostream& ostrm, at::Scalar s) {
-  return ostrm << (s.isFloatingPoint() ? s.toDouble() : s.toLong());
-}
-
 }  // namespace ops
 }  // namespace ir
 }  // namespace torch_lazy_tensors
