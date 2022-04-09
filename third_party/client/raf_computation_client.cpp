@@ -222,10 +222,15 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
 
     raf::executor::vm::DeviceMap device_map{{Integer((int)(raf_device.device_type())), raf_device}};
 
+    // Rematerialization will be enabled if memory budget > 0.
+    auto memory_budget = lazy_tensors::sys_util::GetEnvInt("RAZOR_MEMORY_BUDGET", 0);
+
     auto pass_ctx = pass::PassContext::Create();
     pass_ctx->opt_level = 3;
     pass_ctx->config.Set("raf.amp.out_dtype", String("float32"));
     pass_ctx->config.Set("raf.memory_schedule", Bool(true));
+    pass_ctx->config.Set("raf.memory_budget", Integer(IntImm(DataType::Int(64), memory_budget)));
+    pass_ctx->config.Set("raf.remat.use_gflops_cost", Bool(false));
     {
       tvm::With<pass::PassContext> ctx_scope(pass_ctx);
       tvm::With<raf::Device> dev_ctx(raf_device);
