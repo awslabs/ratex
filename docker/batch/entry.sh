@@ -35,15 +35,12 @@ if [ -z $GITHUB_TOKEN ]; then
 fi;
 
 # Checkout the repo.
-git clone https://$GITHUB_TOKEN:x-oauth-basic@github.com/$REPO
-cd torch_mnm
+git clone https://$GITHUB_TOKEN:x-oauth-basic@github.com/$REPO --recursive work
+cd work
 
 # Config the repo
 git fetch origin $SOURCE_REF:working
 git checkout working
-
-# Config the private submodule
-git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "git@github.com:"
 git submodule update --init --recursive --force
 
 # Execute the command

@@ -15,12 +15,11 @@ jobs:
     if: github.repository == 'meta-project/torch_mnm'
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      # Do not checkout submodules yet.
-      uses: actions/checkout@v2
-    - name: Update submodule to the latest commit
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Update RAF to the latest commit
       run: |
-        git config --global url."https://${{ secrets.BOT_TOKEN }}:x-oauth-basic@github.com/".insteadOf "git@github.com:"
         git config submodule.syntastic.update "git pull origin main"
         git submodule update --init --remote third_party/raf
     - name: Create timestamp

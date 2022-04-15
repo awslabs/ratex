@@ -3,4 +3,4 @@
 	url = https://github.com/abseil/abseil-cpp.git
 [submodule "third_party/raf"]
 	path = third_party/raf
-	url = git@github.com:meta-project/meta.git
+	url = git@github.com:awslabs/raf.git
