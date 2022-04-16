@@ -5,8 +5,6 @@
 
 #pragma once
 
-#include "raf/ir.h"
-
 #include "razor/csrc/compiler/raf_lowering_context.h"
 #include "client/base_computation_client.h"
 
