@@ -360,19 +360,8 @@ at::Tensor LazyNativeFunctions::_copy_from(const at::Tensor& self, const at::Ten
     at::Tensor typed_tensor = CopyTensor(tensor, dst.scalar_type(), /*copy=*/false);
     dst.resize_as_(typed_tensor).copy_(typed_tensor);
   } else {
-    if (!dst_tensor->CurrentIrValue()) {
-      auto dst_tensor_data = dst_tensor->CurrentTensorData();
-      LTC_CHECK(dst_tensor_data);
-      auto src_tensor_data = self_tensor->CurrentTensorData();
-      if (src_tensor_data) {
-        dst_tensor_data->copy_(*src_tensor_data);
-      } else {
-        dst_tensor_data->copy_(self_tensor->ToTensor(/*detached=*/true));
-      }
-    } else {
-      LazyTensor::copy_(*dst_tensor, *self_tensor);
-      bridge::ReplaceLtcTensor(dst, *dst_tensor);
-    }
+    LazyTensor::copy_(*dst_tensor, *self_tensor);
+    bridge::ReplaceLtcTensor(dst, *dst_tensor);
   }
   return dst;
 }
@@ -390,16 +379,6 @@ at::Tensor LazyNativeFunctions::_copy_from_and_resize(const at::Tensor& self,
     at::Tensor typed_tensor = CopyTensor(tensor, dst.scalar_type(), /*copy=*/false);
     dst.resize_as_(typed_tensor).copy_(typed_tensor);
   } else {
-    if (!dst_tensor->CurrentIrValue()) {
-      auto dst_tensor_data = dst_tensor->CurrentTensorData();
-      LTC_CHECK(dst_tensor_data);
-      auto src_tensor_data = self_tensor->CurrentTensorData();
-      if (src_tensor_data) {
-        dst_tensor_data->copy_(*src_tensor_data);
-      } else {
-        dst_tensor_data->copy_(self_tensor->ToTensor(/*detached=*/true));
-      }
-    }
     LTCTensorImpl* dest_impl = dynamic_cast<LTCTensorImpl*>(dst.unsafeGetTensorImpl());
     dest_impl->tensor().UpdateFromTensorOut(*self_tensor);
     dest_impl->force_refresh_sizes();

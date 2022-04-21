@@ -195,6 +195,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Gt);
   DECLARE_OP(Ceil);
   DECLARE_OP(Abs);
+  DECLARE_OP(Pow);
   DECLARE_OP2(Constant);
   DECLARE_OP2(Sum);
   DECLARE_OP2(Scalar);
@@ -223,11 +224,15 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(Unselect);
   DECLARE_OP2(ConstantPadNd);
   DECLARE_OP2(Scatter);
+  DECLARE_OP2(Cat);
   DECLARE_OP2(AllReduce);
   DECLARE_OP2(AllGather);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
+  lazy_tensors::Shape InferPow(const ir::Node* node);
+  lazy_tensors::Shape InferMm(const ir::Node* node);
+  lazy_tensors::Shape InferAddMatMul(const ir::Node* node);
   lazy_tensors::Shape InferExpand(const ir::ops::Expand* node);
   lazy_tensors::Shape InferBitwise(const ir::Node* node);
   lazy_tensors::Shape InferNllLoss(const ir::ops::NllLoss* node);
@@ -238,6 +243,8 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
+  lazy_tensors::Shape InferPermute(const ir::ops::Permute* node);
+  lazy_tensors::Shape InferCat(const ir::ops::Cat* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
   lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
 };
@@ -282,6 +289,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP(Ne, at::aten::ne)
     HANDLE_GENERIC_OP(Eq, at::aten::eq)
     HANDLE_GENERIC_OP(Gt, at::aten::gt)
+    HANDLE_GENERIC_OP(Pow, at::aten::pow)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
     HANDLE_GENERIC_OP2(MaxPoolNdBackward, at::aten::max_pool2d_with_indices_backward)
@@ -299,6 +307,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Sum, at::aten::sum)
     HANDLE_GENERIC_OP2(ConstantPadNd, at::aten::constant_pad_nd)
     HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
+    HANDLE_GENERIC_OP2(Cat, at::aten::cat)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -450,6 +459,15 @@ Var RAFNodeLowering::LowerMul(const ir::Node* node) {
   if (IsScalar(node->operand(0), 1)) return op1;
   if (IsScalar(node->operand(1), 1)) return op0;
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.multiply"), {op0, op1}));
+}
+
+Var RAFNodeLowering::LowerPow(const ir::Node* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var op0, op1;
+  ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
+  ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
+  std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.power"), {op0, op1}));
 }
 
 Var BuildBitwise(const std::vector<Var>& ops, const ir::Node* node) {
@@ -746,26 +764,44 @@ Var RAFNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackw
   return BuildLogSoftmaxBackwardUseIn(ops, node);
 }
 
-Var RAFNodeLowering::LowerPermute(const ir::ops::Permute* node) {
+Var BuildPermute(const std::vector<Var>& ops, const ir::ops::Permute* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
-  Var x = loctx()->GetOutputOp(node->operand(0));
+  Var x = ops[0];
   Expr axes = MakeConstant(TupleInt(node->dims()));
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.transpose"), {x, axes}));
+}
+
+Var RAFNodeLowering::LowerPermute(const ir::ops::Permute* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildPermute({x}, node);
+}
+
+Var BuildMm(const std::vector<Var>& ops, const ir::Node* node) {
+  LTC_CHECK_EQ(node->operands().size(), 2) << "Unexpected number of operands";
+  Var x = ops[0];
+  Var y = ops[1];
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
 }
 
 Var RAFNodeLowering::LowerMm(const ir::Node* node) {
   Var x = loctx()->GetOutputOp(node->operand(0));
   Var y = loctx()->GetOutputOp(node->operand(1));
-  return BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
+  return BuildMm({x, y}, node);
+}
+
+Var BuildAddMatMul(const std::vector<Var>& ops, const ir::Node* node) {
+  LTC_CHECK_EQ(node->operands().size(), 3) << "Unexpected number of operands";
+  Var x = ops[0];
+  Var y = ops[1];
+  Var bias = ops[2];
+  Var mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.add"), {mm, bias, MakeNull(), MakeNull()}));
 }
 
 Var RAFNodeLowering::LowerAddMatMul(const ir::Node* node) {
-  LTC_CHECK_EQ(node->operands().size(), 3) << "Unexpected number of operands";
-  Var x = loctx()->GetOutputOp(node->operand(0));
-  Var y = loctx()->GetOutputOp(node->operand(1));
-  Var bias = loctx()->GetOutputOp(node->operand(2));
-  Var mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
-  return BindSymbol(raf::ir::Call(Op::Get("raf.op.add"), {mm, bias}));
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildAddMatMul(ops, node);
 }
 
 Var RAFNodeLowering::LowerAdaptiveAvgPool2d(const ir::ops::AdaptiveAvgPool2d* node) {
@@ -1023,6 +1059,19 @@ Var RAFNodeLowering::LowerScatter(const ir::ops::Scatter* node) {
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.scatter"), {x, idx, src, axis}));
 }
 
+Var BuildCat(const std::vector<Var>& ops, const ir::ops::Cat* node) {
+  std::vector<Expr> ops_expr(ops.begin(), ops.end());
+  Var x = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
+  Expr axis = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.concatenate"), {x, axis}));
+}
+
+Var RAFNodeLowering::LowerCat(const ir::ops::Cat* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildCat(ops, node);
+}
+
 Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) {
   using tvm::runtime::DLDataType2String;
   Expr computation;
@@ -1095,6 +1144,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::sqrt: {
       return InferUnary(node);
     }
+    case at::aten::pow: {
+      return InferPow(node);
+    }
     case at::aten::ne: {
       return InferNe(node);
     }
@@ -1126,6 +1178,18 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::__xor__: {
       return InferBitwise(node);
     }
+    case at::aten::mm: {
+      return InferMm(node);
+    }
+    case at::aten::addmm: {
+      return InferAddMatMul(node);
+    }
+    case at::aten::permute: {
+      return InferPermute(ir::NodeCast<ir::ops::Permute>(node, ir::OpKind(at::aten::permute)));
+    }
+    case at::aten::cat: {
+      return InferCat(ir::NodeCast<ir::ops::Cat>(node, ir::OpKind(at::aten::cat)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1148,6 +1212,13 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
   }
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferPow(const ir::Node* node) {
+  LTC_CHECK_EQ(node->operands().size(), 2U);
+  auto x_shape = node->operand(0).shape();
+  auto y_shape = node->operand(1).shape();
+  return Helpers::GetPromotedBinaryOpShape(x_shape, y_shape);
 }
 
 lazy_tensors::Shape RAFNodeLowering::InferExpand(const ir::ops::Expand* node) {
@@ -1212,6 +1283,44 @@ lazy_tensors::Shape RAFNodeLowering::InferConstantPadNd(const ir::ops::ConstantP
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildConstantPadNd(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferMm(const ir::Node* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildMm(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferAddMatMul(const ir::Node* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildAddMatMul(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferPermute(const ir::ops::Permute* node) {
+  std::vector<Var> ops;
+  ops.push_back(MakeVar("operand", ToRAFType(node->operand(0).shape())));
+  Var out = BuildPermute(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferCat(const ir::ops::Cat* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildCat(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

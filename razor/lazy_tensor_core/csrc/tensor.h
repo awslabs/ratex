@@ -1089,7 +1089,7 @@ class LazyTensor {
 
   void SetDataHandle(lazy_tensors::ComputationClient::DataPtr handle, bool sync);
 
-  void SetIrValue(ir::Value ir_value);
+  void SetIrValue(ir::Value ir_value, bool inplace = true);
   void SetInPlaceIrValue(ir::Value ir_value);
 
   void AssignIrValue(ir::Value ir_value) const;

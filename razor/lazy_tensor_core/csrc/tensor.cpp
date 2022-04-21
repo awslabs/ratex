@@ -618,16 +618,19 @@ void LazyTensor::SetDataHandle(lazy_tensors::ComputationClient::DataPtr handle, 
   }
 }
 
-void LazyTensor::SetIrValue(ir::Value ir_value) {
+void LazyTensor::SetIrValue(ir::Value ir_value, bool inplace) {
   data()->handle = nullptr;
   data()->tensor_data = c10::nullopt;
-  if (data()->view != nullptr) {
-    // If we have an active view, and a SetIrValue() happens, it means we are
-    // within an in-place execution context, and we need to update the view's
+  if (data()->view != nullptr && inplace) {
+    // If we have an active view, SetIrValue() happens, and we are
+    // within an in-place execution context, we need to update the view's
     // alias as well.
     data()->view = UpdateView(data()->view, std::move(ir_value));
     data()->generation += 1;
   } else {
+    // Reset the view if we are not within an in-place execution context
+    data()->view = nullptr;
+    data()->generation = 1;
     AssignIrValue(std::move(ir_value));
     TryLimitGraphSize();
   }
@@ -838,7 +841,7 @@ at::Tensor LazyTensor::ToTensor(bool detached) {
 }
 
 void LazyTensor::ShallowCopyTo(LazyTensor* dest) const {
-  dest->SetIrValue(GetIrValue());
+  dest->SetIrValue(GetIrValue(), /*inplace=*/false);
 }
 
 void LazyTensor::SetScalarType(c10::optional<at::ScalarType> logical_element_type) {
