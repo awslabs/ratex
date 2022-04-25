@@ -1009,24 +1009,13 @@ Var RAFNodeLowering::LowerSelect(const ir::ops::Select* node) {
 }
 
 Var RAFNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
-  Var dy = loctx()->GetOutputOp(node->operand(1));
-  int64_t range = node->end() - node->start();
-  int64_t shape[1] = {range};
-  int64_t indices_data[range];
-  for (int64_t i = 0; i < range; i++) indices_data[i] = node->start() + i;
-
-  raf::Device dev = ToRAFDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
-
-  // Make a dummy data that has the same shape as node input
-  auto x_dummy_value =
-      raf::value::CreateDummyValueFromType(ToRAFType(node->operand(0).shape()), dev);
-  Expr x = MakeConstant(x_dummy_value);
-
-  TensorValue indices_tv = MakeTensor(indices_data, shape, 1, dev, DType(DTypeCode::kInt(), 64));
-  Expr indices = MakeConstant(indices_tv);
-  Expr axis = MakeConstant(Int(node->dim()));
-  Expr mode = MakeConstant(String("clip"));
-  return BindSymbol(raf::ir::Call(Op::Get("raf.op.take_dx"), {x, dy, indices, axis, mode}));
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Var src = loctx()->GetOutputOp(node->operand(1));
+  Expr begin = MakeConstant(Int(node->start()));
+  Expr end = MakeConstant(Int(node->end()));
+  Expr stride = MakeConstant(Int(node->stride()));
+  return BindSymbol(
+      raf::ir::Call(Op::Get("raf.op.scatter_strided_slice"), {x, src, begin, end, stride}));
 }
 
 Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {

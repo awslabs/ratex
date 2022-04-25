@@ -55,4 +55,8 @@ std::ostream& operator<<(std::ostream& stream, const std::vector<SourceLocation>
   return stream;
 }
 
+std::ostream& operator<<(std::ostream& stream, const SourceLocation& frame) {
+  stream << "  " << frame.function << " (" << frame.file << ":" << frame.line << ")\n";
+}
+
 }  // namespace torch_lazy_tensors

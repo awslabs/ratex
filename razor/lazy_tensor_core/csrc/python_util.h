@@ -27,4 +27,5 @@ std::vector<SourceLocation> GetPythonFrames();
 
 std::ostream& operator<<(std::ostream& stream, const std::vector<SourceLocation>& frames);
 
+std::ostream& operator<<(std::ostream& stream, const SourceLocation& frame);
 }  // namespace torch_lazy_tensors

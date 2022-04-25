@@ -55,8 +55,6 @@ def test_mul_out():
     out_t = torch.from_numpy(x_np).to("lazy")
     run_step("lazy", Model(), [x_t, out_t], jit_script=False)
     out_np = out_t.to("cpu").numpy()
-    print(out_np)
-    print(x_np * 2.0)
     torch.testing.assert_close(out_t.to("cpu").numpy(), x_np * 2.0)
 
 

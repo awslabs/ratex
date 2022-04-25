@@ -33,5 +33,22 @@ def test_view_data_slice():
     check(t1, np.zeros(5, dtype="float32"))
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        ((7, 4, 3), 1, 3, 1),
+        ((7, 4, 3), 1, 5, 2),
+    ],
+)
+@pytest.mark.parametrize("constant", [3.14])
+def test_update_slice_inplace(params, constant):
+    shape, begin, end, stride = params
+    x_np = np.random.rand(*shape)
+    x_lazy = torch.from_numpy(x_np).to("lazy")
+    x_lazy[begin:end:stride].mul_(constant)
+    x_np[begin:end:stride] *= constant
+    check(x_lazy, x_np)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
