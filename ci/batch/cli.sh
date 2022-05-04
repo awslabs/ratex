@@ -71,23 +71,30 @@ function unit_test() {
     export ENABLE_PARAM_ALIASING=true
     export RAZOR_CACHE_DIR=""
 
-    if [[ $DEVICE == "GPU" ]]; then
-        export RAZOR_DEVICE=GPU
-    elif [[ $DEVICE == "CPU" ]]; then
-        export RAZOR_DEVICE=CPU
-    else
-        echo "Unrecognized devic: $DEVICE"
-        exit 1
-    fi
     echo "=========================================="
     echo "[CLI] Running unit tests with environment:"
-    echo "  RAZOR_DEVICE=$RAZOR_DEVICE"
+    echo "  DEVICE=$DEVICE"
     echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
     echo "  RAZOR_CACHE_DIR=$RAZOR_CACHE_DIR"
     echo "=========================================="
-    time python3 -m pytest tests/python
+
+    if [[ $DEVICE == "multi-GPU" ]]; then
+        export RAZOR_DEVICE=GPU
+        time bash ./ci/task_python_distributed.sh
+    else
+        if [[ $DEVICE == "GPU" ]]; then
+            export RAZOR_DEVICE=GPU
+        elif [[ $DEVICE == "CPU" ]]; then
+            export RAZOR_DEVICE=CPU
+        else
+            echo "Unrecognized device: $DEVICE"
+            exit 1
+        fi
+        time python3 -m pytest tests/python
+    fi
+
     echo "=========================================="
-    echo "[CLI] Unit tests on $RAZOR_DEVICE are done"
+    echo "[CLI] Unit tests on $DEVICE are done"
     echo "=========================================="
     return 0
 }
@@ -98,23 +105,30 @@ function unit_test_torch_1_11() {
     export ENABLE_PARAM_ALIASING=true
     export RAZOR_CACHE_DIR=""
 
-    if [[ $DEVICE == "GPU" ]]; then
-        export RAZOR_DEVICE=GPU
-    elif [[ $DEVICE == "CPU" ]]; then
-        export RAZOR_DEVICE=CPU
-    else
-        echo "Unrecognized devic: $DEVICE"
-        exit 1
-    fi
     echo "==========================================================="
     echo "[CLI] Running unit tests for PyTorch 1.11 with environment:"
-    echo "  RAZOR_DEVICE=$RAZOR_DEVICE"
+    echo "  DEVICE=$DEVICE"
     echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
     echo "  RAZOR_CACHE_DIR=$RAZOR_CACHE_DIR"
     echo "==========================================================="
-    time python3 -m pytest tests/python/ -m torch_1_11_test
+
+    if [[ $DEVICE == "multi-GPU" ]]; then
+        export RAZOR_DEVICE=GPU
+        time bash ./ci/task_python_distributed_pt_1_11.sh
+    else
+        if [[ $DEVICE == "GPU" ]]; then
+            export RAZOR_DEVICE=GPU
+        elif [[ $DEVICE == "CPU" ]]; then
+            export RAZOR_DEVICE=CPU
+        else
+            echo "Unrecognized device: $DEVICE"
+            exit 1
+        fi
+        time python3 -m pytest tests/python/ -m torch_1_11_test
+    fi
+
     echo "=========================================="
-    echo "[CLI] Unit tests on $RAZOR_DEVICE are done"
+    echo "[CLI] Unit tests on $DEVICE are done"
     echo "=========================================="
     return 0
 }
