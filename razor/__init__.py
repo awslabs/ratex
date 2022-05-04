@@ -8,6 +8,7 @@ because the order of loading shared libraries matters.
 # pylint: disable=wrong-import-order, useless-import-alias
 from . import _lib
 
+import os
 import torch
 
 from . import lazy_tensor_core
@@ -27,3 +28,9 @@ except:  # pylint: disable=bare-except
     __version__ = "dev"
     __raf_version__ = "unknown"
     __torch_gitrev__ = "unkonwn"
+
+if os.environ.get("RAZOR_DEVICE_COUNT", None) is None:
+    if torch.cuda.is_available():
+        os.environ["RAZOR_DEVICE_COUNT"] = str(torch.cuda.device_count())
+    else:
+        os.environ["RAZOR_DEVICE_COUNT"] = "1"

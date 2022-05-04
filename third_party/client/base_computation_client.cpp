@@ -41,22 +41,21 @@ using namespace lazy_tensors;
 
 void PopulateLocalDevices(BaseComputationClient::Options* options) {
   auto dev_kind = sys_util::GetEnvString(razor::env::kEnvDefaultDevice, "CPU");
-  int dev_id = 0;  // TODO: Determine the device ID using local rank.
-  bool ignore = true;
 
-  // Iterate candidate devices in the preferred order, and include all devices the
-  // lower or equal ordinal of the user specified default device.
-  for (auto kind : {"GPU", "CPU"}) {
-    std::string ltc_device = dev_kind + ":" + std::to_string(dev_id);
-    if (kind == dev_kind) {
-      options->default_device = ltc_device;
-      ignore = false;
-    }
-    if (!ignore) {
+  auto count = sys_util::GetEnvInt(razor::env::kEnvDeviceCount, 0);
+  CHECK_GT(count, 0) << "RAZOR_DEVICE_COUNT is not set, something must be wrong!";
+  if (dev_kind == "CPU" || dev_kind == "GPU") {
+    for (size_t i = 0; i < count; ++i) {
+      std::string ltc_device = dev_kind + ":" + std::to_string(i);
+      if (i == 0) {
+        options->default_device = ltc_device;
+      }
       options->devices.insert(ltc_device);
       options->global_device_map[ltc_device] =
           torch_lazy_tensors::compiler::raf_backend::ToRAFDevice(ltc_device).c_str();
     }
+  } else {
+    LOG(FATAL) << "Unsupported device type: " << dev_kind;
   }
 }
 

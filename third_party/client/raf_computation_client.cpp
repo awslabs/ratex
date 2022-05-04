@@ -191,8 +191,7 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
       alias_map.Set(kv.first, kv.second);
     }
 
-    auto device = GetDefaultDevice();
-    auto raf_device = ToRAFDevice(device);
+    auto raf_device = ToRAFDevice(instance.compilation_device);
 
     raf::pass::RAFSequential seq({
         raf::pass::InferType(),

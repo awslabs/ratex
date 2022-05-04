@@ -891,17 +891,17 @@ Var RAFNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   // TODO(@hzfan): unify LowerConstant for raf/Sunda, raf/CPU, raf/GPU
   // TODO(@hzfan): embed NeuronTensor into constants directly
   LTC_CHECK_EQ(node->num_outputs(), 1);
-  auto device = lazy_tensors::ComputationClient::Get()->GetDefaultDevice();
-  raf::Device dev = ToRAFDevice(device);
+  auto device = GetCurrentDevice();
+  raf::Device raf_device = ToRAFDevice(device.ToString());
   int64_t nbytes = raf::common::shape_utils::BytesCompactTensor(
       Downcast<TensorType>(ToRAFType(node->value().shape())).as<TensorTypeNode>());
-  auto buffer = memory_pool::Memory::Alloc(dev, nbytes);
+  auto buffer = memory_pool::Memory::Alloc(raf_device, nbytes);
   DType dtype;
   std::vector<int64_t> shape;
   std::tie(shape, dtype) = ToRAFShape(node->value().shape());
   PopulateTensorBuffer(node->value().value(), node->value().shape(), buffer->data, nbytes,
                        Device(device));
-  auto value = TensorValue::Assemble(dev, dtype, shape, {}, buffer->data, buffer);
+  auto value = TensorValue::Assemble(raf_device, dtype, shape, {}, buffer->data, buffer);
   return BindSymbol(MakeConstant(value));
 }
 
@@ -946,17 +946,19 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   using tvm::runtime::DLDataType2String;
   LTC_CHECK_EQ(node->num_outputs(), 1);
   TensorValue tv;
-  raf::Device dev = ToRAFDevice(lazy_tensors::ComputationClient::Get()->GetDefaultDevice());
+  auto device = GetCurrentDevice();
+  raf::Device raf_device = ToRAFDevice(device.ToString());
   auto raf_dtype = ToRAFDType(node->shape().element_type());
   Span<const int64_t> dimensions = node->shape().dimensions();
 // 1. Switch case based on the LTC dtype.
 // 2. Get the scalar data from PyTorch and convert to the primitive C type.
 // 3. Make a Meta constant expression using the scalar data.
-#define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                            \
-  case lazy_tensors::PrimitiveType::LTC_TYPE: {                                               \
-    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), raf_dtype, dev, \
-                            std::vector<int64_t>(dimensions.begin(), dimensions.end()));      \
-    break;                                                                                    \
+#define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                       \
+  case lazy_tensors::PrimitiveType::LTC_TYPE: {                                          \
+    tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), raf_dtype, \
+                            raf_device,                                                  \
+                            std::vector<int64_t>(dimensions.begin(), dimensions.end())); \
+    break;                                                                               \
   }
 
   switch (node->shape().element_type()) {
@@ -976,12 +978,12 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
     case lazy_tensors::PrimitiveType::F16: {
       tv = MakeScalar<uint16_t>(
           __truncXfYf2__<float, uint32_t, 23, uint16_t, uint16_t, 10>(node->value().toDouble()),
-          raf_dtype, dev, std::vector<int64_t>(dimensions.begin(), dimensions.end()));
+          raf_dtype, raf_device, std::vector<int64_t>(dimensions.begin(), dimensions.end()));
       break;
     }
     case lazy_tensors::PrimitiveType::BF16: {
       tv = MakeScalar<uint16_t>(c10::BFloat16(static_cast<float>(node->value().toDouble())).x,
-                                raf_dtype, dev,
+                                raf_dtype, raf_device,
                                 std::vector<int64_t>(dimensions.begin(), dimensions.end()));
       break;
     }

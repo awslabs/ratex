@@ -8,5 +8,6 @@
 namespace razor {
 namespace env {
 const char* const kEnvDefaultDevice = "RAZOR_DEVICE";
+const char* const kEnvDeviceCount = "RAZOR_DEVICE_COUNT";
 }
 }  // namespace razor
