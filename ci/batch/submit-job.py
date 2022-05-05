@@ -28,7 +28,7 @@ def create_config():
         "--job-type",
         help="The job type",
         type=str,
-        choices=["GPU", "docker"],
+        choices=["GPU", "docker", "multi-GPU"],
         default="GPU",
     )
     parser.add_argument(
@@ -118,7 +118,11 @@ def fetch_cloud_watch_logs(cloudwatch, log_stream_name, start_timestamp):
 
     last_timestamp = start_timestamp - 1
     while True:
-        log_events = cloudwatch.get_log_events(**event_args)
+        try:
+            log_events = cloudwatch.get_log_events(**event_args)
+        except Exception:
+            tprint("Failed to fetch logs from CloudWatch log stream %s" % log_stream_name)
+            return
 
         for event in log_events["events"]:
             last_timestamp = event["timestamp"]
