@@ -20,10 +20,11 @@ class SGD(Optimizer):
 
     def __init__(self, params, lr=0.1, momentum=0, mark_step=False):
         defaults = dict(lr=lr, momentum=momentum)
-        dctx = dist.get_context()
-        self._zero_opt_level = dctx.zero_opt_level
-        self._rank = dctx.rank
-        self._world_size = dctx.size
+        dcfg = dist.get_config()
+        comm = dist.get_communicator()
+        self._zero_opt_level = dcfg.zero_opt_level
+        self._rank = comm.rank
+        self._world_size = comm.size
         self._lm = import_module("lazy_tensor_core.core.lazy_model") if mark_step else None
 
         super().__init__(params, defaults)

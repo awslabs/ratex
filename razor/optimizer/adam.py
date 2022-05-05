@@ -70,10 +70,11 @@ class Adam(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         super(Adam, self).__init__(params, defaults)
         # Distributed configs
-        dctx = dist.get_context()
-        self._zero_opt_level = dctx.zero_opt_level
-        self._rank = dctx.rank
-        self._world_size = dctx.size
+        dcfg = dist.get_config()
+        comm = dist.get_communicator()
+        self._zero_opt_level = dcfg.zero_opt_level
+        self._rank = comm.rank
+        self._world_size = comm.size
         self._lm = import_module("razor.lazy_tensor_core.core.lazy_model") if mark_step else None
 
     def __setstate__(self, state):
@@ -145,8 +146,8 @@ class Adam(Optimizer):
                     state["step"] += 1
                     state_step = state["step"]
 
-                    bias_correction1 = 1 - beta1 ** state_step
-                    bias_correction2 = 1 - beta2 ** state_step
+                    bias_correction1 = 1 - beta1**state_step
+                    bias_correction2 = 1 - beta2**state_step
 
                     if group["weight_decay"] != 0:
                         grad = grad.add(param_with_grad_local, alpha=group["weight_decay"])

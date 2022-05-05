@@ -9,23 +9,28 @@ import raf
 import razor
 from raf import distributed as dist
 from razor.core.lazy_model import all_gather, all_reduce
-from razor.testing import compile_model, with_enable_param_aliasing, with_mock_distributed_context
+from razor.testing import compile_model, with_enable_param_aliasing, with_mock_distributed_info
 
 
-@patch("raf.distributed.get_context")
+@patch("raf.distributed.get_communicator")
+@patch("raf.distributed.get_config")
 @pytest.mark.parametrize("world_size", [1, 4])
-def test_all_reduce(mock_get_context, world_size):
+def test_all_reduce(mock_get_config, mock_get_comm, world_size):
     """Test of tracing and lowering allreduce op."""
-
-    # Mock the dist context.
-    class MockContext:
+    # Mock the dist config and communicator.
+    class MockConfig:
         def __init__(self):
             self.enable_data_parallel = False
             self.zero_opt_level = 0
+
+    mock_get_config.return_value = MockConfig()
+
+    class MockComm:
+        def __init__(self):
             self.size = world_size
             self.rank = 0
 
-    mock_get_context.return_value = MockContext()
+    mock_get_comm.return_value = MockComm()
 
     class Model(nn.Module):
         def __init__(self):
@@ -46,7 +51,7 @@ def test_all_reduce(mock_get_context, world_size):
         assert text.count("divide") == 1
 
 
-@with_mock_distributed_context(world_size=4, rank=1)
+@with_mock_distributed_info(world_size=4, rank=1)
 def test_all_gather():
     """Test of tracing and lowering allgather op."""
 
@@ -73,7 +78,7 @@ def test_all_gather():
 
 
 @with_enable_param_aliasing
-@with_mock_distributed_context(world_size=4, rank=1)
+@with_mock_distributed_info(world_size=4, rank=1)
 def test_all_gather_out():
     """Test of tracing and lowering allgather op."""
 

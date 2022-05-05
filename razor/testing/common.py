@@ -212,7 +212,7 @@ def with_enable_param_aliasing(orig_test, enable=True):
     return wrapper
 
 
-def with_mock_distributed_context(world_size, rank, zero_opt_level=0, enable_data_parallel=False):
+def with_mock_distributed_info(world_size, rank, zero_opt_level=0, enable_data_parallel=False):
     """
     A decorator for testing fucntions with mock distributed context. This also sets the CPP values.
     """
@@ -220,16 +220,19 @@ def with_mock_distributed_context(world_size, rank, zero_opt_level=0, enable_dat
     def test_helper(orig_test):
         @functools.wraps(orig_test)
         def wrapper(*args, **kwargs):
-            dctx = dist.get_context()
-            old_dctx = dctx.dumps()
-            dctx.size = world_size
-            dctx.rank = rank
-            dctx.zero_opt_level = zero_opt_level
-            dctx.enable_data_parallel = enable_data_parallel
+            dcfg = dist.get_config()
+            comm = dist.get_communicator()
+            old_dcfg = dcfg.dumps()
+            old_comm = comm.dumps()
+            comm.size = world_size
+            comm.rank = rank
+            dcfg.zero_opt_level = zero_opt_level
+            dcfg.enable_data_parallel = enable_data_parallel
 
             retval = orig_test(*args, **kwargs)
 
-            dctx.loads(old_dctx)
+            dcfg.loads(old_dcfg)
+            comm.loads(old_comm)
             return retval
 
         return wrapper

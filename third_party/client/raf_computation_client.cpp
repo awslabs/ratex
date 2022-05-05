@@ -25,7 +25,6 @@
 #include "raf/serialization.h"
 #include "raf/vm/vm.h"
 #include "raf/vm/value.h"
-#include "raf/dist_context.h"
 #include "raf/src/common/shape_utils.h"
 #include "raf/src/impl/vm/compiler.h"
 #include "raf/src/op/ty/utils.h"
@@ -35,8 +34,6 @@ namespace razor {
 using namespace torch_lazy_tensors::compiler;
 using namespace torch_lazy_tensors::compiler::raf_backend;
 using namespace raf::value;
-using namespace raf::distributed::communicator;
-using raf::distributed::DistContext;
 
 void RAFComputationClient::RAFData::Assign(const Data& data) {
   const RAFData& raf_data = dynamic_cast<const RAFData&>(data);
@@ -173,7 +170,6 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
     ComputationClient::CompileInstance instance) {
   LTC_TIMED("RAFCompile");
   bool is_amp_enabled = torch_lazy_tensors::GetRAFModelState()->IsAMPEnabled();
-  auto dctx = DistContext::Global();
   auto* computation = static_cast<GenericComputationRAF*>(instance.computation.get());
   Function func = Downcast<Function>(computation->computation());
   IRModule ir_module = IRModule::FromExpr(computation->computation());

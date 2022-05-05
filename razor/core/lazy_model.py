@@ -37,10 +37,9 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
       this function performs an inplace all-reduce op on the input tensors, and
       returns the list/tuple itself.
     """
-
-    dctx = dist.get_context()
+    comm = dist.get_communicator()
     assert groups is None, "Razor doesn't support custom replica groups yet"
-    groups = [list(range(0, dctx.size))]
+    groups = [list(range(0, comm.size))]
 
     if isinstance(inputs, torch.Tensor):
         token = _RAZORC._raf_create_token(inputs.device.type)
@@ -70,14 +69,14 @@ def all_gather(value, dim=0, groups=None, output=None):
       A tensor which has, in the ``dim`` dimension, all the values from the
       participating replicas.
     """
-    dctx = dist.get_context()
+    comm = dist.get_communicator()
     if dim < 0:
         dim = value.dim() + dim
     token = _RAZORC._raf_create_token(value.device.type)
 
     assert groups is None, "Razor doesn't support custom replica groups yet"
-    groups = [list(range(0, dctx.size))]
-    shard_count = dctx.size
+    groups = [list(range(0, comm.size))]
+    shard_count = comm.size
 
     if output is not None:
         # Call the out of place version of the all_gather
@@ -100,8 +99,8 @@ def reduce_gradients(optimizer, groups=None):
           the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
           all the replicas in it.
     """
-    dctx = dist.get_context()
-    world_size = dctx.size
+    comm = dist.get_communicator()
+    world_size = comm.size
     if world_size > 1:
         for param_group in optimizer.__getstate__()["param_groups"]:
             for group, params in param_group.items():

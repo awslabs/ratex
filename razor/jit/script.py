@@ -145,7 +145,8 @@ def persis_cache_fn(wrapped_func):
     """
 
     def wrapper(module, shape_n_dtype, args):
-        dctx = dist.get_context()
+        dcfg = dist.get_config()
+        comm = dist.get_communicator()
         # params included in cache key to distinguish full-precision and half-precision models
         params = sorted(
             [(name, (param.shape, param.dtype)) for name, param in module.named_parameters()]
@@ -154,8 +155,8 @@ def persis_cache_fn(wrapped_func):
             hash_torch_module(module),
             str(shape_n_dtype),
             str(tuple(params)),
-            dctx.enable_data_parallel,
-            dctx.size,
+            dcfg.enable_data_parallel,
+            comm.size,
             "convert_module_to_meta",
         )
 
@@ -204,7 +205,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
-    dctx = dist.get_context()
+    dcfg = dist.get_config()
     cloned_module = copy.deepcopy(module)
 
     model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
@@ -218,7 +219,7 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     record = model._internal(raf.array(asnumpy(args[0].clone())))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
-    if dctx.enable_data_parallel:
+    if dcfg.enable_data_parallel:
         # FIXME: move AutoDataParallel to Optimize in client files
         mod = AutoDataParallel()(mod)
     mod = DeadCodeElimination()(mod)

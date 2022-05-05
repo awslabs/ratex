@@ -19,7 +19,7 @@ from razor.testing import (
     dryrun_dumped_ir_file,
     with_enable_param_aliasing,
     get_most_recent_alias,
-    with_mock_distributed_context,
+    with_mock_distributed_info,
 )
 
 LENET_PARAM_NUM = 8
@@ -55,20 +55,25 @@ def test_resnet18_imagenet(amp):
     verify(lazy_results, cpu_results, tol=1e-3)
 
 
-@patch("raf.distributed.get_context")
+@patch("raf.distributed.get_communicator")
+@patch("raf.distributed.get_config")
 @with_temp_cache
 @dryrun_dumped_ir_file
-def test_compile_lenet_dp(mock_get_context):
-    # Mock the dist context.
-    class MockContext:
+def test_compile_lenet_dp(mock_get_config, mock_get_comm):
+    # Mock the dist config and communicator.
+    class MockConfig:
         def __init__(self):
-            # Note that we do not use AutoDataParallel but manually all-reduce the gradients.
             self.enable_data_parallel = False
             self.zero_opt_level = 0
+
+    mock_get_config.return_value = MockConfig()
+
+    class MockComm:
+        def __init__(self):
             self.size = 4
             self.rank = 0
 
-    mock_get_context.return_value = MockContext()
+    mock_get_comm.return_value = MockComm()
 
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
@@ -95,7 +100,7 @@ def test_compile_lenet_dp(mock_get_context):
 @with_temp_cache
 @dryrun_dumped_ir_file
 @with_enable_param_aliasing
-@with_mock_distributed_context(world_size=2, rank=1, zero_opt_level=1)
+@with_mock_distributed_info(world_size=2, rank=1, zero_opt_level=1)
 @pytest.mark.parametrize(
     "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}, 1), (Adam, {"lr": 0.001}, 2)]
 )
