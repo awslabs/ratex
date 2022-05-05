@@ -80,7 +80,7 @@ function unit_test() {
 
     if [[ $DEVICE == "multi-GPU" ]]; then
         export RAZOR_DEVICE=GPU
-        time bash ./ci/task_python_distributed.sh
+        time bash ./ci/batch/task_python_distributed.sh
     else
         if [[ $DEVICE == "GPU" ]]; then
             export RAZOR_DEVICE=GPU
@@ -114,7 +114,7 @@ function unit_test_torch_1_11() {
 
     if [[ $DEVICE == "multi-GPU" ]]; then
         export RAZOR_DEVICE=GPU
-        time bash ./ci/task_python_distributed_pt_1_11.sh
+        time bash ./ci/batch/task_python_distributed_pt_1_11.sh
     else
         if [[ $DEVICE == "GPU" ]]; then
             export RAZOR_DEVICE=GPU
