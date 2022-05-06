@@ -177,6 +177,13 @@ jobs:
     if: ${{ always() && github.repository == 'meta-project/torch_mnm' }}
     runs-on: self-hosted
     steps:
+      - uses: haya14busa/action-workflow_run-status@v1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
       - name: Download new CI Badge
         id: badge
         # Download the latest CI badge from S3

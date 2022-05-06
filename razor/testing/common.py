@@ -284,7 +284,7 @@ def train(
     results = []
     model = copy.deepcopy(model)
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=1
+        dataset, batch_size=batch_size, shuffle=False, num_workers=0
     )
     dataset_size = len(dataset)
     model = model.to(device, dtype=dtype)
