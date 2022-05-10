@@ -122,7 +122,7 @@ def fetch_cloud_watch_logs(cloudwatch, log_stream_name, start_timestamp):
             log_events = cloudwatch.get_log_events(**event_args)
         except Exception:
             tprint("Failed to fetch logs from CloudWatch log stream %s" % log_stream_name)
-            return
+            return last_timestamp
 
         for event in log_events["events"]:
             last_timestamp = event["timestamp"]
