@@ -1017,7 +1017,7 @@ Var RAFNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
   Expr end = MakeConstant(Int(node->end()));
   Expr stride = MakeConstant(Int(node->stride()));
   return BindSymbol(
-      raf::ir::Call(Op::Get("raf.op.scatter_strided_slice"), {x, src, begin, end, stride}));
+      raf::ir::Call(Op::Get("raf.op.strided_set"), {x, src, begin, end, stride}));
 }
 
 Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {
