@@ -36,7 +36,11 @@ function compile() {
 
     # Compile. Note that compilation errors will not result in crash in this function.
     # We use return exit code to let the caller decide the action.
-    BUILD_TYPE=Release USE_CUTLASS=ON bash ./scripts/build_third_party.sh || true
+    if [[ $JOB_TAG == *"multi-GPU"* ]]; then
+        BUILD_TYPE=Release USE_CUTLASS=ON USE_NCCL=ON bash ./scripts/build_third_party.sh || true
+    else
+        BUILD_TYPE=Release USE_CUTLASS=ON bash ./scripts/build_third_party.sh || true
+    fi
     bash ./scripts/build_razor.sh || true
     RET=$?
 
@@ -79,6 +83,7 @@ function unit_test() {
     echo "=========================================="
 
     if [[ $DEVICE == "multi-GPU" ]]; then
+        nvidia-smi -L
         export RAZOR_DEVICE=GPU
         time bash ./ci/batch/task_python_distributed.sh
     else
@@ -113,6 +118,7 @@ function unit_test_torch_1_11() {
     echo "==========================================================="
 
     if [[ $DEVICE == "multi-GPU" ]]; then
+        nvidia-smi -L
         export RAZOR_DEVICE=GPU
         time bash ./ci/batch/task_python_distributed_pt_1_11.sh
     else

@@ -291,11 +291,11 @@ def train(
     model.train()
 
     optimizer = optimizer(model.parameters(), **optimizer_params)
-    if device == "lazy":
+    if "lazy" in device:
         model = razor.jit.script(model)
 
     for epoch in range(num_epochs):
-        print(f"Epoch {epoch:2d} starts...")
+        logger.debug("Epoch %2d starts...", epoch)
         start = time.time()
         running_loss = []
         for idx, (inputs, labels) in enumerate(dataloader):
@@ -309,33 +309,34 @@ def train(
                 loss = loss / acc_grad_steps if acc_grad_steps else loss
                 loss.backward()
                 if trim:
-                    logger.log(logging.DEBUG, "Mark Step...")
+                    logger.debug("Mark Step...")
                     lm.mark_step()
                 if not acc_grad_steps or idx % acc_grad_steps == (acc_grad_steps - 1):
                     if reduce_gradients:
                         razor.core.lazy_model.reduce_gradients(optimizer)
                     optimizer.step()
-                    logger.log(logging.DEBUG, "Mark Step...")
+                    logger.debug("Mark Step...")
                     if set_to_none:
                         optimizer.zero_grad(set_to_none=set_to_none)
                     else:
                         optimizer.zero_grad(inplace_update=True)
                     lm.mark_step()
-            running_loss.append((loss, inputs.size(0)))
+                    running_loss.append((loss, inputs.size(0)))
+
             if epilogue_closure:
                 epilogue_closure()
 
         epoch_loss = sum([l.item() * w for l, w in running_loss]) / dataset_size
         end = time.time()
-        print(f"Epoch {epoch:2d}, Loss {epoch_loss:.4f}, Time {(end - start): .4f}", flush=True)
+        logger.debug("Epoch %2d, Loss %.4f, Time %.4f", epoch, epoch_loss, (end - start))
         results.append(epoch_loss)
     return results
 
 
 def verify(lazy_results, cpu_results, tol=1e-5):
     """Verify the series of losses."""
-    print("lazy_losses = ", lazy_results)
-    print("cpu_losses = ", cpu_results)
+    logger.debug("lazy_losses = %s", lazy_results)
+    logger.debug("cpu_losses = %s", cpu_results)
     for lazy, cpu in zip(lazy_results, cpu_results):
         torch.testing.assert_close(lazy, cpu, atol=tol, rtol=tol)
 

@@ -13,6 +13,7 @@
 #include "raf/value.h"
 #include "raf/pass.h"
 #include "raf/binding.h"
+#include "raf/op_utils.h"
 
 namespace raf {
 namespace pass {
@@ -62,6 +63,7 @@ using namespace lazy_tensors;
 using namespace raf;
 using namespace raf::value;
 using namespace raf::ir;
+using namespace raf::tensor;
 
 inline Shape WithDefaultMinorToMajor(const Shape& shape) {
   Shape ret = shape;
@@ -180,6 +182,81 @@ inline std::tuple<Var, Var> PromoteDType(const Var& op0, const Var& op1) {
   } else {
     return std::make_tuple(op0, BindSymbol(raf::ir::Call(Op::Get("raf.op.cast_like"), {op1, op0})));
   }
+}
+
+// Dispatch DataType to the C++ data type
+#define RAF_DTYPE_DISPATCH(type, CDType, ...)                     \
+  if (type == raf::DType(DTypeCode::kFloat(), 64)) {              \
+    typedef double CDType;                                        \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kFloat(), 32)) {       \
+    typedef float CDType;                                         \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kFloat(), 16)) {       \
+    typedef uint16_t CDType;                                      \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kBFloat(), 16)) {      \
+    typedef uint16_t CDType;                                      \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kInt(), 64)) {         \
+    typedef int64_t CDType;                                       \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kInt(), 32)) {         \
+    typedef int32_t CDType;                                       \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kInt(), 16)) {         \
+    typedef int16_t CDType;                                       \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kInt(), 8)) {          \
+    typedef int8_t CDType;                                        \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kUInt(), 64)) {        \
+    typedef uint64_t CDType;                                      \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kUInt(), 32)) {        \
+    typedef uint32_t CDType;                                      \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kUInt(), 16)) {        \
+    typedef uint16_t CDType;                                      \
+    { __VA_ARGS__ }                                               \
+  } else if (type == raf::DType(DTypeCode::kUInt(), 8)) {         \
+    typedef uint8_t CDType;                                       \
+    { __VA_ARGS__ }                                               \
+  } else {                                                        \
+    LOG(FATAL) << "unknown data type " << type.code << type.bits; \
+  }
+
+// Create a RelayConstant with a scalar
+template <typename T>
+inline RelayConstant MakeConstantScalar(raf::DType dtype, T value, const raf::Device& to_dev) {
+  // FIXME(multi-node): This can be a problem when we use multi-node environment
+  tvm::runtime::NDArray cpu_array = tvm::runtime::NDArray::Empty({1}, dtype, {kDLCPU, 0});
+  RAF_DTYPE_DISPATCH(dtype, CDType, {
+    if (dtype == raf::DType(DTypeCode::kFloat(), 16)) {
+      // convert to float16
+      // storage is uint16_t
+      *static_cast<CDType*>(cpu_array->data) =
+          __truncXfYf2__<float, uint32_t, 23, uint16_t, uint16_t, 10>(static_cast<float>(value));
+    } else if (dtype == raf::DType(DTypeCode::kBFloat(), 16)) {
+      // convert to bfloat16
+      // storage is uint16_t
+      *static_cast<CDType*>(cpu_array->data) = c10::BFloat16(static_cast<float>(value)).x;
+    } else {
+      *static_cast<CDType*>(cpu_array->data) = value;
+    }
+  })
+  auto tgt_array = tvm::runtime::NDArray::Empty({1}, dtype, to_dev);
+  tgt_array.CopyFrom(cpu_array);
+  return MakeConstant(TensorValue::make(Tensor::FromDLPack(tgt_array.ToDLPack())));
+}
+
+// Convert the replica groups from vector to tuple value
+inline TupleValue ConvertReplicaGroupsToValue(std::vector<std::vector<int64_t>> replica_groups) {
+  Array<Value> ret;
+  for (auto const& group : replica_groups) {
+    ret.push_back(raf::op::ArrayToIntTuple(group));
+  }
+  return TupleValue::make(ret);
 }
 
 }  // namespace raf_backend

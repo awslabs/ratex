@@ -1,106 +1,148 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import patch
+import sys
+import os
 import pytest
+import numpy as np
 import torch
 import torch.nn as nn
 import raf
 import razor
 from raf import distributed as dist
+from raf.testing import get_dist_comm_info, skip_dist_test
+from razor.lazy_tensor_core.core.lazy_model import lazy_device
 from razor.core.lazy_model import all_gather, all_reduce
-from razor.testing import compile_model, with_enable_param_aliasing, with_mock_distributed_info
+from razor.testing import (
+    check,
+    with_enable_param_aliasing,
+)
+
+SKIP_REASON = "Distribution is not enabled or #rank is not expected"
 
 
-@patch("raf.distributed.get_communicator")
-@patch("raf.distributed.get_config")
-@pytest.mark.parametrize("world_size", [1, 4])
-def test_all_reduce(mock_get_config, mock_get_comm, world_size):
+def _test_all_reduce(dtype):
     """Test of tracing and lowering allreduce op."""
-    # Mock the dist config and communicator.
-    class MockConfig:
-        def __init__(self):
-            self.enable_data_parallel = False
-            self.zero_opt_level = 0
-
-    mock_get_config.return_value = MockConfig()
-
-    class MockComm:
-        def __init__(self):
-            self.size = world_size
-            self.rank = 0
-
-    mock_get_comm.return_value = MockComm()
-
-    class Model(nn.Module):
-        def __init__(self):
-            super(Model, self).__init__()
-
-        def forward(self, x):
-            out = all_reduce("sum", x, scale=1.0 / world_size)
-            return out
-
-    shape = [1, 1, 28, 28]
-    x = torch.randn(*shape)
-
-    module = compile_model(Model(), [x], jit_script=False)
-
-    text = raf._ffi.ir.AsText(module)
-    assert text.count("_allreduce") == 1
-    if world_size != 1:
-        assert text.count("divide") == 1
+    total_rank, rank, local_rank = get_dist_comm_info()
+    n_ones = np.ones(shape=(4, 4), dtype=dtype)
+    x = torch.from_numpy(n_ones) * (rank + 1)
+    x = x.to(lazy_device(rank))
+    y = all_reduce("sum", x, scale=1.0 / total_rank)
+    target_y = n_ones * sum(range(1, total_rank + 1)) / total_rank
+    check(y, target_y)
 
 
-@with_mock_distributed_info(world_size=4, rank=1)
-def test_all_gather():
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_all_reduce(dtype):
+    _test_all_reduce(dtype)
+
+
+@pytest.mark.torch_1_11_test
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_all_reduce_pt11(dtype):
+    _test_all_reduce(dtype)
+
+
+@pytest.mark.skipif(skip_dist_test(min_rank_num=4), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+@pytest.mark.parametrize("groups", [[[0, 1], [2, 3]], [[0, 1, 2]]])
+def test_allreduce_with_subcomm(dtype, groups):
+    """Testing allreduce with replica groups."""
+    _, rank, local_rank = get_dist_comm_info()
+    device = lazy_device(rank)
+    x = np.ones(shape=(4, 4), dtype=dtype) * (rank + 1)
+    x = torch.from_numpy(x).to(device)
+    y = all_reduce("sum", x, groups=groups)
+    for group in groups:
+        if rank in group:
+            ones = np.ones(shape=(4, 4), dtype=dtype)
+            target_y = ones * sum(np.array(group) + 1)
+            check(y, target_y)
+
+
+def _test_all_gather(dtype):
     """Test of tracing and lowering allgather op."""
-
-    class Model(nn.Module):
-        def __init__(self):
-            super(Model, self).__init__()
-
-        def forward(self, x):
-            out = all_gather(x, dim=0)
-            return out
-
-    shape = [1, 1, 28, 28]
-    x = torch.randn(*shape)
-
-    module = compile_model(Model(), [x], jit_script=False)
-
-    text = raf._ffi.ir.AsText(module)
-    ret_type = module["main"].ret_type
-    expected_ret_shape = shape
-    expected_ret_shape[0] *= 4
-
-    assert text.count("_allgather") == 1
-    assert list(ret_type.fields[1].shape) == expected_ret_shape
+    total_rank, rank, local_rank = get_dist_comm_info()
+    n_ones = np.ones(shape=(4, 4), dtype=dtype)
+    x = torch.from_numpy(n_ones) * (rank + 1)
+    x = x.to(lazy_device(rank))
+    y = all_gather(x, dim=0)
+    target_y = np.concatenate([n_ones * (r + 1) for r in range(total_rank)], axis=0)
+    check(y, target_y)
 
 
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+def test_all_gather(dtype):
+    _test_all_gather(dtype)
+
+
+@pytest.mark.torch_1_11_test
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+def test_all_gather_pt11(dtype):
+    _test_all_gather(dtype)
+
+
+@pytest.mark.skipif(skip_dist_test(min_rank_num=4), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+@pytest.mark.parametrize("groups", [[[0, 1], [2, 3]], [[0, 1, 2]]])
+def test_allgather_with_subcomm(dtype, groups):
+    """Testing allgather with with replica groups."""
+    _, rank, local_rank = get_dist_comm_info(verbose=True)
+    device = lazy_device(rank)
+    n_x = np.ones(shape=(4, 4), dtype=dtype)
+    x = torch.from_numpy(n_x) * (rank + 1)
+    x = x.to(device)
+    y = all_gather(x, dim=0, groups=groups)
+
+    is_rank_in_group = False
+    for group in groups:
+        if rank in group:
+            target_y = np.concatenate([n_x * (r + 1) for r in group])
+            is_rank_in_group = True
+            check(y, target_y)
+
+    if not is_rank_in_group:
+        target_y = n_x * (rank + 1)
+        check(y, target_y)
+
+
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
 @with_enable_param_aliasing
-@with_mock_distributed_info(world_size=4, rank=1)
-def test_all_gather_out():
+def test_all_gather_out(dtype):
     """Test of tracing and lowering allgather op."""
-
-    class Model(nn.Module):
-        def __init__(self):
-            super(Model, self).__init__()
-
-        def forward(self, x, out):
-            all_gather(x, dim=0, output=out)
-            return x
-
+    total_rank, rank, local_rank = get_dist_comm_info()
     shape = [1, 1, 28, 28]
     expected_ret_shape = shape.copy()
     expected_ret_shape[0] *= 4
-
-    x = torch.randn(*shape)
-    out = torch.zeros(*expected_ret_shape).to("lazy")
-
-    module = compile_model(Model(), [x, out], jit_script=False)
-    text = raf._ffi.ir.AsText(module)
-    assert text.count("_allgather") == 1
+    device = lazy_device(rank)
+    n_ones = np.ones(shape=tuple(shape), dtype=dtype)
+    x = torch.from_numpy(n_ones) * (rank + 1)
+    x = x.to(device)
+    y = torch.zeros(*expected_ret_shape).to(device)
+    all_gather(x, dim=0, output=y)
+    target_y = np.concatenate([n_ones * (r + 1) for r in range(total_rank)], axis=0)
+    check(y, target_y)
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    if os.environ.get("RAF_FILE_STORE_PATH", None):
+        dist.set_default_communicator("void")
+        comm = dist.get_communicator()
+        size = int(
+            os.environ.get("OMPI_COMM_WORLD_SIZE", None) or os.environ.get("MPIRUN_NPROCS", None)
+        )
+        rank = int(
+            os.environ.get("OMPI_COMM_WORLD_RANK", None) or os.environ.get("MPIRUN_RANK", None)
+        )
+        comm.size = size
+        comm.rank = rank
+        comm.local_size = size
+        comm.local_rank = rank
+    exit_code = pytest.main([__file__])
+    dist.RemoveCommunicator()
+    sys.exit(exit_code)

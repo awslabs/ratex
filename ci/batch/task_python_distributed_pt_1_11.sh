@@ -6,4 +6,4 @@ set -e
 set -u
 set -o pipefail
 
-#mpirun -np 2 --allow-run-as-root python3 -m pytest tests/python/op/test_distributed.py -m torch_1_11_test
+LTC_IO_THREAD_POOL_SIZE=1 mpirun -np 2 --allow-run-as-root python3 tests/python/op/test_distributed.py -m "torch_1_11_test and torch_all_test"

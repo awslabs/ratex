@@ -12,7 +12,7 @@ import torch
 import raf
 import tvm
 from raf import distributed as dist
-from raf._ffi.pass_ import AutoDiff, AutoDataParallel, DeadCodeElimination, InferType
+from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
 
 from .._lib import raf
 from ..value import ValueToHandle
@@ -145,7 +145,6 @@ def persis_cache_fn(wrapped_func):
     """
 
     def wrapper(module, shape_n_dtype, args):
-        dcfg = dist.get_config()
         comm = dist.get_communicator()
         # params included in cache key to distinguish full-precision and half-precision models
         params = sorted(
@@ -155,7 +154,6 @@ def persis_cache_fn(wrapped_func):
             hash_torch_module(module),
             str(shape_n_dtype),
             str(tuple(params)),
-            dcfg.enable_data_parallel,
             comm.size,
             "convert_module_to_meta",
         )
@@ -205,7 +203,6 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
-    dcfg = dist.get_config()
     cloned_module = copy.deepcopy(module)
 
     model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
@@ -219,9 +216,6 @@ def convert_module_to_meta(module, shape_n_dtype, args):
     record = model._internal(raf.array(asnumpy(args[0].clone())))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
-    if dcfg.enable_data_parallel:
-        # FIXME: move AutoDataParallel to Optimize in client files
-        mod = AutoDataParallel()(mod)
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRAZOR()(InferType()(mod))
     inplace_update_map = dict(InplaceUpdateAnalysis(mod).items())

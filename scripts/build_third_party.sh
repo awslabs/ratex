@@ -14,7 +14,10 @@
 #     the CUDA architecture (sm_xx) of the target GPU. Default: 70
 #
 #   USE_CUTLASS
-#      build with Cutlass. Default: OFF
+#     build with Cutlass. Default: OFF
+#
+#   USE_NCCL
+#     build with NCCL. Default: OFF
 #
 #   BUILD_MAX_JOBS
 #     maximum number of jobs to build. Default: all CPU cores - 1.
@@ -38,15 +41,23 @@ if [[ -z ${USE_CUTLASS+x} ]]; then
   USE_CUTLASS="OFF"
 fi
 
+if [[ -z ${USE_NCCL+x} ]]; then
+  USE_NCCL="OFF"
+fi
+
 if [[ -z ${BUILD_MAX_JOBS+x} ]]; then
   BUILD_MAX_JOBS=$(expr $(nproc) - 1)
 fi
 
 USE_CUBLAS="OFF"
 USE_CUDNN="OFF"
+USE_MPI="OFF"
 if [ "$USE_CUDA" = "ON" ]; then
   USE_CUBLAS="ON"
   USE_CUDNN="ON"
+  if [ "$USE_NCCL" = "ON" ]; then
+    USE_MPI="ON"
+  fi
 fi
 
 echo "Building RAF/TVM..."
@@ -62,6 +73,8 @@ echo "set(RAF_CUDA_ARCH $CUDA_ARCH)" >> config.cmake
 echo "set(RAF_USE_CUBLAS $USE_CUBLAS)" >> config.cmake
 echo "set(RAF_USE_CUDNN $USE_CUDNN)" >> config.cmake
 echo "set(RAF_USE_CUTLASS $USE_CUTLASS)" >> config.cmake
+echo "set(RAF_USE_NCCL $USE_NCCL)" >> config.cmake
+echo "set(RAF_USE_MPI $USE_MPI)" >> config.cmake
 cmake -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=g++ ..
 make -j${BUILD_MAX_JOBS}
 popd

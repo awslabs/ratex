@@ -189,31 +189,33 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
 
     auto raf_device = ToRAFDevice(instance.compilation_device);
 
-    raf::pass::RAFSequential seq({
-        raf::pass::InferType(),
-        raf::pass::FoldConstant(),
-        raf::pass::DeadCodeElimination(),
-        raf::pass::InferType(),
-        raf::pass::SimplifyExpr(),
-        raf::pass::InferType(),
-        raf::pass::DeadCodeElimination(),
-        raf::pass::InferType(),
-        raf::pass::LambdaLift(),
-        raf::pass::InferType(),
-        raf::pass::InlineClosure(),
-        raf::pass::InferType(),
-        raf::pass::DeadCodeElimination(),
-        raf::pass::InferType(),
-        raf::pass::EliminateClosure(),
-        raf::pass::InferType(),
-        raf::pass::InlineLet(),
-        raf::pass::InferType(),
-        raf::pass::DeadCodeElimination(),
-        raf::pass::InferType(),
-        raf::pass::CanonicalizeOps(),
-        raf::pass::InferType(),
-        raf::pass::AssignDevice(raf_device.device_type().c_str()),
-    });
+    raf::pass::RAFSequential seq(
+        {
+            raf::pass::InferType(),
+            raf::pass::FoldConstant(),
+            raf::pass::DeadCodeElimination(),
+            raf::pass::InferType(),
+            raf::pass::SimplifyExpr(),
+            raf::pass::InferType(),
+            raf::pass::DeadCodeElimination(),
+            raf::pass::InferType(),
+            raf::pass::LambdaLift(),
+            raf::pass::InferType(),
+            raf::pass::InlineClosure(),
+            raf::pass::InferType(),
+            raf::pass::DeadCodeElimination(),
+            raf::pass::InferType(),
+            raf::pass::EliminateClosure(),
+            raf::pass::InferType(),
+            raf::pass::InlineLet(),
+            raf::pass::InferType(),
+            raf::pass::DeadCodeElimination(),
+            raf::pass::InferType(),
+            raf::pass::CanonicalizeOps(),
+            raf::pass::InferType(),
+            raf::pass::AssignDevice(raf_device.c_str()),
+        },
+        "razor_raf_compile");
 
     raf::executor::vm::DeviceMap device_map{{Integer((int)(raf_device.device_type())), raf_device}};
 

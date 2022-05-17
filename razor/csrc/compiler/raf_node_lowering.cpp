@@ -905,21 +905,6 @@ Var RAFNodeLowering::LowerConstant(const ir::ops::Constant* node) {
   return BindSymbol(MakeConstant(value));
 }
 
-TensorValue MakeTensor(void* data, int64_t* shape, int ndim, raf::Device to_dev, DType dtype) {
-  DLTensor tensor;
-  tensor.data = data;
-  tensor.device = raf::Device(DevType::kCPU(), 0);
-  tensor.dtype = dtype;
-  tensor.shape = shape;
-  tensor.ndim = ndim;
-  tensor.strides = nullptr;
-  tensor.byte_offset = 0;
-  auto array =
-      tvm::runtime::NDArray::Empty(std::vector<int64_t>(shape, shape + ndim), dtype, to_dev);
-  array.CopyFrom(&tensor);
-  return TensorValue::make(Tensor::FromDLPack(array.ToDLPack()));
-}
-
 template <typename T>
 TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<int64_t> shape) {
   int64_t numel = 1;
@@ -930,6 +915,7 @@ TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<in
   std::vector<T> value(numel, scalar);
   DLTensor tensor;
   tensor.data = value.data();
+  // FIXME(multi-node): This can be a problem when we use multi-node environment
   tensor.device = raf::Device(DevType::kCPU(), 0);
   tensor.dtype = dtype;
   tensor.shape = shape.data();
@@ -1079,25 +1065,19 @@ Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) 
                    << lazy_tensors::util::GetEnumValue(node->reduce_type());
   }
 
+  Expr rank_list = MakeConstant(ConvertReplicaGroupsToValue(node->groups()));
+
   // The last element in the operands is token
   std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
   Var allreduce_in = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
-  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._allreduce"), {allreduce_in, computation}));
+  Var ret = BindSymbol(
+      raf::ir::Call(Op::Get("raf.op._allreduce"), {allreduce_in, computation, rank_list}));
   if (node->scale() != 1.0) {
     DType dtype = ToRAFDType(node->operands()[0].shape().element_type());
+    raf::Device dev = ToRAFDevice(GetCurrentDevice().ToString());
     // Take the reverse of the scale to reserve the precision if the data is integer
     double scale_value = 1.0 / node->scale();
-    Expr scale;
-    if (dtype.code == DTypeCode::kFloat() && dtype.bits == 32) {
-      scale = MakeConstant(ScalarValue::make(float(scale_value)));
-    } else if (dtype.code == DTypeCode::kInt() && dtype.bits == 32) {
-      scale = MakeConstant(ScalarValue::make(int(scale_value)));
-    } else if (dtype.code == DTypeCode::kFloat() && dtype.bits == 16) {
-      scale = MakeConstant(FloatValue::make(DataType::Float(16), scale_value));
-    } else {
-      LTC_LOG(FATAL) << "Unsupported Allreduce datatype "
-                     << node->operands()[0].shape().element_type();
-    }
+    Expr scale = MakeConstantScalar(dtype, scale_value, dev);
     ret = BindSymbol(raf::ir::Call(Op::Get("raf.op.divide"), {ret, scale}));
   }
 
@@ -1117,7 +1097,8 @@ Var BuildAllGather(const std::vector<Var>& ops, const ir::ops::AllGather* node) 
   // The last element in the operands is token
   Var token = ops.back();
   Expr dim = MakeConstant(Int(node->dim()));
-  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._allgather"), {x, dim}));
+  Expr rank_list = MakeConstant(ConvertReplicaGroupsToValue(node->groups()));
+  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._allgather"), {x, dim, rank_list}));
   return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, token})));
 }
 

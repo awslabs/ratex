@@ -6,4 +6,5 @@ set -e
 set -u
 set -o pipefail
 
-#mpirun -np 2 --allow-run-as-root python3 tests/python/op/test_distributed.py
+LTC_IO_THREAD_POOL_SIZE=1 mpirun -np 2 --allow-run-as-root python3 tests/python/op/test_distributed.py
+LTC_IO_THREAD_POOL_SIZE=1 mpirun -np 2 --allow-run-as-root python3 tests/python/model/test_distributed_models.py

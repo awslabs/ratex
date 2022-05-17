@@ -38,8 +38,8 @@ def all_reduce(reduce_type, inputs, scale=1.0, groups=None):
       returns the list/tuple itself.
     """
     comm = dist.get_communicator()
-    assert groups is None, "Razor doesn't support custom replica groups yet"
-    groups = [list(range(0, comm.size))]
+    if groups is None:
+        groups = [list(range(0, comm.size))]
 
     if isinstance(inputs, torch.Tensor):
         token = _RAZORC._raf_create_token(inputs.device.type)
@@ -74,16 +74,16 @@ def all_gather(value, dim=0, groups=None, output=None):
         dim = value.dim() + dim
     token = _RAZORC._raf_create_token(value.device.type)
 
-    assert groups is None, "Razor doesn't support custom replica groups yet"
-    groups = [list(range(0, comm.size))]
-    shard_count = comm.size
+    if groups is None:
+        groups = [list(range(0, comm.size))]
 
+    shard_count = comm.size
     if output is not None:
         # Call the out of place version of the all_gather
-        _RAZORC._ltc_all_gather_out(output, value, token, dim, shard_count, groups or [])
+        _RAZORC._ltc_all_gather_out(output, value, token, dim, shard_count, groups)
         return output
 
-    result = _RAZORC._ltc_all_gather(value, token, dim, shard_count, groups or [])
+    result = _RAZORC._ltc_all_gather(value, token, dim, shard_count, groups)
     return result[0]
 
 
