@@ -129,8 +129,7 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
         // Cache Hit
         release_lock(key);
         std::string compute_file = dirname + "/compute.json";
-        std::string json = Load(compute_file);
-        results.push_back(CompileDeSerialize(json));
+        results.push_back(CompileDeSerialize(compute_file));
       } else {
         // Cache Miss
         ComputationPtr res = Compile(ins);

@@ -40,4 +40,16 @@ void CopyFile(const std::string& from, const std::string& to) {
   ofs.close();
 }
 
+std::string GetBasename(std::string path) {
+  if (path.back() == '/') {
+    path.pop_back();
+  }
+  size_t found = path.find_last_of('/');
+  return path.substr(found + 1);
+}
+
+std::string GetParentPath(const std::string& path) {
+  return path.substr(0, path.find_last_of("/"));
+}
+
 }  // namespace razor

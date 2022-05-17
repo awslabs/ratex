@@ -162,7 +162,7 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
     LTC_LOG(FATAL) << "Serialization not implemented. Cached compilation should be disabled";
   }
 
-  virtual ComputationPtr CompileDeSerialize(const std::string& str) {
+  virtual ComputationPtr CompileDeSerialize(const std::string& json_path) {
     LTC_LOG(FATAL) << "DeSerialization not implemented. Cached compilation should be disabled";
   }
 

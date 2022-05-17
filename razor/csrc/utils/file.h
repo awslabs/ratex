@@ -19,4 +19,8 @@ void Save(const std::string& dir, const std::string& str);
 
 void CopyFile(const std::string& from, const std::string& to);
 
+std::string GetBasename(std::string file_path);
+
+std::string GetParentPath(const std::string& path);
+
 }  // namespace razor
