@@ -147,7 +147,7 @@ def test_traced_lans(config):
         m_dy = m_dy.to(device=m_device)
         m_x, t_x = randn_torch([1, 3, config[1], config[1]], requires_grad=True, device=t_device)
         m_x = m_x.to(device=m_device)
-        m_y, t_y = one_hot_torch(batch_size=1, num_classes=config[2], device=t_device)
+        m_y, t_y = one_hot_torch(size=1, num_classes=config[2], device=t_device)
         m_y = m_y.to(device=m_device)
         run_vm_model(m_optimizer, m_device, [m_dy, m_x, m_y])
         t_optimizer.zero_grad()
