@@ -129,7 +129,7 @@ def hash_torch_module(module):
     return hashlib.md5(str(module).encode(encoding="UTF-8")).hexdigest()
 
 
-def persis_cache_fn(wrapped_func):
+def persist_cache_fn(wrapped_func):
     """Persistent cache a Python function. Note that we assume the cached function
     refers to the distributed context, so it values are also a part of the cache key.
 
@@ -155,7 +155,7 @@ def persis_cache_fn(wrapped_func):
             str(shape_n_dtype),
             str(tuple(params)),
             comm.size,
-            "convert_module_to_meta",
+            "convert_module_to_raf",
         )
 
         def unpack(value):
@@ -170,7 +170,7 @@ def persis_cache_fn(wrapped_func):
                 raf.ir.load_json(value)
             )
             # raf_params_shape is tuple instead of list
-            raf_params_shape = {k: tuple(v) for k, v in raf_params_shape.items()}
+            raf_params_shape = {k: tuple([e.value for e in v]) for k, v in raf_params_shape.items()}
             return func, param_names, inplace_update_map, raf_params_shape, raf_params_dtype
 
         def saver(value):
@@ -185,10 +185,10 @@ def persis_cache_fn(wrapped_func):
     return wrapper
 
 
-@ltc_timed("RAFTraceConvertModuleToMeta")
-@persis_cache_fn
-def convert_module_to_meta(module, shape_n_dtype, args):
-    """Convert the PyTorch module to Meta and apply necessary transformations.
+@ltc_timed("RAFTraceConvertModuleToRAF")
+@persist_cache_fn
+def convert_module_to_raf(module, shape_n_dtype, args):
+    """Convert the PyTorch module to RAF and apply necessary transformations.
     Parameters
     ----------
     module : torch.nn.Module
@@ -273,7 +273,7 @@ def script(module: torch.nn.Module):
                 inplace_update_map,
                 raf_params_shape,
                 raf_params_dtype,
-            ) = convert_module_to_meta(module, shape_n_dtype, args)
+            ) = convert_module_to_raf(module, shape_n_dtype, args)
             # Convert missing args
             params_keys = [to_raf_name(k) for k in params.keys()]
             for name in param_names:

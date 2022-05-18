@@ -84,8 +84,8 @@ def test_compile_cache():
 
 @with_temp_cache
 def test_convert_module_to_meta_cache():
-    # it cannot be accessed with razor.jit.script.convert_module_to_meta
-    from razor.jit.script import convert_module_to_meta
+    # it cannot be accessed with razor.jit.script.convert_module_to_raf
+    from razor.jit.script import convert_module_to_raf
     from razor.utils.cache import cache
 
     args = [torch.rand(1, 1, 28, 28, dtype=torch.float32)]
@@ -97,7 +97,7 @@ def test_convert_module_to_meta_cache():
         inplace_update_map,
         raf_params_shape,
         raf_params_dtype,
-    ) = convert_module_to_meta(module, shape_n_dtype, args)
+    ) = convert_module_to_raf(module, shape_n_dtype, args)
     assert cache.misses == 1 and cache.hits == 0
     (
         func_1,
@@ -105,7 +105,7 @@ def test_convert_module_to_meta_cache():
         inplace_update_map_1,
         raf_params_shape_1,
         raf_params_dtype_1,
-    ) = convert_module_to_meta(module, shape_n_dtype, args)
+    ) = convert_module_to_raf(module, shape_n_dtype, args)
     assert cache.misses == 1 and cache.hits == 1
     # clear in-memory cache
     cache.evict_all()
@@ -115,7 +115,7 @@ def test_convert_module_to_meta_cache():
         inplace_update_map_1,
         raf_params_shape_1,
         raf_params_dtype_1,
-    ) = convert_module_to_meta(module, shape_n_dtype, args)
+    ) = convert_module_to_raf(module, shape_n_dtype, args)
     assert isinstance(func, tvm.relay.Function)
     assert tvm.ir.structural_equal(func, func_1)
     assert param_names == param_names_1
