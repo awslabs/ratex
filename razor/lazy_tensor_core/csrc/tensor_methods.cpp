@@ -95,6 +95,7 @@
 #include "lazy_tensor_core/csrc/ops/prod.h"
 #include "lazy_tensor_core/csrc/ops/put.h"
 #include "lazy_tensor_core/csrc/ops/qr.h"
+#include "lazy_tensor_core/csrc/ops/reduce_scatter.h"
 #include "lazy_tensor_core/csrc/ops/reflection_pad2d.h"
 #include "lazy_tensor_core/csrc/ops/reflection_pad2d_backward.h"
 #include "lazy_tensor_core/csrc/ops/repeat.h"
@@ -365,6 +366,19 @@ ir::Value LazyTensor::all_gather_out(LazyTensor& output, const LazyTensor& input
                                                       std::move(groups));
   output.SetIrValue(ir::Value(node, 0));
   return ir::Value(node, 1);
+}
+
+std::pair<LazyTensor, ir::Value> LazyTensor::reduce_scatter(
+    std::vector<LazyTensor>* inputs, const ir::Value& token, AllReduceType reduce_type,
+    std::vector<std::vector<int64_t>> groups) {
+  std::vector<ir::Value> input_values;
+  input_values.reserve(inputs->size());
+  for (auto& input : *inputs) {
+    input_values.push_back(input.GetIrValue());
+  }
+  ir::NodePtr node =
+      ir::MakeNode<ir::ops::ReduceScatter>(input_values, token, reduce_type, std::move(groups));
+  return {(*inputs)[0].CreateFrom(ir::Value(node, 0)), ir::Value(node, 1)};
 }
 
 LazyTensor LazyTensor::get_dimensions_size(const LazyTensor& input,

@@ -81,6 +81,7 @@
 #include "lazy_tensor_core/csrc/ops/prod.h"
 #include "lazy_tensor_core/csrc/ops/put.h"
 #include "lazy_tensor_core/csrc/ops/qr.h"
+#include "lazy_tensor_core/csrc/ops/reduce_scatter.h"
 #include "lazy_tensor_core/csrc/ops/reflection_pad2d.h"
 #include "lazy_tensor_core/csrc/ops/reflection_pad2d_backward.h"
 #include "lazy_tensor_core/csrc/ops/replication_pad.h"
@@ -227,6 +228,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(Cat);
   DECLARE_OP2(AllReduce);
   DECLARE_OP2(AllGather);
+  DECLARE_OP2(ReduceScatter);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -247,6 +249,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferCat(const ir::ops::Cat* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
   lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
+  lazy_tensors::Shape InferReduceScatter(const ir::ops::ReduceScatter* node);
 };
 
 #undef DECLARE_OP2
@@ -357,6 +360,10 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
       if (node->op() == *ir::ops::ltc_cross_replica_sum) {
         return LowerAllReduce(
             ir::NodeCast<ir::ops::AllReduce>(node, *ir::ops::ltc_cross_replica_sum));
+      }
+      if (node->op() == *ir::ops::ltc_reduce_scatter) {
+        return LowerReduceScatter(
+            ir::NodeCast<ir::ops::ReduceScatter>(node, *ir::ops::ltc_reduce_scatter));
       }
     }
   }
@@ -1109,6 +1116,34 @@ Var RAFNodeLowering::LowerAllGather(const ir::ops::AllGather* node) {
   return BuildAllGather(ops, node);
 }
 
+Var BuildReduceScatter(const std::vector<Var>& ops, const ir::ops::ReduceScatter* node) {
+  Expr computation;
+  if (node->reduce_type() == AllReduceType::kSum) {
+    computation = MakeConstant(String("sum"));
+  } else if (node->reduce_type() == AllReduceType::kMul) {
+    computation = MakeConstant(String("prod"));
+  } else if (node->reduce_type() == AllReduceType::kMin) {
+    computation = MakeConstant(String("min"));
+  } else if (node->reduce_type() == AllReduceType::kMax) {
+    computation = MakeConstant(String("max"));
+  } else {
+    LTC_LOG(FATAL) << "Unsupported Allreduce Type "
+                   << lazy_tensors::util::GetEnumValue(node->reduce_type());
+  }
+  // The last element in the operands is token
+  Var token = ops.back();
+  std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
+  Var input = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
+  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._reduce_scatter"), {input, computation}));
+  return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, token})));
+}
+
+Var RAFNodeLowering::LowerReduceScatter(const ir::ops::ReduceScatter* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildReduceScatter(ops, node);
+}
+
 lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
   const ir::OpKind& kind = node->op();
   switch (kind.op) {
@@ -1180,6 +1215,10 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       if (kind == *ir::ops::ltc_cross_replica_sum) {
         return InferAllReduce(
             ir::NodeCast<ir::ops::AllReduce>(node, *ir::ops::ltc_cross_replica_sum));
+      }
+      if (kind == *ir::ops::ltc_reduce_scatter) {
+        return InferReduceScatter(
+            ir::NodeCast<ir::ops::ReduceScatter>(node, *ir::ops::ltc_reduce_scatter));
       }
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
@@ -1321,6 +1360,16 @@ lazy_tensors::Shape RAFNodeLowering::InferAllGather(const ir::ops::AllGather* no
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildAllGather(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferReduceScatter(const ir::ops::ReduceScatter* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildReduceScatter(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

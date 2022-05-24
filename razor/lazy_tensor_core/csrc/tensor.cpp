@@ -939,6 +939,7 @@ std::vector<at::Tensor> LazyTensor::GetTensorsOpByOp(std::vector<LazyTensor>* te
 }
 
 std::vector<at::Tensor> LazyTensor::GetTensors(std::vector<LazyTensor>* tensors) {
+  LTC_VLOG(4) << "Trying to get the value of " << tensors->size() << " tensor(s)";
   static const bool op_by_op = lazy_tensors::sys_util::GetEnvBool("GET_TENSORS_OPBYOP", false);
   return op_by_op ? GetTensorsOpByOp(tensors) : GetTensorsFused(tensors);
 }
@@ -1302,6 +1303,7 @@ std::shared_ptr<LazyTensor::Async> LazyTensor::ScheduleSyncTensorsGraph(
 void LazyTensor::SyncTensorsGraph(std::vector<LazyTensor>* tensors,
                                   lazy_tensors::Span<const std::string> devices, bool wait,
                                   bool sync_ltc_data) {
+  LTC_VLOG(4) << "Trying to get the value of " << tensors->size() << " tensor(s)";
   static const bool op_by_op = lazy_tensors::sys_util::GetEnvBool("SYNC_TENSORS_OPBYOP", false);
   SyncTensorsConfig config;
   config.sync_ltc_data = sync_ltc_data;

@@ -24,6 +24,7 @@ const OpKindWrapper ltc_get_dimensions_size("lazy_tensors::ltc_get_dimensions_si
 const OpKindWrapper ltc_moving_average("lazy_tensors::moving_average");
 const OpKindWrapper ltc_nms("lazy_tensors::nms");
 const OpKindWrapper ltc_not_supported("lazy_tensors::not_supported");
+const OpKindWrapper ltc_reduce_scatter("lazy_tensors::ltc_reduce_scatter");
 const OpKindWrapper ltc_replication_pad("lazy_tensors::replication_pad");
 const OpKindWrapper ltc_replication_pad_backward("lazy_tensors::replication_pad_backward");
 const OpKindWrapper ltc_select("lazy_tensors::select");

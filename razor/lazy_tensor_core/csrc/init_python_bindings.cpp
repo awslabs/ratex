@@ -220,6 +220,17 @@ std::shared_ptr<ir::Value> AllGatherOut(at::Tensor& output, const at::Tensor& in
   return std::make_shared<ir::Value>(new_token);
 }
 
+std::pair<at::Tensor, std::shared_ptr<ir::Value>> ReduceScatter(
+    const std::vector<at::Tensor>& tensors, const std::shared_ptr<ir::Value>& token,
+    const std::string& reduce_type, const std::vector<std::vector<int64_t>>& replica_groups) {
+  std::vector<LazyTensor> xtensors = GetLtcTensors(tensors, /*want_all=*/true);
+  LazyTensor result;
+  ir::Value new_token;
+  std::tie(result, new_token) =
+      LazyTensor::reduce_scatter(&xtensors, *token, GetReduceType(reduce_type), replica_groups);
+  return {bridge::AtenFromLtcTensor(std::move(result)), std::make_shared<ir::Value>(new_token)};
+}
+
 std::pair<at::Tensor, std::shared_ptr<ir::Value>> CollectivePermute(
     const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
     const std::vector<std::pair<int64_t, int64_t>>& source_target_pairs) {
@@ -553,6 +564,22 @@ void InitLtcModuleBindings(py::module m) {
           }
           return new_token;
         });
+  m.def("_ltc_reduce_scatter", [](const std::vector<at::Tensor>& tensors,
+                                  const std::shared_ptr<ir::Value>& token,
+                                  const std::string& reduce_type, const py::list& groups) {
+    std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
+    at::Tensor result;
+    std::shared_ptr<ir::Value> new_token;
+    {
+      NoGilSection nogil;
+      std::tie(result, new_token) = ReduceScatter(tensors, token, reduce_type, replica_groups);
+    }
+    auto result_tuple = py::tuple(2);
+    result_tuple[0] =
+        torch::autograd::make_variable(result, /*requires_grad=*/tensors[0].requires_grad());
+    result_tuple[1] = new_token;
+    return result_tuple;
+  });
   m.def("_ltc_collective_permute", [](const at::Tensor& input,
                                       const std::shared_ptr<ir::Value>& token,
                                       const py::list& pairs) {

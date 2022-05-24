@@ -87,6 +87,30 @@ def all_gather(value, dim=0, groups=None, output=None):
     return result[0]
 
 
+def reduce_scatter(inputs, reduce_type="sum", groups=None):
+    """Performs a reduce-scatter operation on the input tensor.
+    Args:
+      inputs: a list of `torch.Tensor` to perform the reduce scatter op to.
+      reduce_type (string): One of "sum", "prod", "min", "max", "avg".
+      groups (list, optional): A list of list, representing the replica groups for
+        the `all_reduce()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
+          defines two groups, one with the `[0, 1, 2, 3]` replicas and one with
+          the `[4, 5, 6, 7]` replicas. If `None` there will be only one group with
+          all the replicas in it.
+    Returns:
+      A single `torch.Tensor` holding the reduce-scattered value (across the replicas).
+    """
+    comm = dist.get_communicator()
+    token = _RAZORC._raf_create_token(inputs[0].device.type)
+
+    if groups is None:
+        groups = [list(range(0, comm.size))]
+    groups = [list(range(0, comm.size))]
+
+    result = _RAZORC._ltc_reduce_scatter(inputs, token, reduce_type, groups)
+    return result[0]
+
+
 def reduce_gradients(optimizer, groups=None):
     """Reduces all the gradients handled by an optimizer.
 

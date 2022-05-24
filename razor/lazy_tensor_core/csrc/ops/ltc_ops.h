@@ -53,6 +53,7 @@ extern const OpKindWrapper ltc_get_dimensions_size;
 extern const OpKindWrapper ltc_moving_average;
 extern const OpKindWrapper ltc_nms;
 extern const OpKindWrapper ltc_not_supported;
+extern const OpKindWrapper ltc_reduce_scatter;
 extern const OpKindWrapper ltc_replication_pad;
 extern const OpKindWrapper ltc_replication_pad_backward;
 extern const OpKindWrapper ltc_select;

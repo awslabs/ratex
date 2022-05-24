@@ -12,8 +12,6 @@ namespace ops {
 const OpKindWrapper raf_relay_expr("razor::relay_expr");
 const OpKindWrapper raf_relay_function("razor::relay_function");
 const OpKindWrapper raf_log_softmax_backward_use_in("razor::log_softmax_backward_use_in");
-const OpKindWrapper raf_all_reduce("razor::all_reduce");
-const OpKindWrapper raf_all_gather("razor::all_gather");
 
 }  // namespace ops
 }  // namespace ir

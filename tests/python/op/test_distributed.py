@@ -12,7 +12,7 @@ import razor
 from raf import distributed as dist
 from raf.testing import get_dist_comm_info, skip_dist_test
 from razor.lazy_tensor_core.core.lazy_model import lazy_device
-from razor.core.lazy_model import all_gather, all_reduce
+from razor.core.lazy_model import all_gather, all_reduce, reduce_scatter
 from razor.testing import (
     check,
     with_enable_param_aliasing,
@@ -129,6 +129,21 @@ def test_all_gather_out(dtype):
     check(y, target_y)
 
 
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_reduce_scatter(dtype):
+    """Test of tracing and lowering reduce_scatter op."""
+    total_rank, rank, local_rank = get_dist_comm_info()
+    n_ones = np.ones(shape=(4, 4), dtype=dtype)
+    inputs = []
+    for i in range(total_rank):
+        x = torch.from_numpy(n_ones * (rank + i))
+        inputs.append(x.to(lazy_device(rank)))
+    ret = reduce_scatter(inputs, "sum")
+    target_ret = n_ones * sum(range(rank, total_rank + rank))
+    check(ret, target_ret)
+
+
 if __name__ == "__main__":
     if os.environ.get("RAF_FILE_STORE_PATH", None):
         dist.set_default_communicator("void")
@@ -143,6 +158,6 @@ if __name__ == "__main__":
         comm.rank = rank
         comm.local_size = size
         comm.local_rank = rank
-    exit_code = pytest.main([__file__])
+    exit_code = pytest.main([__file__, "-s"])
     dist.RemoveCommunicator()
     sys.exit(exit_code)
