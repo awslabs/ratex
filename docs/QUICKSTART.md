@@ -18,7 +18,26 @@ And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
 
 ## 1. Prepare Environment and PyTorch
 
-### 1.0 Create a Python virtual environment (optional but recommanded)
+### Option 1: Utilize docker container with preconfigured environment & PyTorch
+This is the easiest and fastest way to configure PyTorch & Environment for Razor. 
+
+Install docker & clone https://github.com/meta-project/torch_mnm
+
+```
+sudo docker pull metaprojdev/razor:ci_gpu-latest
+```
+
+Under (`torch_mnm/`)
+
+This will start your docker container in interactive mode and mount your current working directory to workspace in docker container.
+
+```
+ ./docker/bash.sh metaprojdev/razor:ci_gpu-latest
+```
+
+Once inside iteractive mode of docker container, continue to steps 2 & 3.
+
+### Option 2 Create a Python virtual environment (optional but recommanded)
 
 Note that PyTorch now requires Python 3.7+. If your system has Python 3.7-, it is recommended to use Conda.
 
