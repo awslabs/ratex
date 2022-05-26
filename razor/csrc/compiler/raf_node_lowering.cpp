@@ -226,6 +226,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ConstantPadNd);
   DECLARE_OP2(Scatter);
   DECLARE_OP2(Cat);
+  DECLARE_OP2(Stack);
   DECLARE_OP2(AllReduce);
   DECLARE_OP2(AllGather);
   DECLARE_OP2(ReduceScatter);
@@ -247,6 +248,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
   lazy_tensors::Shape InferPermute(const ir::ops::Permute* node);
   lazy_tensors::Shape InferCat(const ir::ops::Cat* node);
+  lazy_tensors::Shape InferStack(const ir::ops::Stack* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
   lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
   lazy_tensors::Shape InferReduceScatter(const ir::ops::ReduceScatter* node);
@@ -311,6 +313,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(ConstantPadNd, at::aten::constant_pad_nd)
     HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
     HANDLE_GENERIC_OP2(Cat, at::aten::cat)
+    HANDLE_GENERIC_OP2(Stack, at::aten::stack)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -1009,8 +1012,7 @@ Var RAFNodeLowering::LowerUnselect(const ir::ops::Unselect* node) {
   Expr begin = MakeConstant(Int(node->start()));
   Expr end = MakeConstant(Int(node->end()));
   Expr stride = MakeConstant(Int(node->stride()));
-  return BindSymbol(
-      raf::ir::Call(Op::Get("raf.op.strided_set"), {x, src, begin, end, stride}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.strided_set"), {x, src, begin, end, stride}));
 }
 
 Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd* node) {
@@ -1054,6 +1056,19 @@ Var RAFNodeLowering::LowerCat(const ir::ops::Cat* node) {
   std::vector<Var> ops;
   for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
   return BuildCat(ops, node);
+}
+
+Var BuildStack(const std::vector<Var>& ops, const ir::ops::Stack* node) {
+  std::vector<Expr> ops_expr(ops.begin(), ops.end());
+  Var x = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
+  Expr axis = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.stack"), {x, axis}));
+}
+
+Var RAFNodeLowering::LowerStack(const ir::ops::Stack* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildStack(ops, node);
 }
 
 Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) {
@@ -1197,6 +1212,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::cat: {
       return InferCat(ir::NodeCast<ir::ops::Cat>(node, ir::OpKind(at::aten::cat)));
     }
+    case at::aten::stack: {
+      return InferStack(ir::NodeCast<ir::ops::Stack>(node, ir::OpKind(at::aten::stack)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1332,6 +1350,17 @@ lazy_tensors::Shape RAFNodeLowering::InferCat(const ir::ops::Cat* node) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildCat(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferStack(const ir::ops::Stack* node) {
+  LTC_CHECK_EQ(node->operands().size(), 3U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildStack(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

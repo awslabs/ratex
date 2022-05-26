@@ -100,5 +100,23 @@ def test_scatter():
     verify_step(Model(), [x_input, x_index, x_src], jit_script=False)
 
 
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_stack(dim, dtype):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, *tensors):
+            return torch.stack(tuple(tensors), dim)
+
+    shape = [3, 4]
+    x = torch.randn(*shape).to(dtype)
+    y = torch.randn(*shape).to(dtype)
+    z = torch.randn(*shape).to(dtype)
+
+    verify_step(Model(), [x, y, z], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
