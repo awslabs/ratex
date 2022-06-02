@@ -231,7 +231,11 @@ std::string DumpUtil::PostOrderToText(lazy_tensors::Span<const Node* const> post
     if (opt_root_id) {
       ss << ", ROOT=" << *opt_root_id;
     }
-    ss << "\n";
+    if (node->metadata().frame_info.size() > 0) {
+      ss << ", " << node->metadata().frame_info[0];
+    } else {
+      ss << "\n";
+    }
   }
   ss << "}\n";
   return ss.str();
