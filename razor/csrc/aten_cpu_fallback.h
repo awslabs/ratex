@@ -45,13 +45,6 @@ class AtenRAFTypeDefault {
   static at::Tensor& mul_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor& ne_(at::Tensor& self, const at::Scalar& other);
   static at::Tensor& ne_(at::Tensor& self, const at::Tensor& other);
-  static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                         at::ScalarType dtype);
-  static at::Tensor norm(const at::Tensor& self, const at::Scalar& p);
-  static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                         at::IntArrayRef dim, bool keepdim, at::ScalarType dtype);
-  static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                         at::IntArrayRef dim, bool keepdim);
   static at::Tensor normal(double mean, const at::Tensor& std,
                            c10::optional<at::Generator> generator);
   static at::Tensor normal(const at::Tensor& mean, const at::Tensor& std,

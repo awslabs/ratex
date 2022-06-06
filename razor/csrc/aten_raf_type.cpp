@@ -1971,21 +1971,35 @@ at::Tensor LazyNativeFunctions::nonzero(const at::Tensor& self) {
 
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                      at::ScalarType dtype) {
-  return AtenRAFTypeDefault::norm(self, p, dtype);
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(LazyTensor::norm(
+      self_tensor, p, dtype, lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
+      /*keep_reduced_dimensions=*/false));
 }
 
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const at::Scalar& p) {
-  return AtenRAFTypeDefault::norm(self, p);
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::norm(self_tensor, p, self_tensor.dtype(),
+                       lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
+                       /*keep_reduced_dimensions=*/false));
 }
 
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                      at::IntArrayRef dim, bool keepdim, at::ScalarType dtype) {
-  return AtenRAFTypeDefault::norm(self, p, dim, keepdim, dtype);
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(LazyTensor::norm(self_tensor, p, dtype, dim, keepdim));
 }
 
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                      at::IntArrayRef dim, bool keepdim) {
-  return AtenRAFTypeDefault::norm(self, p, dim, keepdim);
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::norm(self_tensor, p, self_tensor.dtype(), dim, keepdim));
 }
 
 at::Tensor LazyNativeFunctions::normal(const at::Tensor& mean, double std,

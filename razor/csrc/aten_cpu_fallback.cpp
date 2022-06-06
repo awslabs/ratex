@@ -317,45 +317,6 @@ at::Tensor& AtenRAFTypeDefault::ne_(at::Tensor& self, const at::Tensor& other) {
   return self;
 }
 
-at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                                    at::ScalarType dtype) {
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::norm", 1);
-  std::vector<at::Tensor> ltc_atens_tensors = {self};
-  auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::norm(ltc_atens[0], p, dtype);
-  return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
-}
-
-at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const at::Scalar& p) {
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::norm", 1);
-  std::vector<at::Tensor> ltc_atens_tensors = {self};
-  auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::norm(ltc_atens[0], p);
-  return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
-}
-
-at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                                    at::IntArrayRef dim, bool keepdim, at::ScalarType dtype) {
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::norm", 1);
-  std::vector<at::Tensor> ltc_atens_tensors = {self};
-  auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::norm(ltc_atens[0], p, dim, keepdim, dtype);
-  return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
-}
-
-at::Tensor AtenRAFTypeDefault::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                                    at::IntArrayRef dim, bool keepdim) {
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::norm", 1);
-  std::vector<at::Tensor> ltc_atens_tensors = {self};
-  auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::norm(ltc_atens[0], p, dim, keepdim);
-  return bridge::CreateLtcTensor(x_result, bridge::GetLtcDevice(self));
-}
-
 at::Tensor AtenRAFTypeDefault::normal(double mean, const at::Tensor& std,
                                       c10::optional<at::Generator> generator) {
   LTC_FN_TRACK(3);
