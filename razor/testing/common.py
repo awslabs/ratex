@@ -367,7 +367,10 @@ def run_step(device, model_origin, args, jit_script=True):
     args = [arg.to(device) for arg in args]
     out = model(*args)
     lm.mark_step()
-    out = out.to("cpu")
+    if isinstance(out, tuple):
+        out = [o.to("cpu") for o in out]
+    else:
+        out = out.to("cpu")
     return out
 
 

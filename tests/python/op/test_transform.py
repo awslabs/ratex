@@ -118,5 +118,35 @@ def test_stack(dim, dtype):
     verify_step(Model(), [x, y, z], jit_script=False)
 
 
+@pytest.mark.parametrize("chunks", [2, 3])
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_chunk(chunks, dim, dtype):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.chunk(x_input, chunks, dim)
+
+    x = torch.randn(6, 6).to(dtype)
+    verify_step(Model(), [x], jit_script=False)
+
+
+@pytest.mark.parametrize("split_sizes", [[1, 2], [2, 1]])
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_split(split_sizes, dim, dtype):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.split(x_input, split_sizes, dim)
+
+    x = torch.randn(3, 3).to(dtype)
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

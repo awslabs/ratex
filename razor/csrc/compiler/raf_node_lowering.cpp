@@ -227,6 +227,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(Scatter);
   DECLARE_OP2(Cat);
   DECLARE_OP2(Stack);
+  DECLARE_OP2(Split);
   DECLARE_OP2(AllReduce);
   DECLARE_OP2(AllGather);
   DECLARE_OP2(ReduceScatter);
@@ -249,6 +250,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferPermute(const ir::ops::Permute* node);
   lazy_tensors::Shape InferCat(const ir::ops::Cat* node);
   lazy_tensors::Shape InferStack(const ir::ops::Stack* node);
+  lazy_tensors::Shape InferSplit(const ir::ops::Split* node);
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
   lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
   lazy_tensors::Shape InferReduceScatter(const ir::ops::ReduceScatter* node);
@@ -314,6 +316,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
     HANDLE_GENERIC_OP2(Cat, at::aten::cat)
     HANDLE_GENERIC_OP2(Stack, at::aten::stack)
+    HANDLE_GENERIC_OP2(Split, at::aten::split)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -1071,6 +1074,24 @@ Var RAFNodeLowering::LowerStack(const ir::ops::Stack* node) {
   return BuildStack(ops, node);
 }
 
+Var BuildSplit(const std::vector<Var>& ops, const ir::ops::Split* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  std::vector<int64_t> split_sizes = node->split_sizes();
+  for (int i = 1; i < split_sizes.size(); i++) {
+    split_sizes[i] = split_sizes[i - 1] + split_sizes[i];
+  }
+  Expr split = MakeConstant(TupleInt(split_sizes));
+  Expr axis = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.split"), {x, split, axis}));
+}
+
+Var RAFNodeLowering::LowerSplit(const ir::ops::Split* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildSplit(ops, node);
+}
+
 Var BuildAllReduce(const std::vector<Var>& ops, const ir::ops::AllReduce* node) {
   using tvm::runtime::DLDataType2String;
   Expr computation;
@@ -1214,6 +1235,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     }
     case at::aten::stack: {
       return InferStack(ir::NodeCast<ir::ops::Stack>(node, ir::OpKind(at::aten::stack)));
+    }
+    case at::aten::split: {
+      return InferSplit(ir::NodeCast<ir::ops::Split>(node, ir::OpKind(at::aten::split)));
     }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
@@ -1361,6 +1385,14 @@ lazy_tensors::Shape RAFNodeLowering::InferStack(const ir::ops::Stack* node) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildStack(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferSplit(const ir::ops::Split* node) {
+  std::vector<Var> ops;
+  ops.push_back(MakeVar("operand", ToRAFType(node->operand(0).shape())));
+  Var out = BuildSplit(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
