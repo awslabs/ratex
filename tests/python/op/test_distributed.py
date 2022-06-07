@@ -144,6 +144,44 @@ def test_reduce_scatter(dtype):
     check(ret, target_ret)
 
 
+@pytest.mark.skipif(skip_dist_test(min_rank_num=4, require_exact_rank=True), reason=SKIP_REASON)
+@pytest.mark.parametrize("computation", ["sum", "min", "max"])
+@pytest.mark.parametrize("rank_list", [[[0, 1], [2, 3]]])
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_reduce_scatter_with_rank_list(computation, rank_list, dtype):
+    total_rank, rank, local_rank = get_dist_comm_info(verbose=True)
+    device = lazy_device(rank)
+    n_ones = np.ones(shape=(4, 4), dtype=dtype)
+    x1 = torch.from_numpy(n_ones * (rank + 1)).to(device)
+    x2 = torch.from_numpy(-n_ones * (rank + 1)).to(device)
+    inputs = [x1, x2]
+    ret = reduce_scatter(inputs, computation, groups=rank_list)
+
+    for group in rank_list:
+        if rank in group:
+            ones = np.ones(shape=(4, 4), dtype=dtype)
+            if computation == "sum":
+                even_out = ones * sum(np.array(group) + 1)
+                odd_out = -even_out
+            elif computation == "prod":
+                even_out = ones * np.prod([(temp_rank + 1) for temp_rank in np.array(group)])
+                odd_out = even_out
+            elif computation == "min":
+                even_out = ones * min(np.array(group) + 1)
+                odd_out = -ones * max(np.array(group) + 1)
+            elif computation == "max":
+                even_out = ones * max(np.array(group) + 1)
+                odd_out = -ones * min(np.array(group) + 1)
+            elif computation == "avg":
+                even_out = ones * sum(np.array(group) + 1)
+                even_out = even_out / total_rank
+                odd_out = -even_out
+            if rank % 2 == 0:
+                check(ret, even_out)
+            else:
+                check(ret, odd_out)
+
+
 if __name__ == "__main__":
     if os.environ.get("RAF_FILE_STORE_PATH", None):
         dist.set_default_communicator("void")

@@ -105,7 +105,6 @@ def reduce_scatter(inputs, reduce_type="sum", groups=None):
 
     if groups is None:
         groups = [list(range(0, comm.size))]
-    groups = [list(range(0, comm.size))]
 
     result = _RAZORC._ltc_reduce_scatter(inputs, token, reduce_type, groups)
     return result[0]

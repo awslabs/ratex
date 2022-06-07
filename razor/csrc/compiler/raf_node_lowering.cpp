@@ -1170,7 +1170,9 @@ Var BuildReduceScatter(const std::vector<Var>& ops, const ir::ops::ReduceScatter
   Var token = ops.back();
   std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
   Var input = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
-  Var ret = BindSymbol(raf::ir::Call(Op::Get("raf.op._reduce_scatter"), {input, computation}));
+  Expr rank_list = MakeConstant(ConvertReplicaGroupsToValue(node->groups()));
+  Var ret =
+      BindSymbol(raf::ir::Call(Op::Get("raf.op._reduce_scatter"), {input, computation, rank_list}));
   return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, token})));
 }
 
