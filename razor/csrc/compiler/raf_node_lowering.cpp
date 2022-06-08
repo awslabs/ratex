@@ -1381,7 +1381,6 @@ lazy_tensors::Shape RAFNodeLowering::InferCat(const ir::ops::Cat* node) {
 }
 
 lazy_tensors::Shape RAFNodeLowering::InferStack(const ir::ops::Stack* node) {
-  LTC_CHECK_EQ(node->operands().size(), 3U);
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
