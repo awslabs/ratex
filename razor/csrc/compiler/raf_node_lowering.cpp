@@ -940,6 +940,24 @@ TensorValue MakeScalar(T scalar, DType dtype, raf::Device to_dev, std::vector<in
   return TensorValue::make(Tensor::FromDLPack(array.ToDLPack()));
 }
 
+template <>
+TensorValue MakeScalar<bool>(bool scalar, DType dtype, raf::Device to_dev,
+                             std::vector<int64_t> shape) {
+  int64_t numel = 1;
+  for (const auto& x : shape) {
+    numel = numel * x;
+  }
+  LTC_CHECK_GT(numel, 0);
+  auto cpu_tensor = tvm::runtime::NDArray::Empty(shape, dtype, {DLDeviceType::kDLCPU, 0});
+  auto array = reinterpret_cast<bool*>(cpu_tensor->data);
+  for (size_t i = 0; i < numel; ++i) {
+    array[i] = scalar;
+  }
+  auto tensor = tvm::runtime::NDArray::Empty(shape, dtype, to_dev);
+  tensor.CopyFrom(cpu_tensor);
+  return TensorValue::make(Tensor::FromDLPack(tensor.ToDLPack()));
+}
+
 Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   using at::operator<<;
   using tvm::runtime::DLDataType2String;
@@ -961,9 +979,7 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   }
 
   switch (node->shape().element_type()) {
-    // FIXME: bool cannot be initilized in this way, because std::vector<bool> contains
-    // potentially discontinuous data
-    // ADD_SCALAR_CASE(PRED, Bool, bool);
+    ADD_SCALAR_CASE(PRED, Bool, bool);
     ADD_SCALAR_CASE(S8, Char, int8_t);
     ADD_SCALAR_CASE(S16, Short, int16_t);
     ADD_SCALAR_CASE(S32, Int, int32_t);

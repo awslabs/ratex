@@ -5,7 +5,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from razor.testing import verify_step
+from razor.testing import verify_step, run_step
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
@@ -23,6 +23,22 @@ def test_basic(op, dtype):
     a = torch.randn(*shape).to(dtype)
     b = torch.randn(*shape).to(dtype)
     verify_step(BinaryModel(op), [a, b], jit_script=False)
+
+
+def test_basic_bool():
+    # When use `add`, `alpha` will become a bool scalar here
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x1, x2):
+            return torch.add(x1, x2)
+
+    shape = [3, 4]
+    a = torch.randn(*shape).bool()
+    b = torch.randn(*shape).bool()
+    # not use `verify_step` as boolean addition is undefined behavior
+    run_step("lazy", Model(), [a, b], jit_script=False)
 
 
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
