@@ -199,6 +199,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Pow);
   DECLARE_OP2(Constant);
   DECLARE_OP2(Sum);
+  DECLARE_OP2(Any);
   DECLARE_OP2(Scalar);
   DECLARE_OP(Relu);
   DECLARE_OP(Sqrt);
@@ -246,6 +247,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node);
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
+  lazy_tensors::Shape InferAny(const ir::ops::Any* node);
   lazy_tensors::Shape InferConstantPadNd(const ir::ops::ConstantPadNd* node);
   lazy_tensors::Shape InferPermute(const ir::ops::Permute* node);
   lazy_tensors::Shape InferCat(const ir::ops::Cat* node);
@@ -312,6 +314,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(View, at::aten::view)
     HANDLE_GENERIC_OP2(AsStrided, at::aten::as_strided)
     HANDLE_GENERIC_OP2(Sum, at::aten::sum)
+    HANDLE_GENERIC_OP2(Any, at::aten::any)
     HANDLE_GENERIC_OP2(ConstantPadNd, at::aten::constant_pad_nd)
     HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
     HANDLE_GENERIC_OP2(Cat, at::aten::cat)
@@ -579,6 +582,21 @@ Var RAFNodeLowering::LowerSum(const ir::ops::Sum* node) {
   // TODO(@hzfan): handle dtype
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BuildSum({x}, node);
+}
+
+Var BuildAny(const std::vector<Var>& ops, const ir::ops::Any* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  Expr dimension = MakeConstant(TupleInt(node->dimensions()));
+  Expr keep_reduced_dimension = MakeConstant(Bool(node->keep_reduced_dimensions()));
+  Expr exclude = MakeConstant(Bool(false));
+  return BindSymbol(
+      raf::ir::Call(Op::Get("raf.op.any"), {x, dimension, keep_reduced_dimension, exclude}));
+}
+
+Var RAFNodeLowering::LowerAny(const ir::ops::Any* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildAny({x}, node);
 }
 
 template <class NllLossType>
@@ -1230,6 +1248,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::sum: {
       return InferSum(ir::NodeCast<ir::ops::Sum>(node, ir::OpKind(at::aten::sum)));
     }
+    case at::aten::any: {
+      return InferAny(ir::NodeCast<ir::ops::Any>(node, ir::OpKind(at::aten::any)));
+    }
     case at::aten::constant_pad_nd: {
       return InferConstantPadNd(
           ir::NodeCast<ir::ops::ConstantPadNd>(node, ir::OpKind(at::aten::constant_pad_nd)));
@@ -1343,6 +1364,17 @@ lazy_tensors::Shape RAFNodeLowering::InferSum(const ir::ops::Sum* node) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildSum(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferAny(const ir::ops::Any* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildAny(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
