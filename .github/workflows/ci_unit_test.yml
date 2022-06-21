@@ -207,7 +207,7 @@ jobs:
             echo "No need to update badge for PR CI. Skip."
             exit 0
           fi
-          echo "::set-output name=gist_id::3ce33fb062845298e9fd9bce8d719e2b"
+          echo "::set-output name=gist_id::aeb41ce3096bc1aaeb671f2c58836a3f"
           head_commit=$(git rev-parse --short HEAD)
           if [[ "${{ needs.test_on_gpu.result }}" == "success" &&
                 "${{ needs.test_on_multi_gpu.result }}" == "success" ]]; then
@@ -224,7 +224,7 @@ jobs:
         with:
           auth: ${{ secrets.BOT_TOKEN }}
           gistID: ${{ steps.badge.outputs.gist_id }}
-          filename: ratex-ci-badge-torch-1-11.json
-          label: PyTorch-1.11
+          filename: awslabs-ratex-ci-badge-last-pass.json
+          label: CI-UnitTests
           message: ${{ steps.badge.outputs.message }}
           color: ${{ steps.badge.outputs.color }}
