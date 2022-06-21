@@ -18,7 +18,7 @@ defaults:
 jobs:
   check_status:
     if: github.repository == 'awslabs/ratex'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       trigger: ${{ steps.job_info.outputs.trigger }}
       latest_image: ${{ steps.job_info.outputs.latest_image }}
@@ -79,7 +79,7 @@ jobs:
     # Run full tests with the latest docker image with PyTorch nightly.
     needs: [check_status]
     if: github.repository == 'awslabs/ratex'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: List environments
@@ -127,7 +127,7 @@ jobs:
   test_multi_gpu_w_torch_nightly:
     needs: [check_status]
     if: github.repository == 'awslabs/ratex'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: List environments
@@ -175,7 +175,7 @@ jobs:
     # Run this job whatever the unit tests were success or not.
     needs: [test_w_torch_nightly, test_multi_gpu_w_torch_nightly]
     if: ${{ always() && github.repository == 'awslabs/ratex' }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: Configure AWS Credentials
@@ -232,7 +232,7 @@ jobs:
   #   # Run compatibility tests with the docker image with stable PyTorch release.
   #   needs: [check_status]
   #   if: github.repository == 'awslabs/ratex'
-  #   runs-on: self-hosted
+  #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: haya14busa/action-workflow_run-status@v1
   #     - name: List environments
@@ -279,7 +279,7 @@ jobs:
   # test_multi_gpu_w_torch_1_11:
   #   needs: [check_status]
   #   if: github.repository == 'awslabs/ratex'
-  #   runs-on: self-hosted
+  #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: haya14busa/action-workflow_run-status@v1
   #     - name: List environments
@@ -327,7 +327,7 @@ jobs:
   #   # Run this job whatever the PyTorch 1.11 unit tests were success or not.
   #   needs: [check_status, test_w_torch_1_11, test_multi_gpu_w_torch_1_11]
   #   if: ${{ always() && github.repository == 'awslabs/ratex' }}
-  #   runs-on: self-hosted
+  #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: haya14busa/action-workflow_run-status@v1
   #     - name: Checkout repository

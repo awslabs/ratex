@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     if: github.repository == 'awslabs/ratex'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
