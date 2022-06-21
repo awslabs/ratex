@@ -3,7 +3,7 @@
 
 import pytest
 
-from razor._lib import raf
+from ratex._lib import raf
 import tvm
 from tvm import relay
 from raf.ir import ScopeBuilder

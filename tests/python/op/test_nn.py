@@ -5,8 +5,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-import razor
-from razor.testing import verify_step
+import ratex
+from ratex.testing import verify_step
 
 
 def test_conv():

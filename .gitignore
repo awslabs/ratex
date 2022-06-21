@@ -9,11 +9,11 @@ __pycache__/
 *.so
 
 # Auto-generated
-razor/version.py
-razor/csrc/RegisterLazy.cpp
-razor/csrc/RegisterAutogradLazy.cpp
-razor/csrc/LazyNativeFunctions.h
-razor/csrc/version.cpp
+ratex/version.py
+ratex/csrc/RegisterLazy.cpp
+ratex/csrc/RegisterAutogradLazy.cpp
+ratex/csrc/LazyNativeFunctions.h
+ratex/csrc/version.cpp
 
 # Distribution / packaging
 .Python
@@ -34,7 +34,7 @@ var/
 *.egg
 
 # Unignore the source code under "lib"
-!razor/lazy_tensors/core/lib/
+!ratex/lazy_tensors/core/lib/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

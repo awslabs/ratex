@@ -8,12 +8,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import raf
-import razor
+import ratex
 from raf import distributed as dist
 from raf.testing import get_dist_comm_info, skip_dist_test
-from razor.lazy_tensor_core.core.lazy_model import lazy_device
-from razor.core.lazy_model import all_gather, all_reduce, reduce_scatter
-from razor.testing import (
+from ratex.lazy_tensor_core.core.lazy_model import lazy_device
+from ratex.core.lazy_model import all_gather, all_reduce, reduce_scatter
+from ratex.testing import (
     check,
     with_enable_param_aliasing,
 )

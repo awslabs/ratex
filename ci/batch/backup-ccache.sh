@@ -10,7 +10,7 @@ MODE=$1     # upload or download
 PLATFORM=$2 # Currently only GPU
 TAG=$3      # e.g., refs/heads/main, pr-7
 
-S3_BUCKET="ci-razor"
+S3_BUCKET="ci-ratex"
 S3_FOLDER=`echo cache-${TAG} | sed 's/\//_/g'`
 S3_PATH="s3://$S3_BUCKET/$S3_FOLDER"
 

@@ -10,7 +10,7 @@
 #include "raf/value.h"
 #include "raf/ir.h"
 
-namespace razor {
+namespace ratex {
 
 using namespace lazy_tensors;
 
@@ -92,4 +92,4 @@ lazy_tensors::ComputationClient* RAFGet();
 
 lazy_tensors::ComputationClient* RAFGetIfInitialized();
 
-}  // namespace razor
+}  // namespace ratex

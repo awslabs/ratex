@@ -41,7 +41,7 @@ for idx, (train_x, train_label) in enumerate(train_loader):
 
 *Note that the modified loss has a scaling factor `1/accu_grad_steps`.*
 
-## Usage in RAZOR
+## Usage in RATEX
 
 As can be seen from the following example, when using gradient accumulation, the only thing we need to do is adding another mark step after backward:
 

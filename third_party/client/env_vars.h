@@ -5,9 +5,9 @@
 
 #pragma once
 
-namespace razor {
+namespace ratex {
 namespace env {
 extern const char* const kEnvDefaultDevice;
 extern const char* const kEnvDeviceCount;
 }
-}  // namespace razor
+}  // namespace ratex

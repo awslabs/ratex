@@ -4,8 +4,8 @@
 import pytest
 import torch
 
-from razor.optimizer import Adam
-from razor.testing import TorchLeNet, fake_image_dataset, verify, train, with_seed
+from ratex.optimizer import Adam
+from ratex.testing import TorchLeNet, fake_image_dataset, verify, train, with_seed
 
 
 @with_seed(0)
@@ -13,8 +13,8 @@ from razor.testing import TorchLeNet, fake_image_dataset, verify, train, with_se
 # FIXME: fail when trim is False
 @pytest.mark.parametrize("trim", [True])
 def test_adam(device, trim):
-    """Test Razor Adam implementation against PyTorch Adam.
-    When device=cpu, we run Razor Adam as another PyTorch optimizer to make sure
+    """Test Ratex Adam implementation against PyTorch Adam.
+    When device=cpu, we run Ratex Adam as another PyTorch optimizer to make sure
     its functionality is the same as PyTorch Adam.
     """
     batch_size = 1

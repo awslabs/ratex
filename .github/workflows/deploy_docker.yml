@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: self-hosted
     steps:
       - name: Configure AWS Credentials
@@ -29,8 +29,8 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/batch/submit-job.py \
             --job-type docker \
-            --image metaprojdev/razor:ci_gpu-latest \
-            --name ci-razor-docker-test \
+            --image metaprojdev/ratex:ci_gpu-latest \
+            --name ci-ratex-docker-test \
             --job-queue ci-cpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \

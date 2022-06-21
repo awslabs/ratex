@@ -1,9 +1,9 @@
 <!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
-# Build Razor from Source
+# Build Ratex from Source
 
-Note that Razor is a PyTorch extension, so the PyTorch headers and shared libraries have to be available during the compilation. Accordingly, we require to set the environment variable `PYTORCH_SOURCE_PATH` before the compilation.
+Note that Ratex is a PyTorch extension, so the PyTorch headers and shared libraries have to be available during the compilation. Accordingly, we require to set the environment variable `PYTORCH_SOURCE_PATH` before the compilation.
 
 In this guide, we will use the following directory organization:
 
@@ -11,7 +11,7 @@ In this guide, we will use the following directory organization:
 $HOME
 |- workspace
   |- pytorch
-  |- razor
+  |- ratex
 ```
 
 And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
@@ -19,20 +19,20 @@ And `PYTORCH_SOURCE_PATH` is set to `~/workspace/pytorch`.
 ## 1. Prepare Environment and PyTorch
 
 ### Option 1: Utilize docker container with preconfigured environment & PyTorch
-This is the easiest and fastest way to configure PyTorch & Environment for Razor. 
+This is the easiest and fastest way to configure PyTorch & Environment for Ratex. 
 
-Install docker & clone https://github.com/meta-project/torch_mnm
+Install docker & clone https://github.com/awslabs/ratex
 
 ```
-sudo docker pull metaprojdev/razor:ci_gpu-latest
+sudo docker pull metaprojdev/ratex:ci_gpu-latest
 ```
 
-Under (`torch_mnm/`)
+Under (`ratex/`)
 
 This will start your docker container in interactive mode and mount your current working directory to workspace in docker container.
 
 ```
- ./docker/bash.sh metaprojdev/razor:ci_gpu-latest
+ ./docker/bash.sh metaprojdev/ratex:ci_gpu-latest
 ```
 
 Once inside iteractive mode of docker container, continue to steps 2 & 3.
@@ -79,9 +79,9 @@ One option to prepare PyTorch is via `pip install`, so that you could save the t
 python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 ```
 
-On the other hand, the PyTorch official wheel has two issues the prevent us from directly using it to build Razor:
+On the other hand, the PyTorch official wheel has two issues the prevent us from directly using it to build Ratex:
 
-1. The PyTorch wheel does not have all header files, so we still need to clone the PyTorch repo. In this way, Razor will find the corresponding header files via `PYTORCH_SOURCE_PATH`.
+1. The PyTorch wheel does not have all header files, so we still need to clone the PyTorch repo. In this way, Ratex will find the corresponding header files via `PYTORCH_SOURCE_PATH`.
 
   ```
   # First getting the git-hash for the PyTorch we just installed
@@ -168,19 +168,19 @@ python3 -c "import torch; print(torch.__file__)"
 
 ## 2. Build RAF/TVM
 
-Now it's time to work on Razor. Let's first clone the repo:
+Now it's time to work on Ratex. Let's first clone the repo:
 
 ```
-git clone git@github.com:meta-project/razor.git --recursive
+git clone git@github.com:meta-project/ratex.git --recursive
 ```
 
 Since RAF and TVM do not have release wheels, we have to build them by ourselves for now.
 When they are available, we should be able to simply use `pip install` to let pip download
 and install their wheels.
 
-You can directly run `bash ./scripts/build_third_party.sh` under `razor/` to perform the following steps.
+You can directly run `bash ./scripts/build_third_party.sh` under `ratex/` to perform the following steps.
 
-### 2.1 Compile RAF/TVM (under `razor/`)
+### 2.1 Compile RAF/TVM (under `ratex/`)
 
 Note that you can also compile RAF with other configurations, such as
 CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
@@ -204,10 +204,10 @@ Troubleshootings:
 
 * If you encounter the following error, try link /usr/local/cuda to /usr/local/cuda-10.2 instead of /usr/local/cuda-10.0 .
 ```
-razor/third_party/raf/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
+ratex/third_party/raf/src/impl/vm/vm.cc:270:57: error: ‘cudaStreamCaptureModeRelaxed’ was not declared in this scope
 ```
 
-### 2.2 Build/Install RAF/TVM wheels (under `razor/`)
+### 2.2 Build/Install RAF/TVM wheels (under `ratex/`)
 
 ```
 export BASE_DIR=`pwd`
@@ -232,11 +232,11 @@ python3 -c "import tvm"
 python3 -c "import raf"
 ```
 
-## 3. Build Razor
+## 3. Build Ratex
 
-### 3.1 Build (under `razor/`)
+### 3.1 Build (under `ratex/`)
 
-You can directly run `bash ./scripts/build_razor.sh` under `razor/` to perform the following steps.
+You can directly run `bash ./scripts/build_ratex.sh` under `ratex/` to perform the following steps.
 
 First make sure the environment is set:
 
@@ -252,9 +252,9 @@ export BUILD_CPP_TESTS=0
 ```
 bash ./patches/apply_patch.sh
 python3 -m pip install glob2 filelock
-rm -rf ./build/pip/public/razor
-python3 setup.py bdist_wheel -d ./build/pip/public/razor
-python3 -m pip install ./build/pip/public/razor/*.whl --force-reinstall --no-deps
+rm -rf ./build/pip/public/ratex
+python3 setup.py bdist_wheel -d ./build/pip/public/ratex
+python3 -m pip install ./build/pip/public/ratex/*.whl --force-reinstall --no-deps
 ```
 
 Troubleshootings:
@@ -267,13 +267,13 @@ make[2]: *** No rule to make target '/usr/lib/libpython3.6m.so', needed by 'test
 
 ```
 cd $HOME
-python3 -c "import razor"
+python3 -c "import ratex"
 ```
 
 ## 4. Run LeNet Example
 
 ```
-cd razor/docs
+cd ratex/docs
 python3 -m pip install torchvision --no-deps # otherwise it will install PyTorch from wheel...
 python3 -m pip install Pillow
 python3 lenet.py
@@ -286,10 +286,10 @@ raf starts...
 Epoch 0/9
 ----------
 One or more operators have not been tuned. Please tune your model for better performance. Use DEBUG logging level to see more details.
-[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
-[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/razor/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:41] /home/ubuntu/torch-mnm-venv/pytorch/ratex/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:42] /home/ubuntu/torch-mnm-venv/pytorch/ratex/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/ratex/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
+[00:26:43] /home/ubuntu/torch-mnm-venv/pytorch/ratex/third_party/raf/3rdparty/tvm/src/te/autodiff/adjoint.cc:148: Warning: te.Gradient is an experimental feature.
 train Loss: 0.0701
 Epoch 1/9
 ----------
@@ -308,6 +308,6 @@ Epoch 4/9
 In addition, you can also run models on GPU as follows:
 
 ```
-RAZOR_DEVICE=GPU python3 lenet.py
+RATEX_DEVICE=GPU python3 lenet.py
 ```
 

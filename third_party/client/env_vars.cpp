@@ -5,9 +5,9 @@
 
 #include "./env_vars.h"
 
-namespace razor {
+namespace ratex {
 namespace env {
-const char* const kEnvDefaultDevice = "RAZOR_DEVICE";
-const char* const kEnvDeviceCount = "RAZOR_DEVICE_COUNT";
+const char* const kEnvDefaultDevice = "RATEX_DEVICE";
+const char* const kEnvDeviceCount = "RATEX_DEVICE_COUNT";
 }
-}  // namespace razor
+}  // namespace ratex

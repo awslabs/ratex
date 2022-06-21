@@ -9,7 +9,7 @@
 #include "raf/value.h"
 #include "raf/ir.h"
 
-namespace razor {
+namespace ratex {
 
 using namespace lazy_tensors;
 
@@ -182,4 +182,4 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
 
 void PopulateLocalDevices(BaseComputationClient::Options* options);
 
-}  // namespace razor
+}  // namespace ratex

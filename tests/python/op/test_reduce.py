@@ -5,7 +5,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from razor.testing import verify_step
+from ratex.testing import verify_step
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])

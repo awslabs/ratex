@@ -1,13 +1,13 @@
 <!--- Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. -->
 <!--- SPDX-License-Identifier: Apache-2.0  -->
 
-# Debug and Profile Razor
+# Debug and Profile Ratex
 
 ## Debug tips
 It is always helpful to dump out more information during debug. To increase the verbose level in the program, you can set it from the python side by
 ```
-import _RAZORC
-_RAZORC._set_razor_vlog_level(-5)
+import _RATEXC
+_RATEXC._set_ratex_vlog_level(-5)
 ```
 This follows the Caffe convention in PyTorch. There will be more information with smaller number. For example, -5 will print more messages than -3. -5 is the current highest verbose level.
 
@@ -22,7 +22,7 @@ In the generated `ltc.txt` file, the first information we are interested is wher
 ```
 [ScheduleSyncTensorsGraph]
 TensorsGraphInfo:
-  mark_step (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/razor/lazy_tensor_core/core/lazy_model.py:720)
+  mark_step (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/ratex/lazy_tensor_core/core/lazy_model.py:720)
   train (lenet.py:86)
   main (lenet.py:153)
   <module> (lenet.py:167)
@@ -37,9 +37,9 @@ IR {
   %1 = f32[6,1,5,5] aten::expand(%0), size=(6, 1, 5, 5)
   ...
   %17 = f32[1,1,28,28] lazy_tensors::device_data(), device=CPU:0, ROOT=8
-  %18 = tuple[] razor::relay_function()
-  %19 = tuple[] razor::relay_expr(%18, %17, %16, %15, %14, %13, %12, %11, %10, %9), num_outputs=2, ROOT=11
-  %20 = tuple[] razor::relay_expr(%19.1, %8), num_outputs=9, ROOT=21
+  %18 = tuple[] ratex::relay_function()
+  %19 = tuple[] ratex::relay_expr(%18, %17, %16, %15, %14, %13, %12, %11, %10, %9), num_outputs=2, ROOT=11
+  %20 = tuple[] ratex::relay_expr(%19.1, %8), num_outputs=9, ROOT=21
   %21 = f32[6,1,5,5] aten::mul(%20.1, %1)
   %22 = f32[6,1,5,5] aten::add(%16, %21), ROOT=0
   %23 = f32[] lazy_tensors::device_data(), device=CPU:0
@@ -60,39 +60,39 @@ If you want more information about where each node is created, you can run the p
 ```
 ## BEGIN_GRAPH
 IR {
-  %0 = f32[] lazy_tensors::device_data(), location=_single_tensor_sgd@sgd.py:241, device=CPU:0,   _single_tensor_sgd (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/optim/sgd.py:241)
-  %1 = f32[6,1,5,5] aten::expand(%0), location=_single_tensor_sgd@sgd.py:241, size=(6, 1, 5, 5),   _single_tensor_sgd (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/optim/sgd.py:241)
-  %2 = f32[] prim::Constant(), location=backward@__init__.py:175, value=1,   backward (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
-  %3 = f32[6,1,5,5] aten::expand(%2), location=backward@__init__.py:175, size=(6, 1, 5, 5),   backward (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
+  %0 = f32[] lazy_tensors::device_data(), location=_single_tensor_sgd@sgd.py:241, device=CPU:0,   _single_tensor_sgd (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/optim/sgd.py:241)
+  %1 = f32[6,1,5,5] aten::expand(%0), location=_single_tensor_sgd@sgd.py:241, size=(6, 1, 5, 5),   _single_tensor_sgd (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/optim/sgd.py:241)
+  %2 = f32[] prim::Constant(), location=backward@__init__.py:175, value=1,   backward (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
+  %3 = f32[6,1,5,5] aten::expand(%2), location=backward@__init__.py:175, size=(6, 1, 5, 5),   backward (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
   %4 = f32[10] lazy_tensors::device_data(), location=train@lenet.py:75, device=CPU:0, ROOT=17,   train (lenet.py:75)
-  %5 = f32[] prim::Constant(), location=backward@__init__.py:175, value=1,   backward (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
-  %6 = f32[] prim::Constant(), location=_make_grads@__init__.py:68, value=1,   _make_grads (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:68)
-  %7 = f32[] aten::div(%6, %5), location=backward@__init__.py:175,   backward (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
-  %8 = f32[] aten::neg(%7), location=backward@__init__.py:175,   backward (/home/zczheng/anaconda3/envs/razor-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
+  %5 = f32[] prim::Constant(), location=backward@__init__.py:175, value=1,   backward (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
+  %6 = f32[] prim::Constant(), location=_make_grads@__init__.py:68, value=1,   _make_grads (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:68)
+  %7 = f32[] aten::div(%6, %5), location=backward@__init__.py:175,   backward (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
+  %8 = f32[] aten::neg(%7), location=backward@__init__.py:175,   backward (/home/zczheng/anaconda3/envs/ratex-py37/lib/python3.7/site-packages/torch/autograd/__init__.py:175)
   ...
 ```
 
 
-* RAZOR_SAVE_IR_FILE
+* RATEX_SAVE_IR_FILE
 
-To dump the RAZOR IR module, you can run with the env var `RAZOR_SAVE_IR_FILE="raf_module.json"`. This saves the LAST raf graph into a json file. And you can load it back to a RAF module by `raf.ir.serialization.LoadJSON(module_json)`.
+To dump the RATEX IR module, you can run with the env var `RATEX_SAVE_IR_FILE="raf_module.json"`. This saves the LAST raf graph into a json file. And you can load it back to a RAF module by `raf.ir.serialization.LoadJSON(module_json)`.
 
 
-* RAZOR_DUMP_ALIAS
+* RATEX_DUMP_ALIAS
 
-The alias is an important feature in LTC design. If you want to check if the alias is setup correctly, you can set `RAZOR_DUMP_ALIAS=alias.txt` and the alias will be dumped into `alias.txt`. The first column is the input id and second is output id. For example, the row `0 1` means the output1 will be the alias of input0 and they share the same memory space. If you don't see any aliases, it is possible you forgot to set `ENABLE_PARAM_ALIASING=true`.
+The alias is an important feature in LTC design. If you want to check if the alias is setup correctly, you can set `RATEX_DUMP_ALIAS=alias.txt` and the alias will be dumped into `alias.txt`. The first column is the input id and second is output id. For example, the row `0 1` means the output1 will be the alias of input0 and they share the same memory space. If you don't see any aliases, it is possible you forgot to set `ENABLE_PARAM_ALIASING=true`.
 
 
 ## Profile the performance
 
-We have several ways to debug th Razor Performance.
+We have several ways to debug th Ratex Performance.
 
 * Metrics
 
 We have metrics system in LTC. If you are interested in the execution latency of specific function, you can add `LTC_TIMED(...)` at the start of the function. Similarly, if you want to see how many times a function has been called, you can add `LTC_COUNTER(...)`. In Python, you can print these metrics by print
 
 ```
-import razor.lazy_tensor_core.debug.metrics as metrics
+import ratex.lazy_tensor_core.debug.metrics as metrics
 ...
 print(metrics.metrics_report())
 ```

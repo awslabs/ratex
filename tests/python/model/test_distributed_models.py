@@ -15,10 +15,10 @@ import torchvision
 from raf.testing import get_dist_comm_info, skip_dist_test
 from raf import distributed as dist
 
-from razor.lazy_tensor_core.core.lazy_model import lazy_device
-from razor.optimizer import LANS, SGD, Adam
-from razor.testing import TorchLeNet, fake_image_dataset, train
-from razor.testing import (
+from ratex.lazy_tensor_core.core.lazy_model import lazy_device
+from ratex.optimizer import LANS, SGD, Adam
+from ratex.testing import TorchLeNet, fake_image_dataset, train
+from ratex.testing import (
     with_seed,
     with_enable_param_aliasing,
 )

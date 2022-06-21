@@ -3,7 +3,7 @@
 
 # Overlap Trace and Execution
 
-In razor, operators are lazy: `loss = model(input)` does not execute the forward operation immediately. Instead, the operation is traced (recorded) in a computation graph. It will not be executed until its output is needed or an explicit barrier `mark_step()` is called.
+In ratex, operators are lazy: `loss = model(input)` does not execute the forward operation immediately. Instead, the operation is traced (recorded) in a computation graph. It will not be executed until its output is needed or an explicit barrier `mark_step()` is called.
 
 A typical training loop can be divided into two parts: trace and execution. Although trace is fast compared to execution, it still takes few milliseconds in each iteration, so we make the execution asynchronies to hide the trace latency of the next iteration. This is called "overlap trace (of iteration n+1) and execution (of iteration n)".
 

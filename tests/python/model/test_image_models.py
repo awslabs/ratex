@@ -11,9 +11,9 @@ import raf
 import pytest
 import torch.optim as optim
 import torchvision
-from razor.optimizer import LANS, SGD, Adam
-from razor.testing import TorchLeNet, fake_image_dataset, train, verify
-from razor.testing import (
+from ratex.optimizer import LANS, SGD, Adam
+from ratex.testing import TorchLeNet, fake_image_dataset, train, verify
+from ratex.testing import (
     with_seed,
     with_temp_cache,
     dryrun_dumped_ir_file,
@@ -41,7 +41,7 @@ def test_lenet_cifar10(optimizer):
 @with_seed(0)
 def test_resnet18_imagenet(amp):
     """Test ResNet-18 with ImageNet and PyTorch SGD."""
-    if amp and os.environ.get("RAZOR_DEVICE", None) != "GPU":
+    if amp and os.environ.get("RATEX_DEVICE", None) != "GPU":
         pytest.skip("AMP requires GPU")
 
     batch_size = 1
@@ -88,7 +88,7 @@ def test_compile_lenet_dp(mock_get_config, mock_get_comm):
         num_epochs=1,
         reduce_gradients=True,
     )
-    meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
+    meta_ir_file = os.environ["RATEX_SAVE_IR_FILE"]
     with open(meta_ir_file) as module_file:
         module_json = module_file.read()
         module = raf.ir.serialization.LoadJSON(module_json)
@@ -123,7 +123,7 @@ def test_compile_lenet_zero1(optimizer, grad_inplace):
     )
 
     # Last meta ir graph is the optimizer graph
-    meta_ir_file = os.environ["RAZOR_SAVE_IR_FILE"]
+    meta_ir_file = os.environ["RATEX_SAVE_IR_FILE"]
     with open(meta_ir_file) as module_file:
         module_json = module_file.read()
         module = raf.ir.serialization.LoadJSON(module_json)

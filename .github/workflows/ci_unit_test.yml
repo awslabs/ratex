@@ -17,7 +17,7 @@ defaults:
 
 jobs:
   check_status:
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: self-hosted
     outputs:
       trigger: ${{ steps.job_info.outputs.trigger }}
@@ -54,9 +54,9 @@ jobs:
           trigger=$(head -n 1 artifact/trigger.txt)
           echo "::set-output name=trigger::${trigger}"
           if [ "${trigger}" == "ci" ]; then
-            echo "::set-output name=latest_image::metaprojdev/razor:ci_gpu-latest"
+            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-latest"
           else
-            echo "::set-output name=latest_image::metaprojdev/razor:ci_gpu-nightly"
+            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-nightly"
           fi
       - name: Parse PR job info
         id: pr_job_info
@@ -78,7 +78,7 @@ jobs:
   test_w_torch_nightly:
     # Run full tests with the latest docker image with PyTorch nightly.
     needs: [check_status]
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: self-hosted
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
@@ -113,7 +113,7 @@ jobs:
           python3 ./ci/batch/submit-job.py \
             --job-type GPU \
             --image ${{ needs.check_status.outputs.latest_image }} \
-            --name ci-razor-gpu-pt-nightly-${{ needs.check_status.outputs.job_tag }} \
+            --name ci-ratex-gpu-pt-nightly-${{ needs.check_status.outputs.job_tag }} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
@@ -126,7 +126,7 @@ jobs:
 
   test_multi_gpu_w_torch_nightly:
     needs: [check_status]
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: self-hosted
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
@@ -161,7 +161,7 @@ jobs:
           python3 ./ci/batch/submit-job.py \
             --job-type multi-GPU \
             --image ${{ needs.check_status.outputs.latest_image }} \
-            --name ci-razor-multi-gpu-pt-nightly-${{ needs.check_status.outputs.job_tag }} \
+            --name ci-ratex-multi-gpu-pt-nightly-${{ needs.check_status.outputs.job_tag }} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
@@ -174,7 +174,7 @@ jobs:
   update_ci_torch_nightly_badge:
     # Run this job whatever the unit tests were success or not.
     needs: [test_w_torch_nightly, test_multi_gpu_w_torch_nightly]
-    if: ${{ always() && github.repository == 'meta-project/torch_mnm' }}
+    if: ${{ always() && github.repository == 'awslabs/ratex' }}
     runs-on: self-hosted
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
@@ -193,8 +193,8 @@ jobs:
             echo "No need to update badge for PR CI. Skip."
             exit 0
           fi
-          aws s3 cp s3://ci-razor/razor-ci-badge-last-pass.txt razor-ci-badge-last-pass.txt
-          message=$(head -n 1 razor-ci-badge-last-pass.txt)
+          aws s3 cp s3://ci-ratex/ratex-ci-badge-last-pass.txt ratex-ci-badge-last-pass.txt
+          message=$(head -n 1 ratex-ci-badge-last-pass.txt)
           echo "::set-output name=gist_id::5e763b919e5c0b91ceede34877869ec0"
           echo "::set-output name=message::${message}"
       - name: Update CI badge
@@ -204,14 +204,14 @@ jobs:
         with:
           auth: ${{ secrets.BOT_TOKEN }}
           gistID: ${{ steps.badge.outputs.gist_id }}
-          filename: razor-ci-badge-last-pass.json
+          filename: ratex-ci-badge-last-pass.json
           label: CI-Last-Success
           message: ${{ steps.badge.outputs.message }}
           color: blue
 
   update_docker_tag:
     needs: [check_status, test_w_torch_nightly, test_multi_gpu_w_torch_nightly]
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: ubuntu-latest
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
@@ -222,142 +222,142 @@ jobs:
             echo "No need to update docker. Skip."
             exit 0
           fi
-          echo "Re-tagging metaprojdev/razor:ci_gpu-nightly to metaprojdev/razor:ci_gpu-latest"
+          echo "Re-tagging metaprojdev/ratex:ci_gpu-nightly to metaprojdev/ratex:ci_gpu-latest"
           docker login -u metaprojdev -p ${{ secrets.DOCKERHUB_PASSWORD }}
-          docker pull metaprojdev/razor:ci_gpu-nightly
-          docker tag metaprojdev/razor:ci_gpu-nightly metaprojdev/razor:ci_gpu-latest
-          docker push metaprojdev/razor:ci_gpu-latest
+          docker pull metaprojdev/ratex:ci_gpu-nightly
+          docker tag metaprojdev/ratex:ci_gpu-nightly metaprojdev/ratex:ci_gpu-latest
+          docker push metaprojdev/ratex:ci_gpu-latest
 
-  test_w_torch_1_11:
-    # Run compatibility tests with the docker image with stable PyTorch release.
-    needs: [check_status]
-    if: github.repository == 'meta-project/torch_mnm'
-    runs-on: self-hosted
-    steps:
-      - uses: haya14busa/action-workflow_run-status@v1
-      - name: List environments
-        run: |
-          echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: metaprojdev/razor:ci_gpu-pt1.11"
-          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
-          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
-          echo "REF: ${{ needs.check_status.outputs.ref }}"
-          echo "REPO: ${{ needs.check_status.outputs.repo }}"
-          echo "PR: ${{ needs.check_status.outputs.pr }}"
-          echo "SHA: ${{ needs.check_status.outputs.sha }}"
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Checkout repository
-        # No need to checkout submodules because we only need the script.
-        uses: actions/checkout@v2
-      - name: Lint-Build-Test
-        run: |
-          # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
-            echo "Skip unit tests"
-            exit 0
-          fi
-          echo "Running tests on CPU and GPU"
-          python3 -m pip install argparse boto3
-          python3 ./ci/batch/submit-job.py \
-            --job-type GPU \
-            --image metaprojdev/razor:ci_gpu-pt1.11 \
-            --name ci-razor-gpu-pt-1_11-${{ needs.check_status.outputs.job_tag }} \
-            --job-queue ci-gpu-queue \
-            --job-def-cfg ./ci/batch/job-def-cfg.json \
-            --entry-script /batch/entry.sh \
-            --source-ref ${{ needs.check_status.outputs.ref }} \
-            --repo ${{ needs.check_status.outputs.repo }} \
-            --wait \
-            --command "bash ./ci/batch/cli.sh compile pt-1_11-${{ needs.check_status.outputs.job_tag }} &&
-              bash ./ci/batch/cli.sh unit_test_torch_1_11 GPU"
+  # test_w_torch_1_11:
+  #   # Run compatibility tests with the docker image with stable PyTorch release.
+  #   needs: [check_status]
+  #   if: github.repository == 'awslabs/ratex'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: haya14busa/action-workflow_run-status@v1
+  #     - name: List environments
+  #       run: |
+  #         echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
+  #         echo "Docker Image: metaprojdev/ratex:ci_gpu-pt1.11"
+  #         echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
+  #         echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
+  #         echo "REF: ${{ needs.check_status.outputs.ref }}"
+  #         echo "REPO: ${{ needs.check_status.outputs.repo }}"
+  #         echo "PR: ${{ needs.check_status.outputs.pr }}"
+  #         echo "SHA: ${{ needs.check_status.outputs.sha }}"
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
+  #         aws-region: us-west-2
+  #     - name: Checkout repository
+  #       # No need to checkout submodules because we only need the script.
+  #       uses: actions/checkout@v2
+  #     - name: Lint-Build-Test
+  #       run: |
+  #         # env vars are unavailable in job.if so we have to implement it here.
+  #         if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+  #           echo "Skip unit tests"
+  #           exit 0
+  #         fi
+  #         echo "Running tests on CPU and GPU"
+  #         python3 -m pip install argparse boto3
+  #         python3 ./ci/batch/submit-job.py \
+  #           --job-type GPU \
+  #           --image metaprojdev/ratex:ci_gpu-pt1.11 \
+  #           --name ci-ratex-gpu-pt-1_11-${{ needs.check_status.outputs.job_tag }} \
+  #           --job-queue ci-gpu-queue \
+  #           --job-def-cfg ./ci/batch/job-def-cfg.json \
+  #           --entry-script /batch/entry.sh \
+  #           --source-ref ${{ needs.check_status.outputs.ref }} \
+  #           --repo ${{ needs.check_status.outputs.repo }} \
+  #           --wait \
+  #           --command "bash ./ci/batch/cli.sh compile pt-1_11-${{ needs.check_status.outputs.job_tag }} &&
+  #             bash ./ci/batch/cli.sh unit_test_torch_1_11 GPU"
 
-  test_multi_gpu_w_torch_1_11:
-    needs: [check_status]
-    if: github.repository == 'meta-project/torch_mnm'
-    runs-on: self-hosted
-    steps:
-      - uses: haya14busa/action-workflow_run-status@v1
-      - name: List environments
-        run: |
-          echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: metaprojdev/razor:ci_gpu-pt1.11"
-          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
-          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
-          echo "REF: ${{ needs.check_status.outputs.ref }}"
-          echo "REPO: ${{ needs.check_status.outputs.repo }}"
-          echo "PR: ${{ needs.check_status.outputs.pr }}"
-          echo "SHA: ${{ needs.check_status.outputs.sha }}"
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2
-      - name: Checkout repository
-        # No need to checkout submodules because we only need the script.
-        uses: actions/checkout@v2
-      - name: Test
-        run: |
-          # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
-            echo "Skip multi-GPU tests"
-            exit 0
-          fi
-          echo "Running tests on Multiply GPUs"
-          python3 -m pip install argparse boto3
-          python3 ./ci/batch/submit-job.py \
-            --job-type multi-GPU \
-            --image metaprojdev/razor:ci_gpu-pt1.11 \
-            --name ci-razor-multi-gpu-pt-1_11-${{ needs.check_status.outputs.job_tag }} \
-            --job-queue ci-gpu-queue \
-            --job-def-cfg ./ci/batch/job-def-cfg.json \
-            --entry-script /batch/entry.sh \
-            --source-ref ${{ needs.check_status.outputs.ref }} \
-            --repo ${{ needs.check_status.outputs.repo }} \
-            --wait \
-            --command "bash ./ci/batch/cli.sh compile multi-GPU-pt-1_11-${{ needs.check_status.outputs.job_tag }} &&
-              bash ./ci/batch/cli.sh unit_test_torch_1_11 multi-GPU"
+  # test_multi_gpu_w_torch_1_11:
+  #   needs: [check_status]
+  #   if: github.repository == 'awslabs/ratex'
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: haya14busa/action-workflow_run-status@v1
+  #     - name: List environments
+  #       run: |
+  #         echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
+  #         echo "Docker Image: metaprojdev/ratex:ci_gpu-pt1.11"
+  #         echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
+  #         echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
+  #         echo "REF: ${{ needs.check_status.outputs.ref }}"
+  #         echo "REPO: ${{ needs.check_status.outputs.repo }}"
+  #         echo "PR: ${{ needs.check_status.outputs.pr }}"
+  #         echo "SHA: ${{ needs.check_status.outputs.sha }}"
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_BATCH_ACCESS_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_BATCH_SECRET_ACCESS_KEY }}
+  #         aws-region: us-west-2
+  #     - name: Checkout repository
+  #       # No need to checkout submodules because we only need the script.
+  #       uses: actions/checkout@v2
+  #     - name: Test
+  #       run: |
+  #         # env vars are unavailable in job.if so we have to implement it here.
+  #         if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+  #           echo "Skip multi-GPU tests"
+  #           exit 0
+  #         fi
+  #         echo "Running tests on Multiply GPUs"
+  #         python3 -m pip install argparse boto3
+  #         python3 ./ci/batch/submit-job.py \
+  #           --job-type multi-GPU \
+  #           --image metaprojdev/ratex:ci_gpu-pt1.11 \
+  #           --name ci-ratex-multi-gpu-pt-1_11-${{ needs.check_status.outputs.job_tag }} \
+  #           --job-queue ci-gpu-queue \
+  #           --job-def-cfg ./ci/batch/job-def-cfg.json \
+  #           --entry-script /batch/entry.sh \
+  #           --source-ref ${{ needs.check_status.outputs.ref }} \
+  #           --repo ${{ needs.check_status.outputs.repo }} \
+  #           --wait \
+  #           --command "bash ./ci/batch/cli.sh compile multi-GPU-pt-1_11-${{ needs.check_status.outputs.job_tag }} &&
+  #             bash ./ci/batch/cli.sh unit_test_torch_1_11 multi-GPU"
 
-  update_torch_1_11_badge:
-    # Run this job whatever the PyTorch 1.11 unit tests were success or not.
-    needs: [check_status, test_w_torch_1_11, test_multi_gpu_w_torch_1_11]
-    if: ${{ always() && github.repository == 'meta-project/torch_mnm' }}
-    runs-on: self-hosted
-    steps:
-      - uses: haya14busa/action-workflow_run-status@v1
-      - name: Checkout repository
-        # No need to checkout submodules because we only need to get the HEAD commit hash.
-        uses: actions/checkout@v2
-      - name: Generate CI badge
-        id: badge
-        run: |
-          # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.pr }}" != "" ]; then
-            echo "No need to update badge for PR CI. Skip."
-            exit 0
-          fi
-          echo "::set-output name=gist_id::3ce33fb062845298e9fd9bce8d719e2b"
-          head_commit=$(git rev-parse --short HEAD)
-          if [[ "${{ needs.test_w_torch_1_11.result }}" == "success" ]]; then
-            echo "::set-output name=message::passing (${head_commit})"
-            echo "::set-output name=color::success"
-          else
-            echo "::set-output name=message::failing (${head_commit})"
-            echo "::set-output name=color::critical"
-          fi
-      - name: Update CI badge
-        # Intentionally fail this step with empty gist_id.
-        uses: schneegans/dynamic-badges-action@v1.1.0
-        continue-on-error: true
-        with:
-          auth: ${{ secrets.BOT_TOKEN }}
-          gistID: ${{ steps.badge.outputs.gist_id }}
-          filename: razor-ci-badge-torch-1-11.json
-          label: PyTorch-1.11
-          message: ${{ steps.badge.outputs.message }}
-          color: ${{ steps.badge.outputs.color }}
+  # update_torch_1_11_badge:
+  #   # Run this job whatever the PyTorch 1.11 unit tests were success or not.
+  #   needs: [check_status, test_w_torch_1_11, test_multi_gpu_w_torch_1_11]
+  #   if: ${{ always() && github.repository == 'awslabs/ratex' }}
+  #   runs-on: self-hosted
+  #   steps:
+  #     - uses: haya14busa/action-workflow_run-status@v1
+  #     - name: Checkout repository
+  #       # No need to checkout submodules because we only need to get the HEAD commit hash.
+  #       uses: actions/checkout@v2
+  #     - name: Generate CI badge
+  #       id: badge
+  #       run: |
+  #         # env vars are unavailable in job.if so we have to implement it here.
+  #         if [ "${{ needs.check_status.outputs.pr }}" != "" ]; then
+  #           echo "No need to update badge for PR CI. Skip."
+  #           exit 0
+  #         fi
+  #         echo "::set-output name=gist_id::3ce33fb062845298e9fd9bce8d719e2b"
+  #         head_commit=$(git rev-parse --short HEAD)
+  #         if [[ "${{ needs.test_w_torch_1_11.result }}" == "success" ]]; then
+  #           echo "::set-output name=message::passing (${head_commit})"
+  #           echo "::set-output name=color::success"
+  #         else
+  #           echo "::set-output name=message::failing (${head_commit})"
+  #           echo "::set-output name=color::critical"
+  #         fi
+  #     - name: Update CI badge
+  #       # Intentionally fail this step with empty gist_id.
+  #       uses: schneegans/dynamic-badges-action@v1.1.0
+  #       continue-on-error: true
+  #       with:
+  #         auth: ${{ secrets.BOT_TOKEN }}
+  #         gistID: ${{ steps.badge.outputs.gist_id }}
+  #         filename: ratex-ci-badge-torch-1-11.json
+  #         label: PyTorch-1.11
+  #         message: ${{ steps.badge.outputs.message }}
+  #         color: ${{ steps.badge.outputs.color }}

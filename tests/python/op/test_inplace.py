@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import raf
 import numpy as np
-from razor.testing import compile_model, run_step, with_enable_param_aliasing
+from ratex.testing import compile_model, run_step, with_enable_param_aliasing
 
 
 def test_mul_():

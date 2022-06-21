@@ -9,9 +9,9 @@
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
 
-#include "razor/csrc/compiler/utils.h"
-#include "razor/csrc/compiler/raf_lowering_context.h"
-#include "razor/csrc/utils/file.h"
+#include "ratex/csrc/compiler/utils.h"
+#include "ratex/csrc/compiler/raf_lowering_context.h"
+#include "ratex/csrc/utils/file.h"
 
 #include "raf/serialization.h"
 
@@ -35,15 +35,15 @@ std::unique_ptr<ComputationClient> ComputationClient::Create() {
 
 }  // namespace lazy_tensors
 
-namespace razor {
+namespace ratex {
 
 using namespace lazy_tensors;
 
 void PopulateLocalDevices(BaseComputationClient::Options* options) {
-  auto dev_kind = sys_util::GetEnvString(razor::env::kEnvDefaultDevice, "CPU");
+  auto dev_kind = sys_util::GetEnvString(ratex::env::kEnvDefaultDevice, "CPU");
 
-  auto count = sys_util::GetEnvInt(razor::env::kEnvDeviceCount, 0);
-  CHECK_GT(count, 0) << "RAZOR_DEVICE_COUNT is not set, something must be wrong!";
+  auto count = sys_util::GetEnvInt(ratex::env::kEnvDeviceCount, 0);
+  CHECK_GT(count, 0) << "RATEX_DEVICE_COUNT is not set, something must be wrong!";
   if (dev_kind == "CPU" || dev_kind == "GPU") {
     for (size_t i = 0; i < count; ++i) {
       std::string ltc_device = dev_kind + ":" + std::to_string(i);
@@ -115,12 +115,12 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
   std::vector<ComputationPtr> results;
   for (const auto& ins : instances) {
     if (options_.cache_enabled) {
-      static auto query = registry::GetPackedFunc("razor.utils.cache.query");
-      static auto create_entry = registry::GetPackedFunc("razor.utils.cache.create_entry");
+      static auto query = registry::GetPackedFunc("ratex.utils.cache.query");
+      static auto create_entry = registry::GetPackedFunc("ratex.utils.cache.create_entry");
       static auto acquire_lock =
-          registry::GetPackedFunc("razor.utils.cache.acquire_cache_entry_lock");
+          registry::GetPackedFunc("ratex.utils.cache.acquire_cache_entry_lock");
       static auto release_lock =
-          registry::GetPackedFunc("razor.utils.cache.release_cache_entry_lock");
+          registry::GetPackedFunc("ratex.utils.cache.release_cache_entry_lock");
 
       const auto& key = CompileCacheKey(ins);
       acquire_lock(key);
@@ -143,7 +143,7 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
       results.push_back(Compile(ins));
     }
 
-    std::string dump_alias_path = lazy_tensors::sys_util::GetEnvString("RAZOR_DUMP_ALIAS", "");
+    std::string dump_alias_path = lazy_tensors::sys_util::GetEnvString("RATEX_DUMP_ALIAS", "");
     if (!dump_alias_path.empty()) {
       DumpComputationAlias(ins, dump_alias_path);
     }
@@ -189,4 +189,4 @@ void BaseComputationClient::DumpComputationAlias(const CompileInstance& instance
   Save(path, alias);
 }
 
-}  // namespace razor
+}  // namespace ratex

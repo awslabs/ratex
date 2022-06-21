@@ -12,7 +12,7 @@ set -e
 # Usage: push.sh <CONTAINER_TYPE> <VERSION>
 #
 # CONTAINER_TYPE: It can be ci_gpu.
-#                 The local image named "razor.<CONTAINER_TYPE>:latest" will be pushed.
+#                 The local image named "ratex.<CONTAINER_TYPE>:latest" will be pushed.
 #
 # TAG: The user tag, such as "latest".
 #
@@ -34,9 +34,9 @@ shift 1
 # Get the timestamp.
 TIMESTAMP=$( echo "`date +%Y%m%d_%H%M%S`" | tr '[:upper:]' '[:lower:]' )
 
-LOCAL_IMAGE_NAME=razor.${CONTAINER_TYPE}:latest
-REMOTE_IMAGE_TIME_NAME=${DOCKER_HUB_ACCOUNT}/razor:${CONTAINER_TYPE}-${TIMESTAMP}
-REMOTE_IMAGE_TAG_NAME=${DOCKER_HUB_ACCOUNT}/razor:${CONTAINER_TYPE}-${TAG}
+LOCAL_IMAGE_NAME=ratex.${CONTAINER_TYPE}:latest
+REMOTE_IMAGE_TIME_NAME=${DOCKER_HUB_ACCOUNT}/ratex:${CONTAINER_TYPE}-${TIMESTAMP}
+REMOTE_IMAGE_TAG_NAME=${DOCKER_HUB_ACCOUNT}/ratex:${CONTAINER_TYPE}-${TAG}
 
 echo "Login docker hub"
 docker login -u ${DOCKER_HUB_ACCOUNT} -p ${DOCKER_HUB_PASSWORD}

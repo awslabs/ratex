@@ -3,14 +3,14 @@
 
 import pytest
 import torch
-from razor.optimizer import SGD
-from razor.testing import TorchLeNet, fake_image_dataset, train, verify, with_seed
+from ratex.optimizer import SGD
+from ratex.testing import TorchLeNet, fake_image_dataset, train, verify, with_seed
 
 
 @with_seed(0)
 @pytest.mark.parametrize("momentum", [0.0, 0.1])
 def test_sgd(momentum):
-    """Test Razor SGD implementation against PyTorch SGD."""
+    """Test Ratex SGD implementation against PyTorch SGD."""
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
     model = TorchLeNet()

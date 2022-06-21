@@ -4,9 +4,9 @@
 import copy
 
 import torch
-import razor
-import razor.lazy_tensor_core.debug.metrics as metrics
-import razor.lazy_tensor_core.core.lazy_model as lm
+import ratex
+import ratex.lazy_tensor_core.debug.metrics as metrics
+import ratex.lazy_tensor_core.core.lazy_model as lm
 
 
 import torch.nn as nn
@@ -60,7 +60,7 @@ def train(device, model, image_datasets):
     best_acc = 0.0
     unscripted = model
     if device == "lazy":
-        model = razor.jit.script(model)
+        model = ratex.jit.script(model)
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
@@ -106,7 +106,7 @@ def infer(device, model, image_datasets):
     best_acc = 0.0
 
     if device == "lazy":
-        model = razor.jit.script(model)
+        model = ratex.jit.script(model)
     running_loss = 0.0
     running_corrects = 0
     # Iterate over data.

@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   entry:
-    if: github.repository == 'meta-project/torch_mnm'
+    if: github.repository == 'awslabs/ratex'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

@@ -4,7 +4,7 @@
 import pytest
 import torch
 import numpy as np
-from razor.testing import check
+from ratex.testing import check
 
 
 def test_view_data_update():

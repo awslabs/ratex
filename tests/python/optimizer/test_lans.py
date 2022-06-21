@@ -12,8 +12,8 @@ import raf
 from raf.model import Conv2d, Linear, BatchNorm
 from raf.testing import run_vm_model, one_hot_torch, randn_torch, t2m_param, with_seed
 
-from razor.optimizer import LANS
-from razor.testing import check
+from ratex.optimizer import LANS
+from ratex.testing import check
 
 
 class TorchSimpleTest(nn.Module):

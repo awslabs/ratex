@@ -1,5 +1,5 @@
 {
-    "docker": "ci-job-razor-docker",
-    "GPU": "ci-job-razor-gpu",
-    "multi-GPU": "ci-job-razor-multi-gpu"
+    "docker": "ci-job-ratex-docker",
+    "GPU": "ci-job-ratex-gpu",
+    "multi-GPU": "ci-job-ratex-multi-gpu"
 }

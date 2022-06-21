@@ -41,7 +41,7 @@ function compile() {
     else
         BUILD_TYPE=Release USE_CUTLASS=ON bash ./scripts/build_third_party.sh || true
     fi
-    bash ./scripts/build_razor.sh || true
+    bash ./scripts/build_ratex.sh || true
     RET=$?
 
     # Backup the ccache.
@@ -73,24 +73,24 @@ function lint() {
 function unit_test() {
     DEVICE=$1
     export ENABLE_PARAM_ALIASING=true
-    export RAZOR_CACHE_DIR=""
+    export RATEX_CACHE_DIR=""
 
     echo "=========================================="
     echo "[CLI] Running unit tests with environment:"
     echo "  DEVICE=$DEVICE"
     echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
-    echo "  RAZOR_CACHE_DIR=$RAZOR_CACHE_DIR"
+    echo "  RATEX_CACHE_DIR=$RATEX_CACHE_DIR"
     echo "=========================================="
 
     if [[ $DEVICE == "multi-GPU" ]]; then
         nvidia-smi -L
-        export RAZOR_DEVICE=GPU
+        export RATEX_DEVICE=GPU
         time bash ./ci/batch/task_python_distributed.sh
     else
         if [[ $DEVICE == "GPU" ]]; then
-            export RAZOR_DEVICE=GPU
+            export RATEX_DEVICE=GPU
         elif [[ $DEVICE == "CPU" ]]; then
-            export RAZOR_DEVICE=CPU
+            export RATEX_DEVICE=CPU
         else
             echo "Unrecognized device: $DEVICE"
             exit 1
@@ -108,24 +108,24 @@ function unit_test() {
 function unit_test_torch_1_11() {
     DEVICE=$1
     export ENABLE_PARAM_ALIASING=true
-    export RAZOR_CACHE_DIR=""
+    export RATEX_CACHE_DIR=""
 
     echo "==========================================================="
     echo "[CLI] Running unit tests for PyTorch 1.11 with environment:"
     echo "  DEVICE=$DEVICE"
     echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
-    echo "  RAZOR_CACHE_DIR=$RAZOR_CACHE_DIR"
+    echo "  RATEX_CACHE_DIR=$RATEX_CACHE_DIR"
     echo "==========================================================="
 
     if [[ $DEVICE == "multi-GPU" ]]; then
         nvidia-smi -L
-        export RAZOR_DEVICE=GPU
+        export RATEX_DEVICE=GPU
         time bash ./ci/batch/task_python_distributed_pt_1_11.sh
     else
         if [[ $DEVICE == "GPU" ]]; then
-            export RAZOR_DEVICE=GPU
+            export RATEX_DEVICE=GPU
         elif [[ $DEVICE == "CPU" ]]; then
-            export RAZOR_DEVICE=CPU
+            export RATEX_DEVICE=CPU
         else
             echo "Unrecognized device: $DEVICE"
             exit 1
@@ -146,12 +146,12 @@ function update_ci_badge() {
         echo "PR number is provided, meaning this is a PR build. Skip updating CI badge."
         exit 0
     fi
-    RAZOR_VERSION=$(git rev-parse --short HEAD)
-    echo "Razor version: ${RAZOR_VERSION}"
+    RATEX_VERSION=$(git rev-parse --short HEAD)
+    echo "Ratex version: ${RATEX_VERSION}"
     TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)")
     echo "PyTorch version: ${TORCH_VERSION}"
-    echo "$RAZOR_VERSION (PyTorch $TORCH_VERSION)" > razor-ci-badge-last-pass.txt
-    aws s3 cp razor-ci-badge-last-pass.txt s3://ci-razor/razor-ci-badge-last-pass.txt
+    echo "$RATEX_VERSION (PyTorch $TORCH_VERSION)" > ratex-ci-badge-last-pass.txt
+    aws s3 cp ratex-ci-badge-last-pass.txt s3://ci-ratex/ratex-ci-badge-last-pass.txt
 }
 
 # Run the function from command line.

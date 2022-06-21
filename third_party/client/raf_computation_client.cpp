@@ -8,12 +8,12 @@
 #include <fstream>
 #include <iostream>
 
-#include "razor/csrc/compiler/utils.h"
-#include "razor/csrc/compiler/raf_lowering_context.h"
-#include "razor/csrc/raf_model_state.h"
-#include "razor/csrc/value_ext/value.h"
-#include "razor/csrc/pass_ext/pass.h"
-#include "razor/csrc/utils/file.h"
+#include "ratex/csrc/compiler/utils.h"
+#include "ratex/csrc/compiler/raf_lowering_context.h"
+#include "ratex/csrc/raf_model_state.h"
+#include "ratex/csrc/value_ext/value.h"
+#include "ratex/csrc/pass_ext/pass.h"
+#include "ratex/csrc/utils/file.h"
 #include "env_vars.h"
 
 #include "lazy_tensors/computation_client/nnc_computation_client.h"
@@ -29,7 +29,7 @@
 #include "raf/src/impl/vm/compiler.h"
 #include "raf/src/op/ty/utils.h"
 
-namespace razor {
+namespace ratex {
 
 using namespace torch_lazy_tensors::compiler;
 using namespace torch_lazy_tensors::compiler::raf_backend;
@@ -215,12 +215,12 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
             raf::pass::InferType(),
             raf::pass::AssignDevice(raf_device.c_str()),
         },
-        "razor_raf_compile");
+        "ratex_raf_compile");
 
     raf::executor::vm::DeviceMap device_map{{Integer((int)(raf_device.device_type())), raf_device}};
 
     // Rematerialization will be enabled if memory budget > 0.
-    auto memory_budget = lazy_tensors::sys_util::GetEnvInt("RAZOR_MEMORY_BUDGET", 0);
+    auto memory_budget = lazy_tensors::sys_util::GetEnvInt("RATEX_MEMORY_BUDGET", 0);
 
     auto pass_ctx = pass::PassContext::Create();
     pass_ctx->opt_level = 3;
@@ -253,7 +253,7 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
                                               instance.devices, exe, vm_module);
   lifted_computation_[ret.get()] = ir_module;
 
-  std::string file_path = lazy_tensors::sys_util::GetEnvString("RAZOR_SAVE_IR_FILE", "");
+  std::string file_path = lazy_tensors::sys_util::GetEnvString("RATEX_SAVE_IR_FILE", "");
   if (file_path != "") {
     Save(file_path, raf::serialization::SaveJSON(ir_module));
   }
@@ -266,7 +266,7 @@ std::vector<ComputationClient::DataPtr> RAFComputationClient::ExecuteComputation
     const std::string& device, const ExecuteComputationOptions& options) {
   LTC_TIMED("RAFExecute");
 
-  bool is_dryrun = lazy_tensors::sys_util::GetEnvBool("RAZOR_DRY_RUN", false);
+  bool is_dryrun = lazy_tensors::sys_util::GetEnvBool("RATEX_DRY_RUN", false);
   if (is_dryrun) {
     return DryrunComputation(computation, arguments, device, options);
   }
@@ -404,4 +404,4 @@ lazy_tensors::ComputationClient* RAFGetIfInitialized() {
   return RAFGet();
 }
 
-}  // namespace razor
+}  // namespace ratex

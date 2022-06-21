@@ -55,7 +55,7 @@ if [ "$#" -gt 0 ] || [ ! -e "${SCRIPT_DIR}/Dockerfile.${CONTAINER_TYPE}" ]; then
 fi
 
 # Determine the docker image name
-DOCKER_IMG_NAME="razor.${CONTAINER_TYPE}"
+DOCKER_IMG_NAME="ratex.${CONTAINER_TYPE}"
 
 # Convert to all lower-case, as per requirement of Docker image names
 DOCKER_IMG_NAME=$(echo "${DOCKER_IMG_NAME}" | tr '[:upper:]' '[:lower:]')

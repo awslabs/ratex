@@ -3,14 +3,14 @@
 # pylint: disable=protected-access, c-extension-no-member, unused-import, wrong-import-order
 import pytest
 
-import razor
-import _RAZORC
-from razor.jit.script import JIT_CACHE
+import ratex
+import _RATEXC
+from ratex.jit.script import JIT_CACHE
 
 
 @pytest.fixture(autouse=True)
-def reset_razor_jit_cache():
+def reset_ratex_jit_cache():
     """ Reset the JIT cache before each pytest run."""
     JIT_CACHE.clear()
-    _RAZORC._ltc_clear_jit_cache()
+    _RATEXC._ltc_clear_jit_cache()
     yield

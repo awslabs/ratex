@@ -11,15 +11,15 @@ import pytest
 import torch
 import torch.optim as optim
 
-import razor
+import ratex
 import tvm
-from razor.testing import TorchLeNet, fake_image_dataset, train
-from razor.testing import with_dumped_tensor_file, with_temp_cache
-from razor.utils.cache import Cache
+from ratex.testing import TorchLeNet, fake_image_dataset, train
+from ratex.testing import with_dumped_tensor_file, with_temp_cache
+from ratex.utils.cache import Cache
 
 
 def test_cache():
-    with tempfile.TemporaryDirectory(prefix="razor_test_") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="ratex_test_") as temp_dir:
         # Test cache miss and commit.
         cache = Cache(temp_dir)
 
@@ -63,8 +63,8 @@ def test_cache():
 
 @with_temp_cache
 def test_compile_cache():
-    from razor.jit.script import JIT_CACHE
-    from razor.utils.cache import cache
+    from ratex.jit.script import JIT_CACHE
+    from ratex.utils.cache import cache
 
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
@@ -84,9 +84,9 @@ def test_compile_cache():
 
 @with_temp_cache
 def test_convert_module_to_meta_cache():
-    # it cannot be accessed with razor.jit.script.convert_module_to_raf
-    from razor.jit.script import convert_module_to_raf
-    from razor.utils.cache import cache
+    # it cannot be accessed with ratex.jit.script.convert_module_to_raf
+    from ratex.jit.script import convert_module_to_raf
+    from ratex.utils.cache import cache
 
     args = [torch.rand(1, 1, 28, 28, dtype=torch.float32)]
     shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
@@ -128,8 +128,8 @@ def test_convert_module_to_meta_cache():
 @with_dumped_tensor_file
 def test_convert_module_to_meta_cache_ltc_trace():
     """This is to test if the LTC IR is the same before and after JIT compile hits."""
-    from razor.jit.script import JIT_CACHE
-    from razor.utils.cache import cache
+    from ratex.jit.script import JIT_CACHE
+    from ratex.utils.cache import cache
 
     batch_size = 16
     dataset = fake_image_dataset(batch_size, 1, 28, 10)

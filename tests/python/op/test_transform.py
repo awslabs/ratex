@@ -9,9 +9,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import razor
-from razor.lazy_tensor_core.core import lazy_model as lm
-from razor.testing import verify_step
+import ratex
+from ratex.lazy_tensor_core.core import lazy_model as lm
+from ratex.testing import verify_step
 
 
 @pytest.mark.xfail(reason="Need to fix the accuracy issue")
@@ -34,7 +34,7 @@ def test_embedding():
         optimizer.zero_grad()
         tmp = model
         if device == "lazy":
-            model = razor.jit.script(model)
+            model = ratex.jit.script(model)
         args = [arg.to(device) for arg in args]
         loss = model(*args)
         loss.backward()
@@ -74,13 +74,13 @@ def test_select():
     model = Model()
     n_x = np.random.randn(*shape)
     t_x_cpu = torch.tensor(n_x, device="cpu", dtype=torch.float32, requires_grad=True)
-    t_x_razor = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
+    t_x_ratex = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
 
     loss_cpu = step("cpu", model, [t_x_cpu])
-    loss_ltc = step("lazy", model, [t_x_razor])
+    loss_ltc = step("lazy", model, [t_x_ratex])
 
     torch.testing.assert_close(loss_cpu, loss_ltc)
-    torch.testing.assert_close(t_x_cpu.grad, t_x_razor.grad.to("cpu"))
+    torch.testing.assert_close(t_x_cpu.grad, t_x_ratex.grad.to("cpu"))
 
 
 def test_scatter():
