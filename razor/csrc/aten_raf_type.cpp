@@ -1589,7 +1589,10 @@ at::Tensor LazyNativeFunctions::max(const at::Tensor& self) {
 
 std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::max(const at::Tensor& self, int64_t dim,
                                                             bool keepdim) {
-  return AtenRAFTypeDefault::max(self, dim, keepdim);
+  LTC_FN_COUNTER("raf::");
+  auto outputs = LazyTensor::max(bridge::raf_backend::GetLtcTensor(self), dim, keepdim);
+  return std::make_tuple(bridge::AtenFromLtcTensor(std::get<0>(outputs)),
+                         bridge::AtenFromLtcTensor(std::get<1>(outputs)));
 }
 
 at::Tensor LazyNativeFunctions::maximum(const at::Tensor& self, const at::Tensor& other) {

@@ -249,18 +249,6 @@ at::Tensor& AtenRAFTypeDefault::lt_(at::Tensor& self, const at::Scalar& other) {
   return self;
 }
 
-std::tuple<at::Tensor, at::Tensor> AtenRAFTypeDefault::max(const at::Tensor& self, int64_t dim,
-                                                           bool keepdim) {
-  LTC_FN_TRACK(3);
-  LTC_COUNTER("aten::max", 1);
-  std::vector<at::Tensor> ltc_atens_tensors = {self};
-  auto ltc_atens = bridge::LtcCreateTensorList(ltc_atens_tensors);
-  auto&& x_result = at::max(ltc_atens[0], dim, keepdim);
-  return std::tuple<at::Tensor, at::Tensor>(
-      bridge::CreateLtcTensor(std::get<0>(x_result), bridge::GetLtcDevice(self)),
-      bridge::CreateLtcTensor(std::get<1>(x_result), bridge::GetLtcDevice(self)));
-}
-
 std::tuple<at::Tensor, at::Tensor> AtenRAFTypeDefault::min(const at::Tensor& self, int64_t dim,
                                                            bool keepdim) {
   LTC_FN_TRACK(3);

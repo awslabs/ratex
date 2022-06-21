@@ -626,7 +626,7 @@ at::Tensor MakeTensorFromLiteral(const lazy_tensors::Literal& literal,
     case lazy_tensors::PrimitiveType::U16:
       return LiteralToTensorHelper<uint16_t>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::S32:
-      return LiteralToTensorHelper<int16_t>(literal, dest_element_type);
+      return LiteralToTensorHelper<int32_t>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::U32:
       return LiteralToTensorHelper<uint32_t>(literal, dest_element_type);
     case lazy_tensors::PrimitiveType::S64:

@@ -3,31 +3,32 @@
 
 # Add an Operator
 
-This article introduces the process of adding a new operator to Razor. It includes 5 steps: 1) Turning off CPU fallback (if applicable), 2) Writing unit test, 3) Declaring operator, 4) Extracting parameters to RAF suitable format, and 5) Defining inference type (if applicable). We will be using example operator implementations/lowering walkthroughs to help you better understand the process.
+This article introduces the process of adding a new operator to Razor. It includes 5 steps: 
+
+1. Turning off CPU fallback (if applicable).
+2. Writing unit test.
+3. Declaring operator. 
+4. Extracting parameters to RAF suitable format.
+5. Defining inference type (if applicable). 
+
+We will use example operator implementations/lowering walkthroughs to help you better understand the process.
 
 
-## Confirm that your operator is defined in RAF
+## Before You Start: Confirm that your operator is defined in RAF
 
-Under `/third_party/raf/scripts/src_codegen/def_schema.py` search for your operator and confirm your operator's implementation exists. If your operator does not exist in RAF, you will first need to implement the operator in RAF. Refer to: https://github.com/awslabs/raf/blob/main/docs/wiki/3_dev_guide/Add-Operator.md
+Under `/third_party/raf/scripts/src_codegen/def_op.py` search for your operator and confirm your operator's implementation exists. If your operator does not exist in RAF, you will first need to implement the operator in RAF. Refer to [Add an Operator in RAF](https://github.com/awslabs/raf/blob/main/docs/wiki/3_dev_guide/Add-Operator.md).
 
 
-## 1. Turn off CPU fallback
+## 1. Turn Off CPU Fallback
 
-As a measure to ensure Razor works without any drawback out of the box, Razor automatically falls back to sequential implementation (CPU) for missing operators.
+For missing operators in RAF, Razor automatically falls back to sequential implementations on CPU. To make sure the new operator in Razor can be lowered to RAF, we will need to turn off the CPU fallback. 
 
-For this example, we will be using `norm` as our running example as it accepts numerous arguments & has multiple variants. As you can see below, norm currently has fallback to cpu. At`/razor/csrc/aten_cpu_fallback.h` under `AtenRAFTypeDefault`:
+Take a look at the file `/razor/csrc/aten_raf_type.cpp`  and find your operator.
+This file defines the fallback implementations for each operator.
+Note that if the operator does not exist, you will have to add it here. Take a look at other methods for reference.
+We will use the operator `norm` as an example here.
 
-```cpp
-static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                        at::ScalarType dtype);
-static at::Tensor norm(const at::Tensor& self, const at::Scalar& p);
-static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                        at::IntArrayRef dim, bool keepdim, at::ScalarType dtype);
-static at::Tensor norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                        at::IntArrayRef dim, bool keepdim);
-```
-Also view `/razor/csrc/aten_cpu_fallback.cpp` to view fallback implementation of your operator. 
-Next inside `/razor/csrc/aten_raf_type.cpp` find/add your operator method. Your operator may already exist, for example norm's fallback implementation appears as:
+The norm's default fallback implementations appear as:
 
 ```cpp
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
@@ -45,42 +46,36 @@ at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional
   return AtenRAFTypeDefault::norm(self, p, dtype);
 }
 
-
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const at::Scalar& p) {
   return AtenRAFTypeDefault::norm(self, p);
 }
 ```
 
+Note that the code snippet above cannot be found in the source code. 
+This is due to the reason that we have already added the LazyTensor support to the `norm` operator. 
+We present the old code here for the illustration purpose.
 
-As you can see, we are calling the fallback implementation - the native torch implementation. Now we will bridge the gap between our operator and Razor by utilizing the function bridge::AtenFromLtcTensor. The function expects a LazyTensor as input, so we must convert our parameters and inputs to a LazyTensor. The LazyTensor is defined in `/razor/lazy_tensor_core/csrc/tensor.h` and includes signatures for all operators. Find your operator and note the inputs, the following is norm's signature:
+As you can see, we are calling the fallback implementation in the form of `AtenRAFTypeDefault::norm()`, which 
+is the native torch implementation. The CPU fallback implementations are defined in `/razor/csrc/aten_cpu_fallback.h` and `/razor/csrc/aten_cpu_fallback.cpp` (which are also removed in the current codebase due to the added support to norm).
 
-```cpp
-static LazyTensor norm(const LazyTensor& input, const c10::optional<at::Scalar>& p,
-                        c10::optional<at::ScalarType> dtype, at::IntArrayRef dim, bool keepdim);
-```
-
-As you can see norm expects 5 inputs, with some of them being optional (reflected by the various methods in `/razor/csrc/aten_raf_type.cpp`). We can pass identical parameters as is (`const c10::optional<at::Scalar>& p`, `c10::optional<at::ScalarType> dtype`, `at::IntArrayRef dim`, `bool keepdim` for norm) but we must bridge the gap for different parameter types. The following table shows how we convert parameters - you can search the code base for similar parameters and model off those.
-
-| Input      | Expected   | Conversion                                |
-|------------|------------|-------------------------------------------|
-| at::Tensor | LazyTensor | bridge::raf_backend::GetLtcTensor (Input) |
+Next, we will modify the above fallback implementations and redirect them to LazyTensor implementations, as shown below:
 
 ```cpp
-LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-```
-Note that self_tensor will be used to extract other parameters.
+at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+                                     at::IntArrayRef dim, bool keepdim, at::ScalarType dtype) {
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(LazyTensor::norm(self_tensor, p, dtype, dim, keepdim));
+}
 
-However, in the case the method is called without all parameters provided, you will need to add generic/missing operators. For example, if you take a look at the 4th signature of norm, wew are only provided 2 of the 5 required operators. In this case, we can analyze the codebase for already existing implementations of parameter lowering (for example, dim is used in many operators and has generic conversion implementation already) or write the corresponding conversion. Here is how we fill gaps for norm:
+at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+                                     at::IntArrayRef dim, bool keepdim) {
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::norm(self_tensor, p, self_tensor.dtype(), dim, keepdim));
+}
 
-| Type            | Param      | Generic implementation                    |
-|-----------------|------------|-------------------------------------------|
-| at:ScalarType   | dtype      | self_tensor.dtype()                       |
-| at::IntArrayRef | dim        | lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank())                      |
-| bool            | keepdim    | false                    |
-
-As you can see, we try to follow torch in default ways of inference & parameters. Here is the bridge implementation for norm.
-
-```cpp
 at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
                                      at::ScalarType dtype) {
   LTC_FN_COUNTER("raf::");
@@ -98,30 +93,84 @@ at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const at::Scalar& p
                        lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank()),
                        /*keep_reduced_dimensions=*/false));
 }
-
-at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                                     at::IntArrayRef dim, bool keepdim, at::ScalarType dtype) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::norm(self_tensor, p, dtype, lazy_tensors::util::ToVector<int64_t>(dim), keepdim));
-}
-
-at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
-                                     at::IntArrayRef dim, bool keepdim) {
-  LTC_FN_COUNTER("raf::");
-  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
-  return bridge::AtenFromLtcTensor(LazyTensor::norm(
-      self_tensor, p, self_tensor.dtype(), lazy_tensors::util::ToVector<int64_t>(dim), keepdim));
-}
 ```
-Finally, check `/razor/csrc/RegisterLazy.cpp` to see if there are any wrapper processing that you need to do before calling method in `aten_raf_type.cpp`. Norm does not require and wrapper specific processing, so it simply just calls the methods. In the case there is a mismatch in parameters, you will need to handle conversions appropriately. Once you have this conversion completed and working correctly, delete your operator's methods from `/razor/csrc/aten_cpu_fallback.h` and `/razor/csrc/aten_cpu_fallback.cpp`.
 
-## 2. Define unit tests
+Let's take a closer look at the code above. 
+First, for each operator method, we first locate the corresponding LazyTensor method from 
+`/razor/lazy_tensor_core/csrc/tensor.h`.
+For example, for the operator `norm`, we find the LazyTensor implementation:
+```c++
+static LazyTensor norm(const LazyTensor& input, const c10::optional<at::Scalar>& p,
+                       c10::optional<at::ScalarType> dtype, at::IntArrayRef dim, bool keepdim);
+```                         
+
+As you can see, the first native function:
+
+```c++
+at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const c10::optional<at::Scalar>& p,
+                                     at::IntArrayRef dim, bool keepdim, at::ScalarType dtype)
+```
+
+and the LazyTensor function share some common parameters including
+`p`, `dim`, and `keepdim`, and `dtype`. Meanwhile, LazyTensor function expects a `LazyTensor input` as input, we 
+need to convert our original parameter `const at::Tensor self` to a LazyTensor.
+
+To accomplish this, we call
+
+```c++
+LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+```
+
+to convert an `at::tensor` to `LazyTensor`.
+
+| Input      | Expected   | Conversion                                |
+|------------|------------|-------------------------------------------|
+| at::Tensor | LazyTensor | bridge::raf_backend::GetLtcTensor(Input) |
+
+and we call
+
+```c++
+bridge::AtenFromLtcTensor()
+```
+
+to convert a `LazyTensor` back to `at::tensor`.
+
+For the rest native functions, we will need to add the missing operators manually.
+Let's take a look at the 4th signature of norm's native functions:
+
+```c++
+at::Tensor LazyNativeFunctions::norm(const at::Tensor& self, const at::Scalar& p)
+```
+
+We are only provided 2 of the 5 required arguments to the LazyTensor function.
+In this case, we can analyze the codebase for already existing implementations of parameter lowering (for example, `dim` is used in many operators and has generic conversion implementation already) or write the corresponding conversion. Here is how we fill gaps for norm:
+
+| Type            | Param      | Generic implementation                    |
+|-----------------|------------|-------------------------------------------|
+| at:ScalarType   | dtype      | self_tensor.dtype()                       |
+| at::IntArrayRef | dim        | lazy_tensors::util::Iota<int64_t>(self_tensor.shape().get().rank())                      |
+| bool            | keepdim    | false                    |
+
+As you can see, we try to follow torch in default ways of inference & parameters.
+
+Finally, check `/razor/csrc/RegisterLazy.cpp` (This file is autogenerated after compiling Razor) to see if there is any wrapper processing that you need to do before calling method in `aten_raf_type.cpp`. Norm does not require any wrapper specific processing, so it simply just calls the methods. In the case there is a mismatch in parameters, you will need to handle conversions appropriately. 
+
+Once you have this conversion completed and working correctly, delete the default CPU fallback implementations for 
+your operator in `/razor/csrc/aten_cpu_fallback.h` and `/razor/csrc/aten_cpu_fallback.cpp`.
+
+Note that if the operator you are adding has already been lowered to LazyTensor implementations in `aten_raf_type.cpp` at the beginning, you could skip this step.
+
+## 2. Define Unit Tests
 
 It is recommended to write a unit test immediately and view error stack trace. This is because some operators are converted to others implicitly (i.e. chunk defaults to split since split is more powerful), or may not require all implementation steps. Process the remaining guide based on the errors you are seeing. For the remaining guide, we will be using `stack` operator as a running example. Process this guide according to the errors you are seeing.
 
-Under `tests/python/ops` chose/create your corresponding test file. To determine which type your test falls under search `/third_party/raf/src/op/declare` for your operator. For stack, it falls under transform, so under `test_transform.py` implement unit test. Follow convention when declaring test: `test_<your-op>`. Use `pytest.mark.paramterize` to organize & iterate through the various testing/input conditions. For example, for a 2-dimensional tensor you can stack it row-wise (dim = 0) or column-wise (dim = 1) as well as stack different data types. The following test will run 4 tests (dim=0, dtype = float16, dim=0, dtype = float32, dim=1, dtype = float16, dim=1, dtype = float32). Make sure that all possible combinations are accounted for and configurations make sense. 
+Under `tests/python/op` choose/create your corresponding test file. To determine which type your test falls under search `/third_party/raf/src/op/declare` for your operator. For stack, it falls under transform, so under `test_transform.py` implement unit test. Follow convention when declaring test: `test_<your-op>`. Use `pytest.mark.parametrize` to organize & iterate through the various testing/input conditions. For example, for a 2-dimensional tensor you can stack it row-wise (dim = 0) or column-wise (dim = 1) as well as stack different data types. The following test will run 4 tests:
+- dim=0, dtype=float16 
+- dim=0, dtype=float32
+- dim=1, dtype=float16
+- dim=1, dtype=float32
+
+Make sure that all possible combinations are accounted for and configurations make sense. 
 
 Be sure to refer to existing implementations that are most similar to yours and also utilize `/testing/common.py` to test you operator.
 
@@ -212,11 +261,14 @@ E         ...
 </blockquote>
 </details>
 <br>
-As you can see, Razor is complaining about share inference. The reason we need to support shape inference goes back to the basic logic of compiled vs interpreted languages. Interpreted languages (i.e., sequential PyTorch in this case) dynamically check for and use size/type on the fly. However, in compiled languages, compilers often apply optimization. To apply optimization, the compiler must know exactly the expected inputs/outputs shapes & data types (this is vital for operator fusion for example) so that is can make sketches/graphs to execute. We must explicitly tell the compiler the shape/sizes, and we do this usin the Infer method. The Infer method allows Razor to define the output type (shape and data) of the operator. Before we define the Infer method, we need to declare & build conversion.
+
+As you can see, Razor is complaining about shape inference. The reason we need to support shape inference goes back to the basic logic of compiled vs interpreted languages. Interpreted languages (i.e., sequential PyTorch in this case) dynamically check for and use size/type on the fly. However, in compiled languages, compilers often apply optimization. To apply optimization, the compiler must know exactly the expected inputs/outputs shapes & data types (this is vital for operator fusion for example) so that it can make sketches/graphs to execute. We must explicitly tell the compiler the shape/sizes, and we do this using the `Infer` method. The Infer method allows Razor to define the output type (shape and data) of the operator. Before we define the Infer method, we need to declare & build conversion in the next step.
 
 ## 3. Declare an Operator
 
-Under private of ```class RAFNodeLowering``` write the corresponding declare statement. To decide between `DECLARE_OP` vs `DECLARE_OP2` determine if your operator is contained in and or is a composition of operators inside `/razor/lazy_tensor_core/csrc/ops/ops.cpp`. If you operator is contained/aggregate within the `ops.cpp` filem - then your operator is `DECLARE_OP`. Otherwise, your operator is inside its own file (`/razor/lazy_tensor_core/csrc/ops/<yourop>.cpp/h`) and is `DECLARE_OP2`. If an already existing file of your operator is not found, you will need to create the corresponding cpp/h file for your operator (model off similar existing operator implementation).
+In `/razor/csrc/compiler/raf_node_lowering.cpp`, under private of ```class RAFNodeLowering```, write the corresponding declare statement. 
+
+To decide between `DECLARE_OP` vs `DECLARE_OP2`, determine if your operator is contained in and or is a composition of operators inside `/razor/lazy_tensor_core/csrc/ops/ops.cpp`. If you operator is contained/aggregate within the `ops.cpp` file - then your operator is `DECLARE_OP`. Otherwise, your operator is inside its own file (`/razor/lazy_tensor_core/csrc/ops/<yourop>.cpp/h`) and is `DECLARE_OP2`. If an already existing file of your operator is not found, you will need to create the corresponding cpp/h file for your operator (model off similar existing operator implementation).
 
 Since stack is stored as `/razor/lazy_tensor_core/csrc/ops/stack.cpp/h` we write:
 
@@ -226,22 +278,15 @@ If you operator cannot be inferred (check unit test stack trace), also declare S
 
 ```lazy_tensors::Shape InferStack(const ir::ops::Stack* node);```
 
-Under Var RAFNodeLowering::LowerToRAF:
+Under `Var RAFNodeLowering::LowerToRAF`:
 
 ```HANDLE_GENERIC_OP2(Stack, at::aten::stack)```
 
 
 ## 4. Define Conversion
 
-Next, find an already existing implementation that is most similar to the operator you are trying to implement. For example, for Stack, Cat already exists and is very similar. 
-
-Model after your existing implementation, refer to `/razor/lazy_tensor_core/csrc/ops/<yourop>.cpp/h` for implementation details & operators to extract. 
-
-The following is Stack implementation:
-
-As you can see, since stack takes in a tuple of tensors to concatenate, we have a traversal - this may not apply to your operator. Also, taking a look at stack.h, we can see dimension (dim) is stored as private variable, so we extract this separate from ops. 
-
-Var & Expr are RAF specific types - since we are lowering PyTorch operators to RAF we need to convert appropriately. 
+After the declaration of lowering functions in the previous step, we will work on implement the function definitions.
+The following is Stack implementation in the `/razor/csrc/compiler/raf_node_lowering.cpp`:
 
 ```cpp
 Var BuildStack(const std::vector<Var>& ops, const ir::ops::Stack* node) {
@@ -258,6 +303,12 @@ Var RAFNodeLowering::LowerStack(const ir::ops::Stack* node) {
 }
 ```
 
+As you can see, since stack takes in a tuple of tensors to concatenate, we have a traversal - this may not apply to your operator. Also, taking a look at `stack.h`, we can see dimension (dim) is stored as private variable, so we extract this separate from ops. 
+
+`Var` & `Expr` are RAF-specific types - since we are lowering PyTorch operators to RAF we need to convert appropriately. 
+
+For adding new operators, find an already existing implementation that is most similar to the operator you are trying to implement. Refer to `/razor/lazy_tensor_core/csrc/ops/<yourop>.cpp/h` for implementation details & operators to extract. 
+
 ## 5. Define Inference (if applicable)
 
 Under `lazy_tensors::Shape RAFNodeLowering::Infer` add your operator case.
@@ -268,7 +319,7 @@ case at::aten::stack: {
 }
 ```
 
-Now define the Infer, try to model after similar existing implementations. LTC_CHECK_EQ is just sanity check to confirm number of operators.
+Now define the Infer, try to model after similar existing implementations. `LTC_CHECK_EQ` is just sanity check to confirm number of operators.
 
 ```cpp
 lazy_tensors::Shape RAFNodeLowering::InferStack(const ir::ops::Stack* node) {
@@ -283,13 +334,13 @@ lazy_tensors::Shape RAFNodeLowering::InferStack(const ir::ops::Stack* node) {
 }
 ```
 
-# Contribute your operators
+# Contribute Your Operators
 
 If you would like to commit/contribute, please run formatters to properly format your code (GitHub jobs will fail without). Run the following commands under root directory. 
 <br>
-`bash scripts/lint/git-clang-format.sh -i upstream/main` This auto-format the cpp files
+`bash scripts/lint/git-clang-format.sh -i upstream/main` This auto-formats the cpp files.
 <br>
-`bash scripts/lint/git-black.sh -i upstream/main` This auto-format the cpp files
+`bash scripts/lint/git-black.sh -i upstream/main` This auto-formats the Python files.
 <br>
-`bash scripts/lint/check-lint.sh` This checks more python syntax, fix if you see any warning
+`bash scripts/lint/check-lint.sh` This checks more python syntax, fix if you see any warning.
 <br>

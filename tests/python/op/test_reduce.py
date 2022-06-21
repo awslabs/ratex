@@ -40,5 +40,35 @@ def test_any(dim, keepdim):
     verify_step(Model(), [x], jit_script=False)
 
 
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("keepdim", [False, True])
+def test_max(dim, keepdim):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.max(x_input, dim, keepdim)
+
+    x = torch.rand(2, 3)
+
+    verify_step(Model(), [x], jit_script=False)
+
+
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("keepdim", [False, True])
+def test_argmax(dim, keepdim):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.argmax(x_input, dim, keepdim)
+
+    x = torch.rand(2, 3)
+
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

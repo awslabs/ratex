@@ -61,6 +61,7 @@
 #include "lazy_tensor_core/csrc/ops/ltc_ops.h"
 #include "lazy_tensor_core/csrc/ops/masked_fill.h"
 #include "lazy_tensor_core/csrc/ops/masked_scatter.h"
+#include "lazy_tensor_core/csrc/ops/max_in_dim.h"
 #include "lazy_tensor_core/csrc/ops/max_pool_nd.h"
 #include "lazy_tensor_core/csrc/ops/max_pool_nd_backward.h"
 #include "lazy_tensor_core/csrc/ops/max_unpool_nd.h"
@@ -197,6 +198,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Ceil);
   DECLARE_OP(Abs);
   DECLARE_OP(Pow);
+  DECLARE_OP(ReciprocalOp);
   DECLARE_OP2(Constant);
   DECLARE_OP2(Sum);
   DECLARE_OP2(Any);
@@ -232,6 +234,8 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(AllReduce);
   DECLARE_OP2(AllGather);
   DECLARE_OP2(ReduceScatter);
+  DECLARE_OP2(MaxInDim);
+  DECLARE_OP2(ArgMax);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -256,6 +260,8 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferAllReduce(const ir::ops::AllReduce* node);
   lazy_tensors::Shape InferAllGather(const ir::ops::AllGather* node);
   lazy_tensors::Shape InferReduceScatter(const ir::ops::ReduceScatter* node);
+  lazy_tensors::Shape InferMaxInDim(const ir::ops::MaxInDim* node);
+  lazy_tensors::Shape InferArgMax(const ir::ops::ArgMax* node);
 };
 
 #undef DECLARE_OP2
@@ -300,6 +306,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP(Gt, at::aten::gt)
     HANDLE_GENERIC_OP(Pow, at::aten::pow)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
+    HANDLE_GENERIC_OP(ReciprocalOp, at::aten::reciprocal)
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
     HANDLE_GENERIC_OP2(MaxPoolNdBackward, at::aten::max_pool2d_with_indices_backward)
     HANDLE_GENERIC_OP(Mm, at::aten::mm)
@@ -320,6 +327,8 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Cat, at::aten::cat)
     HANDLE_GENERIC_OP2(Stack, at::aten::stack)
     HANDLE_GENERIC_OP2(Split, at::aten::split)
+    HANDLE_GENERIC_OP2(MaxInDim, at::aten::max)
+    HANDLE_GENERIC_OP2(ArgMax, at::aten::argmax)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -878,6 +887,36 @@ Var RAFNodeLowering::LowerCast(const ir::ops::Cast* node) {
   return BuildCast({x}, node);
 }
 
+Var BuildMaxInDim(const std::vector<Var>& ops, const ir::ops::MaxInDim* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  Expr axis = MakeConstant(TupleInt({(int64_t)node->dim()}));
+  Expr keepdim = MakeConstant(Bool(node->keepdim()));
+  Expr exclude = MakeConstant(Bool(false));
+  Var max_ret = BindSymbol(raf::ir::Call(Op::Get("raf.op.max"), {x, axis, keepdim, exclude}));
+  Var argmax_ret = BindSymbol(raf::ir::Call(Op::Get("raf.op.argmax"), {x, axis, keepdim, exclude}));
+  return BindSymbol(raf::ir::Tuple(Array<Expr>({max_ret, argmax_ret})));
+}
+
+Var RAFNodeLowering::LowerMaxInDim(const ir::ops::MaxInDim* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildMaxInDim({x}, node);
+}
+
+Var BuildArgMax(const std::vector<Var>& ops, const ir::ops::ArgMax* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  Expr axis = MakeConstant(TupleInt({(int64_t)node->dim()}));
+  Expr keepdim = MakeConstant(Bool(node->keepdim()));
+  Expr exclude = MakeConstant(Bool(false));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.argmax"), {x, axis, keepdim, exclude}));
+}
+
+Var RAFNodeLowering::LowerArgMax(const ir::ops::ArgMax* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildArgMax({x}, node);
+}
+
 #define DEFINE_COMPARISON_OP(name, op)                                    \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
@@ -907,6 +946,7 @@ Var RAFNodeLowering::LowerCast(const ir::ops::Cast* node) {
 DEFINE_UNARY_OP(Ceil, ceil)
 DEFINE_UNARY_OP(Abs, abs);
 DEFINE_UNARY_OP(Neg, negative);
+DEFINE_UNARY_OP(ReciprocalOp, reciprocal);
 DEFINE_COMPARISON_OP(Ne, not_equal)
 DEFINE_COMPARISON_OP(Eq, equal)
 DEFINE_COMPARISON_OP(Gt, greater)
@@ -1278,6 +1318,12 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::split: {
       return InferSplit(ir::NodeCast<ir::ops::Split>(node, ir::OpKind(at::aten::split)));
     }
+    case at::aten::max: {
+      return InferMaxInDim(ir::NodeCast<ir::ops::MaxInDim>(node, ir::OpKind(at::aten::max)));
+    }
+    case at::aten::argmax: {
+      return InferArgMax(ir::NodeCast<ir::ops::ArgMax>(node, ir::OpKind(at::aten::argmax)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1480,6 +1526,28 @@ lazy_tensors::Shape RAFNodeLowering::InferReduceScatter(const ir::ops::ReduceSca
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildReduceScatter(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferMaxInDim(const ir::ops::MaxInDim* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildMaxInDim(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferArgMax(const ir::ops::ArgMax* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildArgMax(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

@@ -39,7 +39,6 @@ class AtenRAFTypeDefault {
   static at::Tensor& le_(at::Tensor& self, const at::Scalar& other);
   static at::Tensor& lt_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor& lt_(at::Tensor& self, const at::Scalar& other);
-  static std::tuple<at::Tensor, at::Tensor> max(const at::Tensor& self, int64_t dim, bool keepdim);
   static std::tuple<at::Tensor, at::Tensor> min(const at::Tensor& self, int64_t dim, bool keepdim);
   static at::Tensor& mul_(at::Tensor& self, const at::Scalar& other);
   static at::Tensor& mul_(at::Tensor& self, const at::Tensor& other);
