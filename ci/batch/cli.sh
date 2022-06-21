@@ -139,21 +139,6 @@ function unit_test_torch_1_11() {
     return 0
 }
 
-# Update CI badge
-function update_ci_badge() {
-    PR=$1
-    if [ ! -z "$PR" ]; then
-        echo "PR number is provided, meaning this is a PR build. Skip updating CI badge."
-        exit 0
-    fi
-    RATEX_VERSION=$(git rev-parse --short HEAD)
-    echo "Ratex version: ${RATEX_VERSION}"
-    TORCH_VERSION=$(python3 -c "import torch; print(torch.__version__)")
-    echo "PyTorch version: ${TORCH_VERSION}"
-    echo "$RATEX_VERSION (PyTorch $TORCH_VERSION)" > ratex-ci-badge-last-pass.txt
-    aws s3 cp ratex-ci-badge-last-pass.txt s3://ci-ratex/ratex-ci-badge-last-pass.txt
-}
-
 # Run the function from command line.
 if declare -f "$1" > /dev/null
 then
