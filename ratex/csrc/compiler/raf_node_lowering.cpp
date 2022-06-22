@@ -207,6 +207,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Sqrt);
   DECLARE_OP(Neg);
   DECLARE_OP(Where);
+  DECLARE_OP(Isnan);
   DECLARE_OP2(Permute);
   DECLARE_OP2(MaxPoolNdBackward);
   DECLARE_OP(Mm);
@@ -307,6 +308,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP(Pow, at::aten::pow)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
     HANDLE_GENERIC_OP(ReciprocalOp, at::aten::reciprocal)
+    HANDLE_GENERIC_OP(Isnan, at::aten::isnan)
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
     HANDLE_GENERIC_OP2(MaxPoolNdBackward, at::aten::max_pool2d_with_indices_backward)
     HANDLE_GENERIC_OP(Mm, at::aten::mm)
@@ -572,6 +574,12 @@ Var RAFNodeLowering::LowerSqrt(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.sqrt"), {x}));
+}
+
+Var RAFNodeLowering::LowerIsnan(const ir::Node* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.not_equal"), {x, x}));
 }
 
 Var BuildSum(const std::vector<Var>& ops, const ir::ops::Sum* node) {

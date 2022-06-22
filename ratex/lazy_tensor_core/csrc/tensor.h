@@ -569,6 +569,8 @@ class LazyTensor {
 
   static LazyTensor inverse(const LazyTensor& input);
 
+  static LazyTensor isnan(const LazyTensor& input);
+
   static LazyTensor kl_div_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                     const LazyTensor& target, int64_t reduction, bool log_target);
 
