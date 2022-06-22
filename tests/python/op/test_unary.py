@@ -29,5 +29,18 @@ def test_reciprocal(shape):
     verify_step(Model(), [x], jit_script=False)
 
 
+def test_isnan():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.isnan(x_input)
+
+    x = torch.tensor([torch.nan, torch.inf, 0])
+
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
