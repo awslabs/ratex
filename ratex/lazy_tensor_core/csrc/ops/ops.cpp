@@ -407,6 +407,12 @@ NodePtr Inverse(const Value& input) {
   return GenericOp(OpKind(at::aten::inverse), {input}, input.shape());
 }
 
+NodePtr Isnan(const Value& input) {
+  lazy_tensors::Shape result_shape = input.shape();
+  result_shape.set_element_type(lazy_tensors::PrimitiveType::PRED);
+  return GenericOp(OpKind(at::aten::isnan), {input}, result_shape);
+}
+
 NodePtr BaddBmm(const Value& lhs, const Value& rhs, const Value& bias,
                 const Value& product_multiplier, const Value& bias_multiplier) {
   NodePtr node =

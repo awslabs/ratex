@@ -1417,6 +1417,11 @@ at::Tensor LazyNativeFunctions::inverse(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::inverse(bridge::raf_backend::GetLtcTensor(self)));
 }
 
+at::Tensor LazyNativeFunctions::isnan(const at::Tensor& self) {
+  LTC_FN_COUNTER("raf::");
+  return bridge::AtenFromLtcTensor(LazyTensor::isnan(bridge::raf_backend::GetLtcTensor(self)));
+}
+
 at::Tensor LazyNativeFunctions::kl_div(const at::Tensor& self, const at::Tensor& target,
                                        int64_t reduction, bool log_target) {
   LTC_FN_COUNTER("raf::");

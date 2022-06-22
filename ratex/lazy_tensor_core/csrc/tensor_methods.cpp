@@ -1232,6 +1232,11 @@ LazyTensor LazyTensor::inverse(const LazyTensor& input) {
   return input.CreateFrom(ir::ops::Inverse(input.GetIrValue()));
 }
 
+LazyTensor LazyTensor::isnan(const LazyTensor& input) {
+  ir::NodePtr node = ir::ops::Isnan(input.GetIrValue());
+  return Create(node, input.GetDevice(), at::ScalarType::Bool);
+}
+
 LazyTensor LazyTensor::kl_div_backward(const LazyTensor& grad_output, const LazyTensor& input,
                                        const LazyTensor& target, int64_t reduction,
                                        bool log_target) {
