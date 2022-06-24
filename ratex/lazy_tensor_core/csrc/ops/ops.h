@@ -205,6 +205,8 @@ NodePtr Take(const Value& input, const Value& index);
 
 NodePtr LogDet(const Value& input);
 
+NodePtr LogicalOr(const Value& input, const Value& other);
+
 NodePtr Inverse(const Value& input);
 
 NodePtr Isnan(const Value& input);

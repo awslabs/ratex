@@ -1540,6 +1540,12 @@ at::Tensor LazyNativeFunctions::logdet(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::logdet(bridge::raf_backend::GetLtcTensor(self)));
 }
 
+at::Tensor LazyNativeFunctions::logical_or(const at::Tensor& self, const at::Tensor& other) {
+  LTC_FN_COUNTER("raf::");
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::logical_or(bridge::GetLtcTensor(self), bridge::GetLtcTensor(other)));
+}
+
 at::Tensor LazyNativeFunctions::lt(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::lt(bridge::raf_backend::GetLtcTensor(self), other));

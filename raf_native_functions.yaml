@@ -82,6 +82,7 @@ supported:
   - log1p
   - log2
   - logdet
+  - logical_or
   - _log_softmax
   - _log_softmax_backward_data
   - logsumexp
