@@ -25,6 +25,22 @@ def test_basic(op, dtype):
     verify_step(BinaryModel(op), [a, b], jit_script=False)
 
 
+@pytest.mark.parametrize("op", [torch.logical_or])
+def test_logical(op):
+    class BinaryModel(nn.Module):
+        def __init__(self, op):
+            super().__init__()
+            self.op = op
+
+        def forward(self, x1, x2):
+            return self.op(x1, x2)
+
+    shape = [3, 4]
+    a = torch.randn(*shape).bool()
+    b = torch.randn(*shape).bool()
+    verify_step(BinaryModel(op), [a, b], jit_script=False)
+
+
 def test_basic_bool():
     # When use `add`, `alpha` will become a bool scalar here
     class Model(nn.Module):
