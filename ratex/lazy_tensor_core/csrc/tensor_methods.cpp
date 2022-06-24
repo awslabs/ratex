@@ -1361,6 +1361,13 @@ LazyTensor LazyTensor::logdet(const LazyTensor& input) {
   return input.CreateFrom(ir::ops::LogDet(input.GetIrValue()));
 }
 
+LazyTensor LazyTensor::logical_or(const LazyTensor& input, const LazyTensor& other) {
+  CheckIsIntegralOrPred(input.shape(), "logical_or");
+  CheckIsIntegralOrPred(other.shape(), "logical_or");
+  return input.CreateFrom(ir::ops::LogicalOr(input.GetIrValue(), other.GetIrValue()),
+                          at::ScalarType::Bool);
+}
+
 LazyTensor LazyTensor::logsumexp(const LazyTensor& input, std::vector<int64_t> dimensions,
                                  bool keep_reduced_dimensions) {
   return input.CreateFrom(ir::MakeNode<ir::ops::Logsumexp>(

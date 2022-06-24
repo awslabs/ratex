@@ -620,6 +620,8 @@ class LazyTensor {
 
   static LazyTensor logdet(const LazyTensor& input);
 
+  static LazyTensor logical_or(const LazyTensor& input, const LazyTensor& other);
+
   static LazyTensor logsumexp(const LazyTensor& input, std::vector<int64_t> dimensions,
                               bool keep_reduced_dimensions);
 

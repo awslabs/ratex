@@ -72,6 +72,7 @@ PTLTC_BINARY_OP(Max, at::aten::max);
 PTLTC_BINARY_OP(Pow, at::aten::pow);
 PTLTC_BINARY_OP(Fmod, at::aten::fmod);
 PTLTC_BINARY_OP(Atan2, at::aten::atan2);
+PTLTC_BINARY_OP(LogicalOr, at::aten::logical_or);
 
 NodePtr Trunc(const Value& input) {
   return Floor(Abs(input)) * SignOp(input);

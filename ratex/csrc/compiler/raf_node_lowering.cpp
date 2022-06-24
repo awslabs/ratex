@@ -199,6 +199,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Abs);
   DECLARE_OP(Pow);
   DECLARE_OP(ReciprocalOp);
+  DECLARE_OP(LogicalOr);
   DECLARE_OP2(Constant);
   DECLARE_OP2(Sum);
   DECLARE_OP2(Any);
@@ -245,6 +246,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferAddMatMul(const ir::Node* node);
   lazy_tensors::Shape InferExpand(const ir::ops::Expand* node);
   lazy_tensors::Shape InferBitwise(const ir::Node* node);
+  lazy_tensors::Shape InferLogicalOr(const ir::Node* node);
   lazy_tensors::Shape InferNllLoss(const ir::ops::NllLoss* node);
   lazy_tensors::Shape InferNllLossBackward(const ir::ops::NllLossBackward* node);
   lazy_tensors::Shape InferRelayExpr(const ir::ops::RelayExpr* node);
@@ -308,6 +310,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP(Pow, at::aten::pow)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
     HANDLE_GENERIC_OP(ReciprocalOp, at::aten::reciprocal)
+    HANDLE_GENERIC_OP(LogicalOr, at::aten::logical_or)
     HANDLE_GENERIC_OP(Isnan, at::aten::isnan)
     HANDLE_GENERIC_OP2(Permute, at::aten::permute)
     HANDLE_GENERIC_OP2(MaxPoolNdBackward, at::aten::max_pool2d_with_indices_backward)
@@ -511,6 +514,17 @@ Var RAFNodeLowering::LowerBitwise(const ir::Node* node) {
   Var op0 = loctx()->GetOutputOp(node->operand(0));
   Var op1 = loctx()->GetOutputOp(node->operand(1));
   return BuildBitwise({op0, op1}, node);
+}
+
+Var RAFNodeLowering::LowerLogicalOr(const ir::Node* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var op0, op1;
+  ir::Output output0 = SimplifyBinaryInputs(node->operand(0), node->operand(1));
+  ir::Output output1 = SimplifyBinaryInputs(node->operand(1), output0);
+  std::tie(op0, op1) = BinaryOpMatchTypes(output0, output1);
+  op0 = BindSymbol(raf::ir::Call(Op::Get("raf.op.cast"), {op0, MakeConstant(String("bool"))}));
+  op1 = BindSymbol(raf::ir::Call(Op::Get("raf.op.cast"), {op1, MakeConstant(String("bool"))}));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.logical_or"), {op0, op1}));
 }
 
 Var RAFNodeLowering::LowerDeviceData(const ir::ops::DeviceData* node) {
@@ -1332,6 +1346,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::argmax: {
       return InferArgMax(ir::NodeCast<ir::ops::ArgMax>(node, ir::OpKind(at::aten::argmax)));
     }
+    case at::aten::logical_or: {
+      return InferLogicalOr(node);
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1558,6 +1575,13 @@ lazy_tensors::Shape RAFNodeLowering::InferArgMax(const ir::ops::ArgMax* node) {
   Var out = BuildArgMax(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferLogicalOr(const ir::Node* node) {
+  LTC_CHECK_EQ(node->operands().size(), 2U);
+  auto x_shape = node->operand(0).shape();
+  auto y_shape = node->operand(1).shape();
+  return Helpers::GetPromotedBinaryOpShape(x_shape, y_shape);
 }
 
 #define DEFINE_INFER_COMPARISON_OP(name)                                   \
