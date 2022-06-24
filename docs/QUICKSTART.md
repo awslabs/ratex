@@ -69,7 +69,7 @@ export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"}
 
 ### 1.1 Install prerequisites
 
-Install camke, ccache, clang, etc. Please refer to: https://github.com/meta-project/meta/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md
+Install camke, ccache, clang, etc. Please refer to: [Build RAF on Conda](https://github.com/awslabs/raf/blob/main/docs/wiki/1_getting_start/Build-on-Conda.md)
 
 ### 1.2A Install PyTorch from PYPI (recommanded)
 
