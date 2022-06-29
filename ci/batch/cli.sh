@@ -25,6 +25,7 @@ function set_pytorch() {
     echo "===================================="
     rm -rf pytorch
     bash ./docker/install/ubuntu_install_torch.sh cpu $VERSION_TYPE
+    echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
     echo "===================================="
     echo "[CLI] Set PyTorch to ${VERSION_TYPE} end"
     echo "===================================="
