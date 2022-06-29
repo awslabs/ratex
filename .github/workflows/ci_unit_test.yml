@@ -7,7 +7,7 @@ on:
   # This workflow includes AWS credential to run jobs on AWS batch.
   # Thus, this workflow cannot checkout PRs and can only be triggered by other workflows.
   workflow_run:
-    workflows: ["CI-Entry", "CI-ImageBuild"]
+    workflows: ["CI-Entry", "CI-Entry-Nightly"]
     types:
       - completed
 
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       trigger: ${{ steps.job_info.outputs.trigger }}
-      latest_image: ${{ steps.job_info.outputs.latest_image }}
+      ci_image: "metaprojdev/ratex:ci_gpu-latest"
       skip_ci: ${{ steps.job_info.outputs.skip_ci }}
       ref: ${{ steps.job_info.outputs.ref }}
       repo: ${{ steps.job_info.outputs.repo }}
@@ -53,11 +53,6 @@ jobs:
           echo "::set-output name=repo::${repo}"
           trigger=$(head -n 1 artifact/trigger.txt)
           echo "::set-output name=trigger::${trigger}"
-          if [ "${trigger}" == "ci" ]; then
-            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-pt1.12"
-          else
-            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-nightly"
-          fi
       - name: Parse PR job info
         id: pr_job_info
         continue-on-error: true
@@ -85,7 +80,7 @@ jobs:
       - name: List environments
         run: |
           echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: ${{ needs.check_status.outputs.latest_image }}"
+          echo "Docker Image: ${{ needs.check_status.outputs.ci_image }}"
           echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
           echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
           echo "REF: ${{ needs.check_status.outputs.ref }}"
@@ -112,15 +107,16 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/batch/submit-job.py \
             --job-type GPU \
-            --image ${{ needs.check_status.outputs.latest_image }} \
-            --name ci-ratex-gpu-pt-stable-${{ needs.check_status.outputs.job_tag }} \
+            --image ${{ needs.check_status.outputs.ci_image }} \
+            --name ci-ratex-gpu-${{ needs.check_status.outputs.job_tag }} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
             --source-ref ${{ needs.check_status.outputs.ref }} \
             --repo ${{ needs.check_status.outputs.repo }} \
             --wait \
-            --command "bash ./ci/batch/cli.sh compile pt-stable-${{ needs.check_status.outputs.job_tag }} &&
+            --command "bash ./ci/batch/cli.sh ${{ needs.check_status.outputs.trigger }} &&
+              bash ./ci/batch/cli.sh compile ${{ needs.check_status.outputs.job_tag }} &&
               bash ./ci/batch/cli.sh lint && bash ./ci/batch/cli.sh unit_test GPU"
 
   test_on_multi_gpu:
@@ -132,7 +128,7 @@ jobs:
       - name: List environments
         run: |
           echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: ${{ needs.check_status.outputs.latest_image }}"
+          echo "Docker Image: ${{ needs.check_status.outputs.ci_image }}"
           echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
           echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
           echo "REF: ${{ needs.check_status.outputs.ref }}"
@@ -159,35 +155,17 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/batch/submit-job.py \
             --job-type multi-GPU \
-            --image ${{ needs.check_status.outputs.latest_image }} \
-            --name ci-ratex-multi-gpu-pt-stable-${{ needs.check_status.outputs.job_tag }} \
+            --image ${{ needs.check_status.outputs.ci_image }} \
+            --name ci-ratex-multi-gpu-${{ needs.check_status.outputs.job_tag }} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
             --source-ref ${{ needs.check_status.outputs.ref }} \
             --repo ${{ needs.check_status.outputs.repo }} \
             --wait \
-            --command "bash ./ci/batch/cli.sh compile multi-GPU-pt-stable-${{ needs.check_status.outputs.job_tag }} &&
+            --command "bash ./ci/batch/cli.sh ${{ needs.check_status.outputs.trigger }} &&
+              bash ./ci/batch/cli.sh compile multi-GPU-${{ needs.check_status.outputs.job_tag }} &&
               bash ./ci/batch/cli.sh unit_test multi-GPU"
-
-  # update_docker_tag:
-  #   needs: [test_on_gpu, test_on_multi_gpu]
-  #   if: github.repository == 'awslabs/ratex'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: haya14busa/action-workflow_run-status@v1
-  #     - name: Update Docker Image Tag
-  #       run: |
-  #         # env vars are unavailable in job.if so we have to implement it here.
-  #         if [ "${{ needs.check_status.outputs.trigger }}" == "ci" ]; then
-  #           echo "No need to update docker. Skip."
-  #           exit 0
-  #         fi
-  #         echo "Re-tagging metaprojdev/ratex:ci_gpu-nightly to metaprojdev/ratex:ci_gpu-latest"
-  #         docker login -u metaprojdev -p ${{ secrets.DOCKERHUB_PASSWORD }}
-  #         docker pull metaprojdev/ratex:ci_gpu-nightly
-  #         docker tag metaprojdev/ratex:ci_gpu-nightly metaprojdev/ratex:ci_gpu-latest
-  #         docker push metaprojdev/ratex:ci_gpu-latest
 
   update_ci_badge:
     # Run this job whatever the unit tests were success or not.
@@ -205,6 +183,10 @@ jobs:
           # env vars are unavailable in job.if so we have to implement it here.
           if [ "${{ needs.check_status.outputs.pr }}" != "" ]; then
             echo "No need to update badge for PR CI. Skip."
+            exit 0
+          fi
+          if [ "${{ needs.check_status.outputs.trigger }}" == "nightly" ]; then
+            echo "No need to update badge for nightly PR CI. Skip."
             exit 0
           fi
           echo "::set-output name=gist_id::aeb41ce3096bc1aaeb671f2c58836a3f"
