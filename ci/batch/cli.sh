@@ -14,21 +14,39 @@ set -o pipefail
 
 function set_pytorch() {
     VERSION_TYPE=$1
-    if [ "$VERSION_TYPE" != "nightly" ] && [ "$VERSION_TYPE" != "pinned" ]; then
+    if [ "$VERSION_TYPE" != "nightly" ]; then
         echo "Skip PyTorch version setting"
         echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
         return 0
     fi
 
-    echo "===================================="
-    echo "[CLI] Set PyTorch to ${VERSION_TYPE} start"
-    echo "===================================="
-    rm -rf pytorch
-    bash ./docker/install/ubuntu_install_torch.sh cpu $VERSION_TYPE
+    echo "=================================="
+    echo "[CLI] Set PyTorch to nightly start"
+    echo "=================================="
+    python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+    LIBTORCH_LINK=https://download.pytorch.org/libtorch/nightly/cpu/libtorch-cxx11-abi-shared-with-deps-latest.zip
+    PYTORCH_GIT_SHA=$(python3 -c "import torch; print(torch.version.git_version)")
+    PYTORCH_INSTALL_PATH=$(dirname `python3 -c "import torch; print(torch.__file__)"`)
+
+    # Install libtorch with cxx11 ABIs
+    pushd .
+    cd /tmp
+    wget -O libtorch-cxx11.zip $LIBTORCH_LINK
+    unzip libtorch-cxx11.zip
+    cp -rf libtorch/* $PYTORCH_INSTALL_PATH/
+    rm -rf libtorch libtorch-cxx11.zip
+    popd
+
+    # Clone PyTorch for header files
+    cd pytorch
+    git fetch
+    git checkout $PYTORCH_GIT_SHA
+    cp -r torch/csrc/distributed $PYTORCH_INSTALL_PATH/include/torch/csrc/
+
     echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
-    echo "===================================="
-    echo "[CLI] Set PyTorch to ${VERSION_TYPE} end"
-    echo "===================================="
+    echo "================================"
+    echo "[CLI] Set PyTorch to nightly end"
+    echo "================================"
     return 0
 }
 
