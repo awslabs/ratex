@@ -64,6 +64,7 @@ LTCTensorImpl::LTCTensorImpl(LazyTensor tensor)
                       GetTypeMeta(tensor), bridge::LtcDeviceToAtenDevice(tensor.GetDevice())),
       tensor_(std::move(tensor)) {
   is_non_overlapping_and_dense_ = false;
+  set_sizes_strides_policy(SizesStridesPolicy::CustomSizes);
 }
 
 void LTCTensorImpl::set_tensor(LazyTensor lazy_tensor) {
@@ -110,33 +111,33 @@ void LTCTensorImpl::shallow_copy_from(const c10::intrusive_ptr<TensorImpl>& impl
   generation_ = 0;
 }
 
-at::IntArrayRef LTCTensorImpl::sizes() const {
+at::IntArrayRef LTCTensorImpl::sizes_custom() const {
   const_cast<LTCTensorImpl*>(this)->SetupSizeProperties();
-  return c10::TensorImpl::sizes();
+  return sizes_default();
 }
 
-int64_t LTCTensorImpl::dim() const {
+at::IntArrayRef LTCTensorImpl::strides_custom() const {
   const_cast<LTCTensorImpl*>(this)->SetupSizeProperties();
-  return c10::TensorImpl::dim();
+  return strides_default();
 }
 
-int64_t LTCTensorImpl::numel() const {
+int64_t LTCTensorImpl::dim_custom() const {
   const_cast<LTCTensorImpl*>(this)->SetupSizeProperties();
-  return c10::TensorImpl::numel();
+  return dim_default();
 }
 
-bool LTCTensorImpl::is_contiguous(at::MemoryFormat memory_format) const {
+int64_t LTCTensorImpl::numel_custom() const {
+  const_cast<LTCTensorImpl*>(this)->SetupSizeProperties();
+  return numel_default();
+}
+
+bool LTCTensorImpl::is_contiguous_custom(at::MemoryFormat memory_format) const {
   if (tensor_.CurrentTensorData()) {
     return tensor_.CurrentTensorData()->is_contiguous();
   }
   // Only check that the storage is already contiguous.
   LTC_CHECK(is_contiguous_) << "Non-contiguous storage for lazy tensor";
   return true;
-}
-
-int64_t LTCTensorImpl::size(int64_t d) const {
-  const_cast<LTCTensorImpl*>(this)->SetupSizeProperties();
-  return c10::TensorImpl::size(d);
 }
 
 void LTCTensorImpl::SetupSizeProperties() {
