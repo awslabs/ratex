@@ -60,8 +60,6 @@
 #include "lazy_tensor_core/csrc/ops/index_ops.h"
 #include "lazy_tensor_core/csrc/ops/index_select.h"
 #include "lazy_tensor_core/csrc/ops/kth_value.h"
-#include "lazy_tensor_core/csrc/ops/l1_loss.h"
-#include "lazy_tensor_core/csrc/ops/l1_loss_backward.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu_backward.h"
 #include "lazy_tensor_core/csrc/ops/linear_interpolation.h"
@@ -1250,19 +1248,6 @@ std::tuple<LazyTensor, LazyTensor> LazyTensor::kthvalue(const LazyTensor& input,
       keepdim);
   return std::make_tuple(input.CreateFrom(ir::Value(node, 0)),
                          input.CreateFrom(ir::Value(node, 1), at::ScalarType::Long));
-}
-
-LazyTensor LazyTensor::l1_loss(const LazyTensor& input, const LazyTensor& target,
-                               int64_t reduction) {
-  return input.CreateFrom(ir::MakeNode<ir::ops::L1Loss>(input.GetIrValue(), target.GetIrValue(),
-                                                        GetReductionMode(reduction)));
-}
-
-LazyTensor LazyTensor::l1_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                        const LazyTensor& target, int64_t reduction) {
-  return input.CreateFrom(
-      ir::MakeNode<ir::ops::L1LossBackward>(grad_output.GetIrValue(), input.GetIrValue(),
-                                            target.GetIrValue(), GetReductionMode(reduction)));
 }
 
 LazyTensor LazyTensor::le(const LazyTensor& input, const at::Scalar& other) {
