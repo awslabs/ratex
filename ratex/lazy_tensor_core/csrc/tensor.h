@@ -580,11 +580,6 @@ class LazyTensor {
   static std::tuple<LazyTensor, LazyTensor> kthvalue(const LazyTensor& input, int64_t k,
                                                      int64_t dim, bool keepdim);
 
-  static LazyTensor l1_loss(const LazyTensor& input, const LazyTensor& target, int64_t reduction);
-
-  static LazyTensor l1_loss_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                     const LazyTensor& target, int64_t reduction);
-
   static LazyTensor le(const LazyTensor& input, const at::Scalar& other);
 
   static LazyTensor le(const LazyTensor& input, const LazyTensor& other);
