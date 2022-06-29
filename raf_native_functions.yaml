@@ -250,8 +250,6 @@ supported:
   - _amp_update_scale_
   - mse_loss
   - mse_loss_backward
-  - l1_loss
-  - l1_loss_backward
   - nll_loss_forward
   - nll_loss_backward
   - nll_loss2d_forward
