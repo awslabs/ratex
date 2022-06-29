@@ -50,8 +50,6 @@
 #include "lazy_tensor_core/csrc/ops/index_put.h"
 #include "lazy_tensor_core/csrc/ops/index_select.h"
 #include "lazy_tensor_core/csrc/ops/kth_value.h"
-#include "lazy_tensor_core/csrc/ops/l1_loss.h"
-#include "lazy_tensor_core/csrc/ops/l1_loss_backward.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu_backward.h"
 #include "lazy_tensor_core/csrc/ops/linear_interpolation.h"
