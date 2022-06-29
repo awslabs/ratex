@@ -54,7 +54,7 @@ jobs:
           trigger=$(head -n 1 artifact/trigger.txt)
           echo "::set-output name=trigger::${trigger}"
           if [ "${trigger}" == "ci" ]; then
-            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-latest"
+            echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-pt1.12"
           else
             echo "::set-output name=latest_image::metaprojdev/ratex:ci_gpu-nightly"
           fi
