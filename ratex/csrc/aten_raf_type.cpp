@@ -1716,16 +1716,6 @@ at::Tensor LazyNativeFunctions::max_unpool2d(const at::Tensor& self, const at::T
       lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
-at::Tensor LazyNativeFunctions::max_unpool2d_backward(const at::Tensor& grad_output,
-                                                      const at::Tensor& self,
-                                                      const at::Tensor& indices,
-                                                      at::IntArrayRef output_size) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::max_unpool_backward(
-      bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
-      bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<int64_t>(output_size)));
-}
 
 at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::Tensor& indices,
                                              at::IntArrayRef output_size, at::IntArrayRef stride,
@@ -1736,15 +1726,6 @@ at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::T
       lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
-at::Tensor LazyNativeFunctions::max_unpool3d_backward(
-    const at::Tensor& grad_output, const at::Tensor& self, const at::Tensor& indices,
-    at::IntArrayRef output_size, at::IntArrayRef stride, at::IntArrayRef padding) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::max_unpool_backward(
-      bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
-      bridge::raf_backend::GetLtcTensor(indices),
-      lazy_tensors::util::ToVector<int64_t>(output_size)));
-}
 
 at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");

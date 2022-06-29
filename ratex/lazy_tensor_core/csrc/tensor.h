@@ -661,10 +661,6 @@ class LazyTensor {
   static LazyTensor max_unpool(const LazyTensor& input, const LazyTensor& indices,
                                std::vector<int64_t> output_size);
 
-  static LazyTensor max_unpool_backward(const LazyTensor& grad_output, const LazyTensor& input,
-                                        const LazyTensor& indices,
-                                        std::vector<int64_t> output_size);
-
   static LazyTensor mean(const LazyTensor& input, std::vector<int64_t> dimensions,
                          bool keep_reduced_dimensions, c10::optional<at::ScalarType> dtype);
 
