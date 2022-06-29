@@ -17,7 +17,7 @@ if [ -z "$PT_INC_DIR" ]; then
 fi
 
 pushd $PYTORCH_SOURCE_PATH
-python3 -m tools.codegen.gen_backend_stubs \
+python3 -m torchgen.gen_backend_stubs \
   --output_dir="$BASE_DIR/ratex/csrc" \
   --source_yaml="$BASE_DIR/raf_native_functions.yaml"\
   --impl_path="$BASE_DIR/ratex/csrc/aten_raf_type.cpp"\
