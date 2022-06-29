@@ -1465,22 +1465,6 @@ std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::kthvalue(const at::Tenso
                          bridge::AtenFromLtcTensor(std::get<1>(results)));
 }
 
-at::Tensor LazyNativeFunctions::l1_loss(const at::Tensor& self, const at::Tensor& target,
-                                        int64_t reduction) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::l1_loss(bridge::raf_backend::GetLtcTensor(self),
-                                                       bridge::raf_backend::GetLtcTensor(target),
-                                                       reduction));
-}
-
-at::Tensor LazyNativeFunctions::l1_loss_backward(const at::Tensor& grad_output,
-                                                 const at::Tensor& self, const at::Tensor& target,
-                                                 int64_t reduction) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::l1_loss_backward(
-      bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
-      bridge::raf_backend::GetLtcTensor(target), reduction));
-}
 
 at::Tensor LazyNativeFunctions::le(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
