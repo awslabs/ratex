@@ -39,7 +39,7 @@ function set_pytorch() {
 
     # Clone PyTorch for header files
     pushd .
-    cd pytorch
+    cd $PYTORCH_SOURCE_PATH
     git fetch
     git checkout $PYTORCH_GIT_SHA
     cp -r torch/csrc/distributed $PYTORCH_INSTALL_PATH/include/torch/csrc/
