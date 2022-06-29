@@ -1,18 +1,18 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-name: CI-Entry
+name: CI-Entry-Nightly
 
 on:
   push:
     branches:
-      - main
+      - pt-nightly-compatible
   # Since this workflow is triggered by pull requests,
   # we cannot use AWS credential in this workflow. Instead, we trigger
   # another workflow to run the rest CI jobs on AWS batch.
   pull_request:
     branches:
-      - main
+      - pt-nightly-compatible
 
 defaults:
   run:
@@ -27,33 +27,26 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0 # Checkout all branches and history.
-      - name: Check whether to skip rest tests
-        # If the PR only changes docs or docker file, no need to run other tests.
-        id: check_skip
-        continue-on-error: true
-        run: |
-          bash ./scripts/lint/git-skip-testing.sh
-          SKIP_CI=$(bash ./scripts/lint/git-skip-testing.sh)
-          echo "::set-output name=skip_ci::${SKIP_CI}"
       - name: Save common job info
-        # Initialize the artifact and whether to skip CI.
+        # Initialize the artifact.
         run: |
           mkdir job_info
-          echo "Skip CI? ${{ steps.check_skip.outputs.skip_ci }}"
-          echo "${{ steps.check_skip.outputs.skip_ci }}" > job_info/skip.txt
-          echo "ci" > job_info/trigger.txt
+          echo "nightly" > job_info/trigger.txt
       - name: Save push event job info
-        # Dump the job information for running CI with a new commit on main branch.
+        # Dump the job information.
+        # Note that we do not run CI when pushing to pt-nightly-compatible branch.
         if: ${{ github.event_name == 'push' }}
         run: |
           echo "Ref: ${{ github.ref }}"
           echo "Repo: ${{ github.repository }}"
+          echo "1" > job_info/skip.txt
           echo "${{ github.ref }}" > job_info/ref.txt
           echo "${{ github.repository }}" > job_info/repo.txt
       - name: Save pull request event job info
-        # Dump the job information for running CI with a pull request.
+        # Dump the job information for running CI with a pull request to pt-nightly-compatible.
         if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_target' }}
         run: |
+          echo "0" > job_info/skip.txt
           echo "Ref: ${{ github.event.pull_request.head.ref }}"
           echo "FullName: ${{ github.event.pull_request.head.repo.full_name }}"
           echo "Number: ${{ github.event.number }}"

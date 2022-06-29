@@ -9,19 +9,26 @@
 # Example usages:
 #   bash cli.sh compile
 #   bash cli.sh unit_test GPU
-#   bash cli.sh update_docker latest
 set -e
 set -o pipefail
 
-# Build the docker image and push to docker hub.
-function update_docker() {
-    TAG=$1
+function set_pytorch() {
+    VERSION_TYPE=$1
+    if [ "$VERSION_TYPE" != "nightly" ] && [ "$VERSION_TYPE" != "pinned" ]; then
+        echo "Skip PyTorch version setting"
+        echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
+        return 0
+    fi
 
-    cd docker
-    bash ./build.sh ci_gpu
-
-    # Push the image
-    bash ./push.sh ci_gpu $TAG
+    echo "===================================="
+    echo "[CLI] Set PyTorch to ${VERSION_TYPE} start"
+    echo "===================================="
+    rm -rf pytorch
+    bash ./docker/install/ubuntu_install_torch.sh cpu $VERSION_TYPE
+    echo "===================================="
+    echo "[CLI] Set PyTorch to ${VERSION_TYPE} end"
+    echo "===================================="
+    return 0
 }
 
 # Compile, build the wheel and install.
@@ -96,41 +103,6 @@ function unit_test() {
             exit 1
         fi
         time python3 -m pytest tests/python
-    fi
-
-    echo "=========================================="
-    echo "[CLI] Unit tests on $DEVICE are done"
-    echo "=========================================="
-    return 0
-}
-
-# Run compatibility unit tests for PyTorch 1.11
-function unit_test_torch_1_11() {
-    DEVICE=$1
-    export ENABLE_PARAM_ALIASING=true
-    export RATEX_CACHE_DIR=""
-
-    echo "==========================================================="
-    echo "[CLI] Running unit tests for PyTorch 1.11 with environment:"
-    echo "  DEVICE=$DEVICE"
-    echo "  ENABLE_PARAM_ALIASING=$ENABLE_PARAM_ALIASING"
-    echo "  RATEX_CACHE_DIR=$RATEX_CACHE_DIR"
-    echo "==========================================================="
-
-    if [[ $DEVICE == "multi-GPU" ]]; then
-        nvidia-smi -L
-        export RATEX_DEVICE=GPU
-        time bash ./ci/batch/task_python_distributed_pt_1_11.sh
-    else
-        if [[ $DEVICE == "GPU" ]]; then
-            export RATEX_DEVICE=GPU
-        elif [[ $DEVICE == "CPU" ]]; then
-            export RATEX_DEVICE=CPU
-        else
-            echo "Unrecognized device: $DEVICE"
-            exit 1
-        fi
-        time python3 -m pytest tests/python/ -m torch_1_11_test
     fi
 
     echo "=========================================="

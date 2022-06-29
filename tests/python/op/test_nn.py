@@ -86,20 +86,5 @@ def test_gelu():
     verify_step(Model(), [x])
 
 
-@pytest.mark.torch_1_11_test
-def test_gelu_old():
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-
-        def forward(self, x):
-            out = torch.nn.GELU()(x)
-            return out
-
-    shape = [5, 5]
-    x = torch.randn(*shape)
-    verify_step(Model(), [x])
-
-
 if __name__ == "__main__":
     pytest.main([__file__])

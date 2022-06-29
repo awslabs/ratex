@@ -21,7 +21,9 @@ from ratex.testing import (
 SKIP_REASON = "Distribution is not enabled or #rank is not expected"
 
 
-def _test_all_reduce(dtype):
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float16", "float32"])
+def test_all_reduce(dtype):
     """Test of tracing and lowering allreduce op."""
     total_rank, rank, local_rank = get_dist_comm_info()
     n_ones = np.ones(shape=(4, 4), dtype=dtype)
@@ -30,19 +32,6 @@ def _test_all_reduce(dtype):
     y = all_reduce("sum", x, scale=1.0 / total_rank)
     target_y = n_ones * sum(range(1, total_rank + 1)) / total_rank
     check(y, target_y)
-
-
-@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
-@pytest.mark.parametrize("dtype", ["float16", "float32"])
-def test_all_reduce(dtype):
-    _test_all_reduce(dtype)
-
-
-@pytest.mark.torch_1_11_test
-@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
-@pytest.mark.parametrize("dtype", ["float16", "float32"])
-def test_all_reduce_pt11(dtype):
-    _test_all_reduce(dtype)
 
 
 @pytest.mark.skipif(skip_dist_test(min_rank_num=4), reason=SKIP_REASON)
@@ -62,7 +51,9 @@ def test_allreduce_with_subcomm(dtype, groups):
             check(y, target_y)
 
 
-def _test_all_gather(dtype):
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
+@pytest.mark.parametrize("dtype", ["float32", "float16"])
+def test_all_gather(dtype):
     """Test of tracing and lowering allgather op."""
     total_rank, rank, local_rank = get_dist_comm_info()
     n_ones = np.ones(shape=(4, 4), dtype=dtype)
@@ -71,19 +62,6 @@ def _test_all_gather(dtype):
     y = all_gather(x, dim=0)
     target_y = np.concatenate([n_ones * (r + 1) for r in range(total_rank)], axis=0)
     check(y, target_y)
-
-
-@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
-@pytest.mark.parametrize("dtype", ["float32", "float16"])
-def test_all_gather(dtype):
-    _test_all_gather(dtype)
-
-
-@pytest.mark.torch_1_11_test
-@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)
-@pytest.mark.parametrize("dtype", ["float32", "float16"])
-def test_all_gather_pt11(dtype):
-    _test_all_gather(dtype)
 
 
 @pytest.mark.skipif(skip_dist_test(min_rank_num=4), reason=SKIP_REASON)
