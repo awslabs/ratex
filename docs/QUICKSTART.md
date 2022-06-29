@@ -188,6 +188,7 @@ CUTLASS and NCCL supports. For benchmark, use `CMAKE_BUILD_TYPE=Release`.
 
 ```
 cd third_party/raf/
+bash ./scripts/src_codegen/run_all.sh  # run codegen
 mkdir -p build
 cp cmake/config.cmake build/
 cd build
