@@ -38,10 +38,12 @@ function set_pytorch() {
     popd
 
     # Clone PyTorch for header files
+    pushd .
     cd pytorch
     git fetch
     git checkout $PYTORCH_GIT_SHA
     cp -r torch/csrc/distributed $PYTORCH_INSTALL_PATH/include/torch/csrc/
+    popd
 
     echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
     echo "================================"
