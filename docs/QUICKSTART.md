@@ -171,7 +171,7 @@ python3 -c "import torch; print(torch.__file__)"
 Now it's time to work on Ratex. Let's first clone the repo:
 
 ```
-git clone git@github.com:meta-project/ratex.git --recursive
+git clone git@github.com:awslabs/ratex.git --recursive
 ```
 
 Since RAF and TVM do not have release wheels, we have to build them by ourselves for now.
@@ -179,6 +179,7 @@ When they are available, we should be able to simply use `pip install` to let pi
 and install their wheels.
 
 You can directly run `bash ./scripts/build_third_party.sh` under `ratex/` to perform the following steps.
+If you built PyTorch from source, remember to unset the `USE_CUDA` env variable before running `build_third_party.sh` to properly install RAF and TVM with GPU support. 
 
 ### 2.1 Compile RAF/TVM (under `ratex/`)
 
@@ -250,7 +251,6 @@ export BUILD_CPP_TESTS=0
 ```
 
 ```
-bash ./patches/apply_patch.sh
 python3 -m pip install glob2 filelock
 rm -rf ./build/pip/public/ratex
 python3 setup.py bdist_wheel -d ./build/pip/public/ratex

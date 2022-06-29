@@ -16,6 +16,7 @@ if [ -z $PYTORCH_SOURCE_PATH ]; then
 fi
 
 echo "Building ratex wheels..."
+python3 -m pip install glob2 filelock
 rm -rf ./build/pip/public/ratex
 python3 setup.py bdist_wheel -d ./build/pip/public/ratex
 pip3 install ./build/pip/public/ratex/*.whl --upgrade --force-reinstall --no-deps
