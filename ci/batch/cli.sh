@@ -23,29 +23,8 @@ function set_pytorch() {
     echo "=================================="
     echo "[CLI] Set PyTorch to nightly start"
     echo "=================================="
-    python3 -m pip install --force-reinstall --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
-    LIBTORCH_LINK=https://download.pytorch.org/libtorch/nightly/cpu/libtorch-cxx11-abi-shared-with-deps-latest.zip
-    PYTORCH_GIT_SHA=$(python3 -c "import torch; print(torch.version.git_version)")
-    PYTORCH_INSTALL_PATH=$(dirname `python3 -c "import torch; print(torch.__file__)"`)
-
-    # Install libtorch with cxx11 ABIs
-    pushd .
-    cd /tmp
-    wget -O libtorch-cxx11.zip $LIBTORCH_LINK
-    unzip libtorch-cxx11.zip
-    cp -rf libtorch/* $PYTORCH_INSTALL_PATH/
-    rm -rf libtorch libtorch-cxx11.zip
-    popd
-
-    # Clone PyTorch for header files
-    pushd .
-    cd $PYTORCH_SOURCE_PATH
-    git fetch
-    git checkout $PYTORCH_GIT_SHA
-    cp -r torch/csrc/distributed $PYTORCH_INSTALL_PATH/include/torch/csrc/
-    popd
-
-    echo "Current version: `python3 -c 'import torch; print(torch.__version__)'`"
+    # We use pinned nightly version for CI.
+    bash ./scripts/setup_torch_version.sh pinned
     echo "================================"
     echo "[CLI] Set PyTorch to nightly end"
     echo "================================"
