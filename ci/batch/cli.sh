@@ -91,6 +91,7 @@ function unit_test() {
 
     if [[ $DEVICE == "multi-GPU" ]]; then
         nvidia-smi -L
+        export RATEX_DEVICE_COUNT=`nvidia-smi -L | wc -l`
         export RATEX_DEVICE=GPU
         time bash ./ci/batch/task_python_distributed.sh
     else
