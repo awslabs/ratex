@@ -264,6 +264,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferReduceScatter(const ir::ops::ReduceScatter* node);
   lazy_tensors::Shape InferMaxInDim(const ir::ops::MaxInDim* node);
   lazy_tensors::Shape InferArgMax(const ir::ops::ArgMax* node);
+  lazy_tensors::Shape InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node);
 };
 
 #undef DECLARE_OP2
@@ -771,9 +772,10 @@ Var RAFNodeLowering::LowerRelayFunction(const ir::ops::RelayFunction* node) {
   return BindSymbol(node->func());
 }
 
-Var RAFNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
-  Var x = loctx()->GetOutputOp(node->operand(0));
-  Var w = loctx()->GetOutputOp(node->operand(1));
+Var BuildConvolutionOverrideable(const std::vector<Var>& ops,
+                                 const ir::ops::ConvolutionOverrideable* node) {
+  Var x = ops[0];
+  Var w = ops[1];
   Expr stride = MakeConstant(TupleInt(node->stride()));
   Expr padding = MakeConstant(TupleInt(node->padding()));
   Expr dilation = MakeConstant(TupleInt(node->dilation()));
@@ -789,12 +791,20 @@ Var RAFNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOver
   }
   x = BindSymbol(raf::ir::Call(Op::Get("raf.op.conv2d"), {x, w, stride, padding, dilation, groups,
                                                           layout, kernel_layout, out_layout}));
-  if (node->operands().size() == 3) {
-    Var bias = loctx()->GetOutputOp(node->operand(2));
+  if (ops.size() == 3) {
+    Var bias = ops[2];
     Expr axis = MakeConstant(Int(1));
     x = BindSymbol(raf::ir::Call(Op::Get("raf.op.bias_add"), {x, bias, axis}));
   }
   return x;
+}
+
+Var RAFNodeLowering::LowerConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) {
+    ops.push_back(loctx()->GetOutputOp(op));
+  }
+  return BuildConvolutionOverrideable(ops, node);
 }
 
 Var BuildLogSoftmaxBackwardUseIn(const std::vector<Var>& ops,
@@ -1348,6 +1358,10 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::logical_or: {
       return InferLogicalOr(node);
     }
+    case at::aten::convolution_overrideable: {
+      return InferConvolutionOverrideable(
+        ir::NodeCast<ir::ops::ConvolutionOverrideable>(node, ir::OpKind(at::aten::convolution_overrideable)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1456,6 +1470,16 @@ lazy_tensors::Shape RAFNodeLowering::InferConstantPadNd(const ir::ops::ConstantP
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildConstantPadNd(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildConvolutionOverrideable(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
