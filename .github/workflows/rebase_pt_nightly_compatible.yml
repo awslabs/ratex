@@ -16,8 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        # No need to checkout submodules because we only need to rebase.
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Checkout all branches and history.
       - name: Rebase onto main branch
         run: |
           git --no-pager log --decorate=short --oneline -10
