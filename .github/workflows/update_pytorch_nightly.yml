@@ -21,7 +21,8 @@ jobs:
       - name: Update pinned PyTorch nightly version
         id: update
         run: |
-          LATEST=$(pip3 index versions torch --pre -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html | grep LATEST | awk '{print $2}' | awk -F '+' '{print $1}')
+          python3 -m pip -U --force-reinstall pip
+          LATEST=$(python3 -m pip index versions torch --pre -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html | grep LATEST | awk '{print $2}' | awk -F '+' '{print $1}')
           echo "Latest PyTorch nightly version: $LATEST"
           echo $LATEST > scripts/pinned_torch_nightly.txt
           echo "::set-output name=version::${LATEST}"
