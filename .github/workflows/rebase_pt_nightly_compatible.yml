@@ -21,9 +21,9 @@ jobs:
           fetch-depth: 0 # Checkout all branches and history.
       - name: Rebase onto main branch
         run: |
-          git --no-pager log --decorate=short --oneline -10
+          git config user.email "aire-meta-bot@users.noreply.github.com"
+          git config user.name "AIREMetaBot"
           git checkout -b pt-nightly-compatible origin/pt-nightly-compatible
-          git --no-pager log --decorate=short --oneline -10
           git rebase main pt-nightly-compatible
       - name: Create timestamp
         id: date
