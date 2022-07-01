@@ -21,11 +21,12 @@ jobs:
       - name: Update pinned PyTorch nightly version
         id: update
         run: |
-          python3 -m pip install -U --force-reinstall pip
-          LATEST=$(python3 -m pip index versions torch --pre -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html | grep LATEST | awk '{print $2}' | awk -F '+' '{print $1}')
-          echo "Latest PyTorch nightly version: $LATEST"
-          echo $LATEST > scripts/pinned_torch_nightly.txt
-          echo "::set-output name=version::${LATEST}"
+          python3 -m pip install -U --force-reinstall pip==22.1.2
+          version=$(python3 -m pip index versions torch --pre -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html \
+                    | grep torch | tr -d '()' | awk '{print $2'} | awk -F '+' '{print $1}')
+          echo "Latest PyTorch nightly version: $version"
+          echo $version > scripts/pinned_torch_nightly.txt
+          echo "::set-output name=version::${version}"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
         with:
