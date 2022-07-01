@@ -16,13 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
+        # No need to checkout submodules because we only need to rebase.
         uses: actions/checkout@v2
-        with:
-          submodules: recursive
       - name: Rebase onto main branch
         run: |
-          git fetch --all
+          git --no-pager log --decorate=short --oneline -10
           git checkout -b pt-nightly-compatible origin/pt-nightly-compatible
+          git --no-pager log --decorate=short --oneline -10
           git rebase main pt-nightly-compatible
       - name: Create timestamp
         id: date
