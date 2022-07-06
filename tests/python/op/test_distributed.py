@@ -44,11 +44,17 @@ def test_allreduce_with_subcomm(dtype, groups):
     x = np.ones(shape=(4, 4), dtype=dtype) * (rank + 1)
     x = torch.from_numpy(x).to(device)
     y = all_reduce("sum", x, groups=groups)
+
+    is_rank_in_group = False
     for group in groups:
         if rank in group:
+            is_rank_in_group = True
             ones = np.ones(shape=(4, 4), dtype=dtype)
             target_y = ones * sum(np.array(group) + 1)
             check(y, target_y)
+    if not is_rank_in_group:
+        target_y = np.ones(shape=(4, 4), dtype=dtype) * (rank + 1)
+        check(y, target_y)
 
 
 @pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason=SKIP_REASON)

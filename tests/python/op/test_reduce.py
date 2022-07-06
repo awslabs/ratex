@@ -70,5 +70,21 @@ def test_argmax(dim, keepdim):
     verify_step(Model(), [x], jit_script=False)
 
 
+@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("dim", [0, 1])
+@pytest.mark.parametrize("keepdim", [True, False])
+def test_mean(dtype, dim, keepdim):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input):
+            return torch.mean(x_input, dim, keepdim, dtype=dtype)
+
+    x = torch.rand(4, 4)
+
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
