@@ -86,5 +86,18 @@ def test_gelu():
     verify_step(Model(), [x])
 
 
+def test_embedding():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.embedding = nn.Embedding(10, 3)
+
+        def forward(self, x_input):
+            return self.embedding(x_input)
+
+    x = torch.randint(10, (3, 3))
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

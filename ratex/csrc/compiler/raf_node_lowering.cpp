@@ -119,6 +119,7 @@
 #include "lazy_tensor_core/csrc/ops/upsample_nearest2d_backward.h"
 #include "lazy_tensor_core/csrc/ops/var.h"
 #include "lazy_tensor_core/csrc/ops/view.h"
+#include "lazy_tensor_core/csrc/ops/embedding.h"
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensors/shape_util.h"
@@ -237,6 +238,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ReduceScatter);
   DECLARE_OP2(MaxInDim);
   DECLARE_OP2(ArgMax);
+  DECLARE_OP2(Embedding);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -265,6 +267,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferMaxInDim(const ir::ops::MaxInDim* node);
   lazy_tensors::Shape InferArgMax(const ir::ops::ArgMax* node);
   lazy_tensors::Shape InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node);
+  lazy_tensors::Shape InferEmbedding(const ir::ops::Embedding* node);
 };
 
 #undef DECLARE_OP2
@@ -334,6 +337,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Split, at::aten::split)
     HANDLE_GENERIC_OP2(MaxInDim, at::aten::max)
     HANDLE_GENERIC_OP2(ArgMax, at::aten::argmax)
+    HANDLE_GENERIC_OP2(Embedding, at::aten::embedding)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -948,6 +952,21 @@ Var RAFNodeLowering::LowerArgMax(const ir::ops::ArgMax* node) {
   return BuildArgMax({x}, node);
 }
 
+Var BuildEmbedding(const std::vector<Var>& ops, const ir::ops::Embedding* node) {
+  LTC_CHECK_EQ(ops.size(), 2U);
+  Var x = ops[0];
+  Var indices = ops[1];
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.embedding"), {x, indices}));
+}
+
+Var RAFNodeLowering::LowerEmbedding(const ir::ops::Embedding* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) {
+    ops.push_back(loctx()->GetOutputOp(op));
+  }
+  return BuildEmbedding(ops, node);
+}
+
 #define DEFINE_COMPARISON_OP(name, op)                                    \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
@@ -1362,6 +1381,10 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       return InferConvolutionOverrideable(
         ir::NodeCast<ir::ops::ConvolutionOverrideable>(node, ir::OpKind(at::aten::convolution_overrideable)));
     }
+    case at::aten::embedding: {
+      return InferEmbedding(
+          ir::NodeCast<ir::ops::Embedding>(node, ir::OpKind(at::aten::embedding)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1605,6 +1628,16 @@ lazy_tensors::Shape RAFNodeLowering::InferLogicalOr(const ir::Node* node) {
   auto x_shape = node->operand(0).shape();
   auto y_shape = node->operand(1).shape();
   return Helpers::GetPromotedBinaryOpShape(x_shape, y_shape);
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferEmbedding(const ir::ops::Embedding* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildEmbedding(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
 }
 
 #define DEFINE_INFER_COMPARISON_OP(name)                                   \
