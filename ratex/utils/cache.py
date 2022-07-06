@@ -150,25 +150,29 @@ class Cache:
             entry_file = entry_path / self.DEFAULT_VALUE_FILE
             logger.debug("Bring from persistent cache: %s, token:%s", str(key), str(token))
 
-            if entry_file.exists():
-                # If the default cache value file exists, we assume the value was written
-                # by the commit() function, and we directly load the value from the file
-                # to speedup future queries.
-                with open(entry_file, "r") as filep:
-                    value = filep.read()
-                    if loader is not None:
-                        value = loader(value)
-            else:
-                # Otherwise, just load the file path and let users access the file directly.
+        if entry_file.exists():
+            # If the default cache value file exists, we assume the value was written
+            # by the commit() function, and we directly load the value from the file
+            # to speedup future queries.
+            with open(entry_file, "r") as filep:
+                value = filep.read()
                 if loader is not None:
-                    raise RuntimeError(
-                        f"Loader is not applicable to the user-managed cache entries: {str(key)}"
-                    )
-                value = entry_path
+                    value = loader(value)
+        else:
+            # Otherwise, just load the file path and let users access the file directly.
+            if loader is not None:
+                raise RuntimeError(
+                    f"Loader is not applicable to the user-managed cache entries: {str(key)}"
+                )
+            value = entry_path
 
+        with self.file_lock:
+            if key in self.entries and self.entries[key] != value:
+                raise RuntimeError(f"Thread data racing: {str(key)}")
             self.entries[key] = value
             self.evict()
-            return value
+
+        return value
 
     def commit(self, key, value, saver=None):
         """Commit a new entry to cache. If the key is already in the cache, the value will be
