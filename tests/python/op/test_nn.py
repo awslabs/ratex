@@ -76,14 +76,14 @@ def test_gelu():
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
+            self.gelu = torch.nn.GELU("none")
 
         def forward(self, x):
-            out = torch.nn.GELU("none")(x)
-            return out
+            return self.gelu(x)
 
     shape = [5, 5]
     x = torch.randn(*shape)
-    verify_step(Model(), [x])
+    verify_step(Model(), [x], jit_script=False)
 
 
 if __name__ == "__main__":
