@@ -237,6 +237,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ReduceScatter);
   DECLARE_OP2(MaxInDim);
   DECLARE_OP2(ArgMax);
+  DECLARE_OP2(Softmax);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -334,6 +335,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Split, at::aten::split)
     HANDLE_GENERIC_OP2(MaxInDim, at::aten::max)
     HANDLE_GENERIC_OP2(ArgMax, at::aten::argmax)
+    HANDLE_GENERIC_OP2(Softmax, at::aten::softmax)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -536,6 +538,13 @@ Var RAFNodeLowering::LowerLogSoftmax(const ir::ops::LogSoftmax* node) {
   Var input = loctx()->GetOutputOp(node->operand(0));
   Expr dim = MakeConstant(ScalarValue::make((int64_t)node->dim()));
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.log_softmax"), {input, dim}));
+}
+
+Var RAFNodeLowering::LowerSoftmax(const ir::ops::Softmax* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Expr dim = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.softmax"), {x, dim}));
 }
 
 Var RAFNodeLowering::LowerMaxPoolNd(const ir::ops::MaxPoolNd* node) {

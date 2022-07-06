@@ -86,5 +86,19 @@ def test_gelu():
     verify_step(Model(), [x])
 
 
+def test_softmax():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.softmax = nn.Softmax()
+
+        def forward(self, x_input):
+            return self.softmax(x_input)
+
+    x = torch.randn(3, 3)
+
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
