@@ -237,6 +237,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ReduceScatter);
   DECLARE_OP2(MaxInDim);
   DECLARE_OP2(ArgMax);
+  DECLARE_OP2(Mean);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -265,6 +266,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferMaxInDim(const ir::ops::MaxInDim* node);
   lazy_tensors::Shape InferArgMax(const ir::ops::ArgMax* node);
   lazy_tensors::Shape InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node);
+  lazy_tensors::Shape InferMean(const ir::ops::Mean* node);
 };
 
 #undef DECLARE_OP2
@@ -334,6 +336,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Split, at::aten::split)
     HANDLE_GENERIC_OP2(MaxInDim, at::aten::max)
     HANDLE_GENERIC_OP2(ArgMax, at::aten::argmax)
+    HANDLE_GENERIC_OP2(Mean, at::aten::mean)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -948,6 +951,21 @@ Var RAFNodeLowering::LowerArgMax(const ir::ops::ArgMax* node) {
   return BuildArgMax({x}, node);
 }
 
+Var BuildMean(const std::vector<Var>& ops, const ir::ops::Mean* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  Var x = ops[0];
+  Expr axis =  MakeConstant(TupleInt(node->dimensions()));
+  Expr keep_reduced_dimensions =  MakeConstant(Bool(node->keep_reduced_dimensions()));
+  Expr exclude =  MakeConstant(Bool(false));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.mean"), {x, axis, keep_reduced_dimensions, exclude}));
+}
+
+Var RAFNodeLowering::LowerMean(const ir::ops::Mean* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildMean({x}, node);
+}
+
 #define DEFINE_COMPARISON_OP(name, op)                                    \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
@@ -1362,6 +1380,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       return InferConvolutionOverrideable(
         ir::NodeCast<ir::ops::ConvolutionOverrideable>(node, ir::OpKind(at::aten::convolution_overrideable)));
     }
+    case at::aten::mean: {
+      return InferMean(ir::NodeCast<ir::ops::Mean>(node, ir::OpKind(at::aten::mean)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1596,6 +1617,16 @@ lazy_tensors::Shape RAFNodeLowering::InferArgMax(const ir::ops::ArgMax* node) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildArgMax(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferMean(const ir::ops::Mean* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildMean(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
