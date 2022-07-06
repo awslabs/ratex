@@ -954,10 +954,11 @@ Var RAFNodeLowering::LowerArgMax(const ir::ops::ArgMax* node) {
 Var BuildMean(const std::vector<Var>& ops, const ir::ops::Mean* node) {
   LTC_CHECK_EQ(node->operands().size(), 1U);
   Var x = ops[0];
-  Expr axis =  MakeConstant(TupleInt(node->dimensions()));
-  Expr keep_reduced_dimensions =  MakeConstant(Bool(node->keep_reduced_dimensions()));
-  Expr exclude =  MakeConstant(Bool(false));
-  return BindSymbol(raf::ir::Call(Op::Get("raf.op.mean"), {x, axis, keep_reduced_dimensions, exclude}));
+  Expr axis = MakeConstant(TupleInt(node->dimensions()));
+  Expr keep_reduced_dimensions = MakeConstant(Bool(node->keep_reduced_dimensions()));
+  Expr exclude = MakeConstant(Bool(false));
+  return BindSymbol(
+      raf::ir::Call(Op::Get("raf.op.mean"), {x, axis, keep_reduced_dimensions, exclude}));
 }
 
 Var RAFNodeLowering::LowerMean(const ir::ops::Mean* node) {
