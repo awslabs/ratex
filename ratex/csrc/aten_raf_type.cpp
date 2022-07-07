@@ -1062,8 +1062,7 @@ at::Tensor LazyNativeFunctions::dot(const at::Tensor& self, const at::Tensor& te
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(tensor)) {
     return FALLBACK_ATEN_OP(dot, self, tensor);
   }
-  return bridge::AtenFromLtcTensor(LazyTensor::matmul(bridge::raf_backend::GetLtcTensor(self),
-                                                      bridge::raf_backend::GetLtcTensor(tensor)));
+  return matmul(self, tensor);
 }
 
 at::Tensor LazyNativeFunctions::elu(const at::Tensor& self, const at::Scalar& alpha,
@@ -1782,6 +1781,82 @@ at::Tensor LazyNativeFunctions::mm(const at::Tensor& self, const at::Tensor& mat
   return bridge::AtenFromLtcTensor(
       LazyTensor::mm(/*input=*/bridge::raf_backend::GetLtcTensor(self),
                      /*weight=*/bridge::raf_backend::GetLtcTensor(mat2)));
+}
+
+at::Tensor LazyNativeFunctions::matmul(const at::Tensor& self, const at::Tensor& other) {
+  LTC_FN_COUNTER("raf::");
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
+  LazyTensor other_tensor = bridge::raf_backend::GetLtcTensor(other);
+  std::vector<int64_t> a_shape =
+      lazy_tensors::util::ToVector<int64_t>(self_tensor.shape().get().dimensions());
+  std::vector<int64_t> b_shape =
+      lazy_tensors::util::ToVector<int64_t>(other_tensor.shape().get().dimensions());
+  int64_t a_size = a_shape.size();
+  int64_t b_size = b_shape.size();
+  int64_t unit_dim = -1;
+  LazyTensor out;
+
+  // TODO support higher demension conversion to lower dim matmul
+  if (a_size > 4 || b_size > 4) {
+    return FALLBACK_ATEN_OP(matmul, self, other);
+  } else if (a_size > 2 && b_size > 2) {
+    // 4 dim matrix w/ unit dim (m5 support)
+    if (a_size > 3) {
+      // Convert to 3D by squeezing unit dim, fallback if cannot squeeze
+      unit_dim = std::find(a_shape.begin(), a_shape.end(), 1) - a_shape.begin();
+      if (unit_dim == a_size)
+        return FALLBACK_ATEN_OP(matmul, self, other);  // No unit dim - unsupported shape
+      self_tensor = LazyTensor::squeeze(self_tensor, unit_dim);
+    }
+    if (b_size > 3) {
+      // Convert to 3D by squeezing unit dim, fallback if cannot squeeze. Ensure if both a & b 4 dim
+      // have unit dim on same axis
+      auto b_dim = std::find(b_shape.begin(), b_shape.end(), 1) - b_shape.begin();
+      if (b_dim != b_size) {
+        if (unit_dim == -1) unit_dim = b_dim;
+        if (b_dim != unit_dim)
+          return FALLBACK_ATEN_OP(matmul, self, other);  // Cannot broadcast - unsupported currently
+      } else
+        return FALLBACK_ATEN_OP(matmul, self, other);  // No unit dim - currently unsupported shape
+      other_tensor = LazyTensor::squeeze(other_tensor, unit_dim);
+    }
+    LTC_CHECK_LT(unit_dim, 2) << "Incorrect or currently unsupported input shapes: a_shape: "
+                              << a_shape << " b_shape " << b_shape;
+
+    out = LazyTensor::bmm(self_tensor, other_tensor);
+
+    if (unit_dim != -1) out = LazyTensor::unsqueeze(out, unit_dim);
+
+    return bridge::AtenFromLtcTensor(out);
+  } else if (a_size > 2) {
+    // a is 3D and b is < 3D, try to squeeze a
+    unit_dim = std::find(a_shape.begin(), a_shape.end(), 1) - a_shape.begin();
+    if (unit_dim == a_size)
+      return FALLBACK_ATEN_OP(matmul, self, other);  // No unit dim - unsupported shape
+    self_tensor = LazyTensor::squeeze(self_tensor, unit_dim);
+  } else if (a_size == 1) {
+    self_tensor = LazyTensor::unsqueeze(self_tensor, 0);
+  }
+  if (b_size > 2) {
+    // b is 3D and a is < 3D, try to squeeze b
+    unit_dim = std::find(b_shape.begin(), b_shape.end(), 1) - b_shape.begin();
+    if (unit_dim == b_size)
+      return FALLBACK_ATEN_OP(matmul, self, other);  // No unit dim - unsupported shape
+    other_tensor = LazyTensor::squeeze(other_tensor, unit_dim);
+  } else if (b_size == 1) {
+    other_tensor = LazyTensor::unsqueeze(other_tensor, 1);
+  }
+
+  out = LazyTensor::mm(self_tensor, other_tensor);
+
+  if (b_size == 1) out = LazyTensor::squeeze(out, 1);
+  if (a_size == 1) out = LazyTensor::squeeze(out, 0);
+  if (a_size > 2)
+    out = LazyTensor::unsqueeze(out, 0);
+  else if (b_size > 2)
+    out = LazyTensor::unsqueeze(out, 1);
+
+  return bridge::AtenFromLtcTensor(out);
 }
 
 at::Tensor LazyNativeFunctions::mse_loss(const at::Tensor& self, const at::Tensor& target,
