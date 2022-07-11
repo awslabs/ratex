@@ -1812,16 +1812,12 @@ at::Tensor LazyNativeFunctions::matmul(const at::Tensor& self, const at::Tensor&
       // Convert to 3D by squeezing unit dim, fallback if cannot squeeze. Ensure if both a & b 4 dim
       // have unit dim on same axis
       auto b_dim = std::find(b_shape.begin(), b_shape.end(), 1) - b_shape.begin();
-      if (b_dim != b_size) {
-        if (unit_dim == -1) unit_dim = b_dim;
-        if (b_dim != unit_dim)
-          return FALLBACK_ATEN_OP(matmul, self, other);  // Cannot broadcast - unsupported currently
-      } else
-        return FALLBACK_ATEN_OP(matmul, self, other);  // No unit dim - currently unsupported shape
+      bool missing_unit_dim = b_dim == b_size;
+      bool broadcast = (b_dim == unit_dim || unit_dim == -1) ? false : true;
+      if (missing_unit_dim || broadcast) return FALLBACK_ATEN_OP(matmul, self, other);
+      unit_dim = b_dim;
       other_tensor = LazyTensor::squeeze(other_tensor, unit_dim);
     }
-    LTC_CHECK_LT(unit_dim, 2) << "Incorrect or currently unsupported input shapes: a_shape: "
-                              << a_shape << " b_shape " << b_shape;
 
     out = LazyTensor::bmm(self_tensor, other_tensor);
 
