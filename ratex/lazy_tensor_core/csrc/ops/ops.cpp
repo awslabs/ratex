@@ -332,11 +332,7 @@ NodePtr EluBackward(const Value& grad_output, const Value& output, const at::Sca
 }
 
 NodePtr Gelu(const Value& input) {
-  ScopePusher ir_scope("aten::gelu");
-  // input * 0.5 * (1.0 + torch.erf(input / math.sqrt(2.0)))
-  const lazy_tensors::Shape& shape = input.shape();
-  return input * ScalarOp(0.5, shape) *
-         (Erf(input * ScalarOp(M_SQRT1_2, shape)) + ScalarOp(1.0, shape));
+  return GenericOp(OpKind(at::aten::gelu), {input}, input.shape());
 }
 
 NodePtr GeluBackward(const Value& grad, const Value& input) {
