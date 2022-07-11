@@ -1089,7 +1089,11 @@ at::Tensor LazyNativeFunctions::embedding(const at::Tensor& weight, const at::Te
                                           int64_t padding_idx, bool scale_grad_by_freq,
                                           bool sparse) {
   LTC_FN_COUNTER("raf::");
-  LTC_CHECK(!scale_grad_by_freq && !sparse && padding_idx == -1) << "Unsupported parameters";
+  if (scale_grad_by_freq || sparse || padding_idx != -1) {
+    RATEX_VLOG(3) << "Unsupported parameters - Falling back to CPU (currently sparse, "
+                     "scale_grad_by_freq, and padding are not support)";
+    return FALLBACK_ATEN_OP(embedding, weight, indices, padding_idx, scale_grad_by_freq, sparse);
+  }
   LazyTensor weight_tensor;
   LazyTensor indices_tensor;
   auto weight_xtensor = bridge::raf_backend::TryGetLtcTensor(weight);
