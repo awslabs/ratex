@@ -86,11 +86,13 @@ def test_gelu():
     verify_step(Model(), [x])
 
 
-def test_embedding():
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
+@pytest.mark.parametrize("norm_type", [1, 2])
+def test_embedding(dtype, norm_type):
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
-            self.embedding = nn.Embedding(10, 3)
+            self.embedding = nn.Embedding(10, 3, norm_type=norm_type, dtype=dtype)
 
         def forward(self, x_input):
             return self.embedding(x_input)
