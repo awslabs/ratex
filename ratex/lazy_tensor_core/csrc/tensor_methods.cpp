@@ -51,6 +51,7 @@
 #include "lazy_tensor_core/csrc/ops/discrete_uniform.h"
 #include "lazy_tensor_core/csrc/ops/expand.h"
 #include "lazy_tensor_core/csrc/ops/exponential.h"
+#include "lazy_tensor_core/csrc/ops/embedding.h"
 #include "lazy_tensor_core/csrc/ops/flip.h"
 #include "lazy_tensor_core/csrc/ops/gather.h"
 #include "lazy_tensor_core/csrc/ops/generic.h"
@@ -1009,6 +1010,12 @@ LazyTensor LazyTensor::elu_backward(const LazyTensor& grad_output, const at::Sca
                                     const LazyTensor& output) {
   return grad_output.CreateFrom(ir::ops::EluBackward(grad_output.GetIrValue(), output.GetIrValue(),
                                                      alpha, scale, input_scale));
+}
+
+LazyTensor LazyTensor::embedding(const LazyTensor& weight, const LazyTensor& indices,
+                                 int64_t padding_idx, bool scale_grad_by_freq, bool sparse) {
+  return weight.CreateFrom(
+      ir::MakeNode<ir::ops::Embedding>(weight.GetIrValue(), indices.GetIrValue()));
 }
 
 LazyTensor LazyTensor::embedding_dense_backward(const LazyTensor& grad_output,

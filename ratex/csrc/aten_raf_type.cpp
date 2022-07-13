@@ -1089,8 +1089,23 @@ at::Tensor LazyNativeFunctions::embedding(const at::Tensor& weight, const at::Te
                                           int64_t padding_idx, bool scale_grad_by_freq,
                                           bool sparse) {
   LTC_FN_COUNTER("raf::");
-  // We route embedding to native so that it will be decomposed to supported Lazy operations.
-  return at::native::embedding(weight, indices, padding_idx, scale_grad_by_freq, sparse);
+  if (scale_grad_by_freq || sparse || padding_idx != -1) {
+    RATEX_VLOG(3) << "Unsupported parameters - Falling back to CPU (currently sparse, "
+                     "scale_grad_by_freq, and padding are not support)";
+    return FALLBACK_ATEN_OP(embedding, weight, indices, padding_idx, scale_grad_by_freq, sparse);
+  }
+  LazyTensor weight_tensor;
+  LazyTensor indices_tensor;
+  auto weight_xtensor = bridge::raf_backend::TryGetLtcTensor(weight);
+  if (!weight_xtensor) {
+    indices_tensor = bridge::raf_backend::GetLtcTensor(indices);
+    weight_tensor = bridge::GetOrCreateLtcTensor(weight, indices_tensor.GetDevice());
+  } else {
+    weight_tensor = *weight_xtensor;
+    indices_tensor = bridge::GetOrCreateLtcTensor(indices, weight_tensor.GetDevice());
+  }
+  return bridge::AtenFromLtcTensor(LazyTensor::embedding(weight_tensor, indices_tensor, padding_idx,
+                                                         scale_grad_by_freq, sparse));
 }
 
 at::Tensor LazyNativeFunctions::embedding_dense_backward(const at::Tensor& grad_output,

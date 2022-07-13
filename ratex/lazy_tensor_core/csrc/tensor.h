@@ -455,6 +455,9 @@ class LazyTensor {
                                  const at::Scalar& scale, const at::Scalar& input_scale,
                                  const LazyTensor& output);
 
+  static LazyTensor embedding(const LazyTensor& weight, const LazyTensor& indices,
+                              int64_t padding_idx, bool scale_grad_by_freq, bool sparse);
+
   static LazyTensor embedding_dense_backward(const LazyTensor& grad_output,
                                              const LazyTensor& indices, int64_t num_weights,
                                              int64_t padding_idx, bool scale_grad_by_freq);
