@@ -74,8 +74,8 @@ class InplaceUpdater {
 
     // Build a map from output var to input param.
     for (auto kv : alias_map_) {
-      auto in_idx = kv.first;
-      auto out_idx = kv.second;
+      auto in_idx = kv.first.IntValue();
+      auto out_idx = kv.second.IntValue();
       auto out_var_node = (out_tuple != nullptr) ? out_tuple->fields[out_idx].as<VarNode>()
                                                  : vars[n - 1].as<VarNode>();
       CHECK(out_var_node != nullptr)
@@ -94,7 +94,7 @@ class InplaceUpdater {
 
         // Update the expression for the binded output var that shares an input buffer.
         if (out_var_to_param_.count(var)) {
-          expr = UpdateCall(out_var_to_idx_[var], expr, out_var_to_param_[var]);
+          expr = UpdateCall(out_var_to_idx_[var].IntValue(), expr, out_var_to_param_[var]);
         }
         ll->Push(var, expr);
       }
