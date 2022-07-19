@@ -1462,6 +1462,19 @@ at::Tensor LazyNativeFunctions::l1_loss_backward(const at::Tensor& grad_output,
       bridge::raf_backend::GetLtcTensor(target), reduction));
 }
 
+at::Tensor LazyNativeFunctions::layer_norm(const at::Tensor& input,
+                                           at::IntArrayRef normalized_shape,
+                                           const c10::optional<at::Tensor>& weight,
+                                           const c10::optional<at::Tensor>& bias, double eps,
+                                           bool cudnn_enable) {
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(input);
+  LazyTensor weight_tensor = bridge::GetOrCreateLtcTensor(weight, self_tensor.GetDevice());
+  LazyTensor bias_tensor = bridge::GetOrCreateLtcTensor(bias, self_tensor.GetDevice());
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::layer_norm(self_tensor, lazy_tensors::util::ToVector<int64_t>(normalized_shape),
+                             weight_tensor, bias_tensor, eps, cudnn_enable));
+}
+
 at::Tensor LazyNativeFunctions::le(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
   return bridge::AtenFromLtcTensor(LazyTensor::le(bridge::raf_backend::GetLtcTensor(self), other));

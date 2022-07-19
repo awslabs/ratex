@@ -62,6 +62,7 @@
 #include "lazy_tensor_core/csrc/ops/kth_value.h"
 #include "lazy_tensor_core/csrc/ops/l1_loss.h"
 #include "lazy_tensor_core/csrc/ops/l1_loss_backward.h"
+#include "lazy_tensor_core/csrc/ops/layer_norm.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu.h"
 #include "lazy_tensor_core/csrc/ops/leaky_relu_backward.h"
 #include "lazy_tensor_core/csrc/ops/linear_interpolation.h"
@@ -1263,6 +1264,14 @@ LazyTensor LazyTensor::l1_loss_backward(const LazyTensor& grad_output, const Laz
   return input.CreateFrom(
       ir::MakeNode<ir::ops::L1LossBackward>(grad_output.GetIrValue(), input.GetIrValue(),
                                             target.GetIrValue(), GetReductionMode(reduction)));
+}
+
+LazyTensor LazyTensor::layer_norm(const LazyTensor& input, std::vector<int64_t> normalized_shape,
+                                  const LazyTensor& weight, const LazyTensor& bias, double eps,
+                                  bool cudnn_enable) {
+  return input.CreateFrom(
+      ir::MakeNode<ir::ops::LayerNorm>(input.GetIrValue(), Helpers::I64List(normalized_shape),
+                                       weight.GetIrValue(), bias.GetIrValue(), eps, cudnn_enable));
 }
 
 LazyTensor LazyTensor::le(const LazyTensor& input, const at::Scalar& other) {

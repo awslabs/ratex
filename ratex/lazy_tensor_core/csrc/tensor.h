@@ -586,6 +586,10 @@ class LazyTensor {
 
   static LazyTensor le(const LazyTensor& input, const LazyTensor& other);
 
+  static LazyTensor layer_norm(const LazyTensor& input, std::vector<int64_t> normalized_shape,
+                               const LazyTensor& weight, const LazyTensor& bias, double eps,
+                               bool cudnn_enable);
+
   static LazyTensor hardshrink(const LazyTensor& input, const at::Scalar& lambda);
   static LazyTensor hardshrink_backward(const LazyTensor& grad_out, const LazyTensor& input,
                                         const at::Scalar& lambda);

@@ -86,5 +86,20 @@ def test_gelu():
     verify_step(Model(), [x], jit_script=False)
 
 
+def test_layer_norm():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer_norm = nn.LayerNorm(10)
+
+        def forward(self, x_input):
+            return self.layer_norm(x_input)
+
+    batch, sentence_length, embedding_dim = 20, 5, 10
+    x = torch.randn(batch, sentence_length, embedding_dim)
+
+    verify_step(Model(), [x], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
