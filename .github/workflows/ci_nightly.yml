@@ -9,7 +9,7 @@ on:
   # another workflow to run the rest CI jobs on AWS batch.
   push:
     branches:
-      - pt-nightly-compatible*
+      - 'pt-nightly-compatible**'
 
 defaults:
   run:
