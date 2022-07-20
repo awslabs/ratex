@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-n-send-PR:
+  update-n-push:
     if: github.repository == 'awslabs/ratex'
     runs-on: ubuntu-latest
     steps:
@@ -29,5 +29,5 @@ jobs:
       - name: Update pt-nightly-compatible
         run: |
           git checkout -b pt-nightly-compatible-${{ steps.date.outputs.now }}
-          git cherry-pick main...pt-nightly-compatible
+          git cherry-pick main..pt-nightly-compatible
           git push origin -f pt-nightly-compatible-${{ steps.date.outputs.now }}
