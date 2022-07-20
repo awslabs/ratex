@@ -29,5 +29,5 @@ jobs:
       - name: Update pt-nightly-compatible
         run: |
           git checkout -b pt-nightly-compatible-${{ steps.date.outputs.now }}
-          git cherry-pick main..pt-nightly-compatible
+          git cherry-pick origin/main..origin/pt-nightly-compatible
           git push origin -f pt-nightly-compatible-${{ steps.date.outputs.now }}
