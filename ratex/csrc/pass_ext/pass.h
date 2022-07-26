@@ -46,5 +46,12 @@ Pass InplaceUpdateAnalysis();
  */
 Pass InplaceUpdateByAlias(ir::Map<tvm::Integer, tvm::Integer> alias_map);
 
+/*!
+ * \brief Mutate the IR as describled below:
+ * (1) cast all the constant float32 tensors to constant bfloat16 tensors;
+ * (2) if a cast call's target dtype is float32, we change the target dtype to bfloat16
+ */
+Pass ConvertBf16Constant();
+
 }  // namespace pass
 }  // namespace raf

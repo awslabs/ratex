@@ -11,7 +11,7 @@ import torch
 import raf
 import tvm
 from raf import distributed as dist
-from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
+from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType, Substitute
 
 import _RATEXC
 
@@ -26,6 +26,7 @@ logger = logging.getLogger("jit.script")
 _APIS = raf._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("raf.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRATEX = _APIS.get("raf.pass_.CanonicalizeParamsForRATEX", None)
+ConvertBf16Constant = _APIS.get("raf.pass_.ConvertBf16Constant", None)
 # pylint: enable=invalid-name
 
 TORCH_DTYPES = {
@@ -203,16 +204,62 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
-    model = raf.frontend.from_pytorch(module, {"input0": shape_n_dtype})
+    cloned_module = copy.deepcopy(module)
+
+    bf16_dtpye_detected = False
+    for (name, para) in cloned_module.named_parameters():
+        if para.dtype == torch.bfloat16:
+            bf16_dtpye_detected = True
+            break
+    # When any bfloat16 parameter is found, we covert the whole module to float.
+    # The assumption is that when one parameter (except the input which is always int)
+    # is bfloat16, then all the parameter is bfloat16
+    if bf16_dtpye_detected:
+        cloned_module.to("cpu")
+        cloned_module.float()
+
+    model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
     raf_params = model.state()
     # ensure raf_params are cachable
     raf_params_shape = {k: v.shape for k, v in raf_params.items()}
-    raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
+    # if it is a bfloat16 model, we need to modify raf_params_dtype back to bfloat16.
+    if bf16_dtpye_detected:
+        raf_params_dtype = {
+            k: "bfloat16" if v.dtype == "float32" else v.dtype for k, v in raf_params.items()
+        }
+    else:
+        raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
     record = model._internal(raf.array(asnumpy(args[0].clone())))
     mod = record.mod
+
+    # if it is a bfloat16 model, we first convert all the float parameters back to bfloat16;
+    # then resolve the float constants.
+    if bf16_dtpye_detected:
+        # fisrt create a new function with bfloat16 parameters
+        # collect the float16-to-bfloat32 mapping
+        params, param_map = [], {}
+        for para in mod["main"].params:
+            name, shape = para.name_hint, para.type_annotation.shape
+            dtype = para.type_annotation.dtype
+            # The assumption is that when one parameter (except the input which is always int)
+            # is bfloat16, then all the parameter is bfloat16
+            if dtype == "float32":
+                para_bf16 = raf._core.ir_ext.extended_var(name, shape=shape, dtype="bfloat16")
+                params.append(para_bf16)
+                param_map[para] = para_bf16
+            else:
+                params.append(para)
+        # substitute the float32 parameters with bfloat16 parameters
+        body_bf16 = Substitute(mod["main"].body, param_map)
+        f_bf16 = tvm.relay.Function(params=params, body=body_bf16)
+        mod.update_func(mod.get_global_var("main"), f_bf16)
+
+        # convert float32 constants to bfloat16 constants
+        mod = ConvertBf16Constant()(mod)
+
     mod = AutoDiff([])(InferType()(mod))
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRATEX()(InferType()(mod))
