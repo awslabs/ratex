@@ -223,6 +223,9 @@ inline at::ScalarType PrimitiveToScalarType(lazy_tensors::PrimitiveType scalar_t
     case lazy_tensors::PrimitiveType::PRED: {
       return at::ScalarType::Bool;
     }
+    case lazy_tensors::PrimitiveType::BF16: {
+      return at::ScalarType::BFloat16;
+    }
     default: {
       LTC_LOG(FATAL) << "Not implemented yet.";
     }
