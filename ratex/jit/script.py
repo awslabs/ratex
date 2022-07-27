@@ -7,12 +7,13 @@ import copy
 import hashlib
 import logging
 
-import _RATEXC
 import torch
 import raf
 import tvm
 from raf import distributed as dist
 from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
+
+import _RATEXC
 
 from .._lib import raf
 from ..value import ValueToHandle
