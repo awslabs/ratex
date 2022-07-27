@@ -114,7 +114,7 @@ def main():
     }
 
     dcfg = dist.get_config()
-    dcfg.zero_opt_level = 2
+    dcfg.zero_opt_level = 1
     total_rank, rank, local_rank = get_dist_comm_info()
 
     print("raf starts...")
