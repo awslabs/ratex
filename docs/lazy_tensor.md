@@ -135,9 +135,9 @@ model.to(device) # Point 1
 model.train()
 
 criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
-optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 model = ratex.jit.script(model) # Point 2
+optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 for epoch in range(num_epochs):
     running_loss = 0.0

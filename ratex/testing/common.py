@@ -290,9 +290,9 @@ def train(
     model = model.to(device, dtype=dtype)
     model.train()
 
-    optimizer = optimizer(model.parameters(), **optimizer_params)
     if "lazy" in device:
         model = ratex.jit.script(model)
+    optimizer = optimizer(model.parameters(), **optimizer_params)
 
     for epoch in range(num_epochs):
         logger.debug("Epoch %2d starts...", epoch)
