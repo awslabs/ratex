@@ -9,5 +9,5 @@ namespace ratex {
 namespace env {
 extern const char* const kEnvDefaultDevice;
 extern const char* const kEnvDeviceCount;
-}
+}  // namespace env
 }  // namespace ratex

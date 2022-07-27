@@ -60,7 +60,7 @@ def get_positional_args(param_names, *args, **kwargs):
     args:
         positional args
 
-     kwargs:
+    kwargs:
         keyword args
 
     Returns
@@ -70,10 +70,9 @@ def get_positional_args(param_names, *args, **kwargs):
     """
     ret = []
     i = 0
-    mnm_kwargs = {to_raf_name(k): v for k, v in kwargs.items()}
     for name in param_names:
-        if name in mnm_kwargs:
-            param = mnm_kwargs[name]
+        if name in kwargs:
+            param = kwargs[name]
         else:
             param = args[i]
             i = i + 1
@@ -110,7 +109,7 @@ class RelayFunction(torch.autograd.Function):
 def asnumpy(x):
     """Helper function to convert x to numpy"""
     assert isinstance(x, torch.Tensor), f"{type(x)} is not supported"
-    return x.cpu().detach().numpy()
+    return x.to(device="cpu").detach().numpy()
 
 
 def hash_torch_module(module):
@@ -203,9 +202,7 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
-    cloned_module = copy.deepcopy(module)
-
-    model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
+    model = raf.frontend.from_pytorch(module, {"input0": shape_n_dtype})
     raf_params = model.state()
     # ensure raf_params are cachable
     raf_params_shape = {k: v.shape for k, v in raf_params.items()}
@@ -242,56 +239,64 @@ def script(module: torch.nn.Module):
     func: Callable
         A function to run on Meta.
     """
-    # Difference between state_dict() and named_parameters():
-    # module.state_dict() sets the requires_grad of all parameters to false
-    # module.state_dict() includes in-place updated parameters while model.paramters() does not
-    # so here we use them in combination
-    # See also:
-    # https://discuss.pytorch.org/t/difference-between-state-dict-and-parameters/37531/8
-    # https://discuss.pytorch.org/t/batch-norm-parameters-not-included-in-model-parameters/10265
-    named_parameters = dict(module.named_parameters())
-    params = {
-        k: named_parameters[k] if k in named_parameters else v
-        for k, v in module.state_dict().items()
-    }
+    cloned_module = copy.deepcopy(module)
+    cloned_module = cloned_module.cpu()
 
-    @ltc_timed("RAFTrace")
-    def wrapper(*args, **kwargs):
-        # TODO: use torch.jit.script
-        assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
-        assert not kwargs, "Do not support kwargs yet"
-        shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
-        cache_key = (hash_torch_module(module), str(shape_n_dtype))
-        if cache_key in JIT_CACHE:
-            # Cache hit.
-            func, param_names, inplace_update_map = JIT_CACHE[cache_key]
-        else:
-            # Cache miss. Generate a Meta function and apply a series of transformations.
-            (
-                func,
-                param_names,
-                inplace_update_map,
-                raf_params_shape,
-                raf_params_dtype,
-            ) = convert_module_to_raf(module, shape_n_dtype, args)
-            # Convert missing args
-            params_keys = [to_raf_name(k) for k in params.keys()]
-            for name in param_names:
-                if name == "input0":
-                    continue
-                if name not in params_keys:
-                    t_name = to_torch_name(name)
-                    params[t_name] = torch.zeros(
-                        raf_params_shape[name],
-                        dtype=TORCH_DTYPES.get(raf_params_dtype[name], "float32"),
-                    ).to("lazy")
-                    logger.warning(
-                        "%s parameter has been converted from raf.array to torch.Tensor.", name
-                    )
-            # Updated cached function, param_names, and inplace update map
-            JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
+    class ScriptModule(torch.nn.Module):
+        """A wrapper of module to run on Meta."""
 
-        positional_args = get_positional_args(param_names, *args, **params)
-        return RelayFunction.apply(func, inplace_update_map, *positional_args)
+        def __init__(self, module):
+            super().__init__()
+            self._param_names = []
+            for key, value in module.named_parameters():
+                name = to_raf_name(key)
+                self._param_names.append(name)
+                self.register_parameter(name, value)
+            for key, value in module.named_buffers():
+                name = to_raf_name(key)
+                self._param_names.append(name)
+                self.register_buffer(name, value)
 
-    return wrapper
+        @ltc_timed("RAFTrace")
+        def forward(self, *args, **kwargs):
+            """forward computation"""
+            # TODO: use torch.jit.script
+            assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
+            assert not kwargs, "Do not support kwargs yet"
+            shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
+            cache_key = (hash_torch_module(cloned_module), str(shape_n_dtype))
+            if cache_key in JIT_CACHE:
+                # Cache hit.
+                func, param_names, inplace_update_map = JIT_CACHE[cache_key]
+            else:
+                # Cache miss. Generate a Meta function and apply a series of transformations.
+                (
+                    func,
+                    param_names,
+                    inplace_update_map,
+                    raf_params_shape,
+                    raf_params_dtype,
+                ) = convert_module_to_raf(cloned_module, shape_n_dtype, args)
+                # Convert missing args
+                for name in param_names:
+                    if name == "input0":
+                        continue
+                    if name not in self._param_names:
+                        self._param_names.append(name)
+                        self.register_buffer(
+                            name,
+                            torch.zeros(
+                                raf_params_shape[name],
+                                dtype=TORCH_DTYPES.get(raf_params_dtype[name], "float32"),
+                            ).to(device=args[0].device),
+                        )
+                        logger.warning(
+                            "%s parameter has been converted from raf.array to torch.Tensor.", name
+                        )
+                # Updated cached function, param_names, and inplace update map
+                JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
+            lazy_params = {k: getattr(self, k) for k in self._param_names}
+            positional_args = get_positional_args(param_names, *args, **lazy_params)
+            return RelayFunction.apply(func, inplace_update_map, *positional_args)
+
+    return ScriptModule(cloned_module)
