@@ -28,11 +28,11 @@ def test_embedding():
 
     def step(device, model_origin, args):
         model = copy.deepcopy(model_origin)
-        model = model.to(device, dtype=torch.float32)
         model.train()
         tmp = model
         if device == "lazy":
             model = ratex.jit.script(model)
+        model = model.to(device, dtype=torch.float32)
         optimizer = optim.SGD(model.parameters(), lr=0.001)
         optimizer.zero_grad()
         args = [arg.to(device) for arg in args]

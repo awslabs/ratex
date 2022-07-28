@@ -126,17 +126,17 @@ Now, we slightly modify this script to make use of Ratex and GPU. We first impor
 
 ```python
 # Configurations
-device = "lazy"
+device = lm.lazy_device()  # Point 1
 num_epochs = 10
 
 # Train the model with SGD optimizer.
 model = TorchLeNet()
-model.to(device) # Point 1
 model.train()
 
 criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
 
 model = ratex.jit.script(model) # Point 2
+model.to(device) # Point 3
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 for epoch in range(num_epochs):
@@ -149,13 +149,13 @@ for epoch in range(num_epochs):
         inputs = inputs.to(device)
         labels = labels.to(device)
         inputs.requires_grad = True
-        # Point 3 start
+        # Point 4 start
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        # Point 3 end
-        lm.mark_step() # Point 4
+        # Point 4 end
+        lm.mark_step() # Point 5
         running_loss += loss.item() * inputs.size(0)
 
     epoch_loss = running_loss / dataset_sizes["train"]
@@ -180,17 +180,19 @@ Epoch 9/9 loss: 2.2999
 
 We now explain what happens with the points marked in the above script.
 
-**Point 1**: Instead of `.to("cpu")` or `.to("cuda")`, we now put the model on **lazy** device. This is a virtual device in PyTorch since v1.11, and Ratex registers itself as the backend implementation of "lazy" device. In other words, when a PyTorch model is on the lazy device, it will be powered by Ratex. Since this registration happens when importing Ratex, transferring the mode to lazy device without importing Ratex results in the following error:
+**Point 1**: We use `lm.lazy_device()` instead of `lazy` to change the default device of PyTorch. It's useful to make sure your program run correctly when you use a device with device index other than 0.
+
+**Point 2**: We use a Ratex specific API to wrap a PyTorch model. What happens here is that we trace the forward graph with TorchScript to capture the whole forward model for two purposes. First, capturing control flows. Second, performing auto-differentiation in Ratex instead of in PyTorch.
+
+**Point 3**: Instead of `.to("cpu")` or `.to("cuda")`, we now put the model on **lazy** device. This is a virtual device in PyTorch since v1.11, and Ratex registers itself as the backend implementation of "lazy" device. In other words, when a PyTorch model is on the lazy device, it will be powered by Ratex. Since this registration happens when importing Ratex, transferring the mode to lazy device without importing Ratex results in the following error:
 
 ```
 NotImplementedError: Could not run 'aten::empty.memory_format' with arguments from the 'Lazy' backend. This could be because the operator doesn't exist for this backend, or was omitted during the selective/custom build process (if using custom build). If you are a Facebook employee using PyTorch on mobile, please visit https://fburl.com/ptmfixes for possible resolutions. 'aten::empty.memory_format' is only available for these backends: [Dense, Conjugate, VmapMode, FuncTorchGradWrapper, MLC, VE, Lazy, PrivateUse1, PrivateUse2, PrivateUse3, ...].
 ```
 
-**Point 2**: We use a Ratex specific API to wrap a PyTorch model. What happens here is that we trace the forward graph with torch script to capture the whole forward model for two purposes. First, capturing control flows. Second, performing auto-differentiation in Ratex instead of in PyTorch.
+**Point 4**: After the model has been placed on lazy device and wrapped by Ratex, when PyTorch executing these lines (forward inference, loss calculation, backward propagation, parameter updating), NO actual computation is performed yet. Instead, every operator in Ratex (i.e., lazy tensor core) produces a lazy tensor, which only includes the tensor information (e.g., shape and data type) and how it was generated (by which operator and which input tensors). By tracing these lazy tensors, we construct a static computation graph and defer their execution until Point 4. As a result, if you time these lines in the code, you will find that they only need a few milliseconds whatever the model size is.
 
-**Point 3**: After the model has been placed on lazy device and wrapped by Ratex, when PyTorch executing these lines (forward inference, loss calculation, backward propagation, parameter updating), NO actual computation is performed yet. Instead, every operator in Ratex (i.e., lazy tensor core) produces a lazy tensor, which only includes the tensor information (e.g., shape and data type) and how it was generated (by which operator and which input tensors). By tracing these lazy tensors, we construct a static computation graph and defer their execution until Point 4. As a result, if you time these lines in the code, you will find that they only need a few milliseconds whatever the model size is.
-
-**Point 4**: This is the most important part in Ratex. As mentioned in the previous point, the computation of the model on lazy device will be deferred, and this particular API (i.e., `mark_step`) is the one that informs Ratex to compile and execute all deferred computations so far. As a result, if you time this line, you will find that it takes a relative long time especially on the first iteration.
+**Point 5**: This is the most important part in Ratex. As mentioned in the previous point, the computation of the model on lazy device will be deferred, and this particular API (i.e., `mark_step`) is the one that informs Ratex to compile and execute all deferred computations so far. As a result, if you time this line, you will find that it takes a relative long time especially on the first iteration.
 
 Note that in addition to the `mark_step` API, other manipulations that attempt to retrieve tensor values will also invoke `mark_step`. For example, if you `print(loss.item())` even before calling `loss.backward()`, then the forward graph will be compiled and executed at that line in order to materialize the real value of the `loss` tensor. Consequently, it is important to never or less frequently materialize tensor values during the entire training process. Otherwise the computations between two `mark_step`s will be compiled as separate graphs, which not only prevents global graph-level optimizations from happening, but also introduces more compilation and data processing overheads.
 
