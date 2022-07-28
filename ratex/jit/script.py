@@ -46,7 +46,7 @@ def to_torch_name(name):
 
 
 def to_raf_name(name):
-    """Transform the parameter naming style to Meta."""
+    """Transform the parameter naming style to RAF."""
     return "model_" + name.replace(".", "_")
 
 
@@ -84,7 +84,7 @@ def get_positional_args(param_names, *args, **kwargs):
 
 
 class RelayFunction(torch.autograd.Function):
-    """A wrapper of torch.autograd.Function to run on Meta."""
+    """A wrapper of torch.autograd.Function to run on RAF."""
 
     # pylint: disable=no-self-use, unused-argument, missing-docstring
     # pylint: disable=arguments-differ, abstract-method
@@ -238,13 +238,13 @@ def script(module: torch.nn.Module):
     Returns
     -------
     func: Callable
-        A function to run on Meta.
+        A function to run on RAF.
     """
     cloned_module = copy.deepcopy(module)
     cloned_module = cloned_module.cpu()
 
     class ScriptModule(torch.nn.Module):
-        """A wrapper of module to run on Meta."""
+        """A wrapper of module to run on RAF."""
 
         def __init__(self, module):
             super().__init__()
@@ -270,7 +270,7 @@ def script(module: torch.nn.Module):
                 # Cache hit.
                 func, param_names, inplace_update_map = JIT_CACHE[cache_key]
             else:
-                # Cache miss. Generate a Meta function and apply a series of transformations.
+                # Cache miss. Generate a RAF function and apply a series of transformations.
                 (
                     func,
                     param_names,

@@ -34,14 +34,16 @@ namespace wrap_identity {
 using namespace raf::ir;
 using namespace raf::op;
 
-// This pass replaces the output tuple: %ret = (%x_0, %x1, ..., %x_n)
-// 1. constants are copied: if %x_i is a constant node, it is replaced by
-// let %new_x_i = mnm.op.copy(%x_i)
-// 2. input parameters are copied: if %x_i is a input parameter %p_j, it is replaced by
-// let %new_x_i = mnm.op.copy(%p_j)
-// 3. if outputs are duplicate: %ret = (%x0, %x1, ..., %xi, ...%xi, ...)
-// let %new_x_i = mnm.op.copy(%x_i)
-// let %ret = (%x0, %x1, ..., %xi, ..., %new_x_i, ...)
+/*! \brief This pass processes the output tuple to make it RAF friendly.
+ * Given an output tuple %ret = (%x_0, %x1, ..., %x_n),
+ * 1. constants are copied. If %x_i is a constant node, it becomes
+ *     let %new_x_i = raf.op.copy(%x_i)
+ * 2. input parameters are copied. If %x_i is a input parameter %p_j, it becomes
+ *     let %new_x_i = raf.op.copy(%p_j)
+ * 3. duplicated fields are copied. If %xi is outputed twice, it becomes
+ *     let %new_x_i = raf.op.copy(%x_i)
+ *     let %ret = (%x0, %x1, ..., %xi, ..., %new_x_i, ...)
+ */
 class IdentityWrapper : ExprMutator {
  public:
   IdentityWrapper() {

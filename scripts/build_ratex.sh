@@ -23,12 +23,12 @@ if [ -z $PYTORCH_SOURCE_PATH ]; then
 fi
 
 if [ $DEVELOP -eq 0 ]; then
-  echo "Building razor wheels..."
-  rm -rf ./build/pip/public/razor
-  python3 setup.py bdist_wheel -d ./build/pip/public/razor
-  pip3 install ./build/pip/public/razor/*.whl --upgrade --force-reinstall --no-deps
+  echo "Building ratex wheels..."
+  rm -rf ./build/pip/public/ratex
+  python3 setup.py bdist_wheel -d ./build/pip/public/ratex
+  pip3 install ./build/pip/public/ratex/*.whl --upgrade --force-reinstall --no-deps
 else
-  echo "Building razor develop..."
+  echo "Building ratex develop..."
   python3 setup.py develop
 fi
 
