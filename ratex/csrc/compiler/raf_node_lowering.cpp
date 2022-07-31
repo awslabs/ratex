@@ -123,6 +123,8 @@
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensors/shape_util.h"
+#include "lazy_tensor_core/csrc/ops/dropout.h"
+#include "ratex/csrc/ops/dropout_backward.h"
 
 #include "ratex/csrc/ops/relay_expr.h"
 #include "ratex/csrc/ops/relay_function.h"
@@ -223,6 +225,8 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(AsStridedViewUpdate);
   DECLARE_OP2(AsStrided);
   DECLARE_OP2(Cast);
+  DECLARE_OP2(Dropout);
+  DECLARE_OP2(DropoutBackward);
   DECLARE_OP2(LogSoftmaxBackwardUseIn);
   DECLARE_OP2(RelayExpr);
   DECLARE_OP2(RelayFunction);
@@ -255,6 +259,8 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferRelayExpr(const ir::ops::RelayExpr* node);
   lazy_tensors::Shape InferRelayFunction(const ir::ops::RelayFunction* node);
   lazy_tensors::Shape InferAsStridedViewUpdate(const ir::ops::AsStridedViewUpdate* node);
+  lazy_tensors::Shape InferDropout(const ir::ops::Dropout* node);
+  lazy_tensors::Shape InferDropoutBackward(const ir::ops::DropoutBackward* node);
   lazy_tensors::Shape InferCast(const ir::ops::Cast* node);
   lazy_tensors::Shape InferSum(const ir::ops::Sum* node);
   lazy_tensors::Shape InferAny(const ir::ops::Any* node);
@@ -335,6 +341,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Any, at::aten::any)
     HANDLE_GENERIC_OP2(ConstantPadNd, at::aten::constant_pad_nd)
     HANDLE_GENERIC_OP2(Scatter, at::aten::scatter)
+    HANDLE_GENERIC_OP2(Dropout, at::aten::dropout)
     HANDLE_GENERIC_OP2(Cat, at::aten::cat)
     HANDLE_GENERIC_OP2(Stack, at::aten::stack)
     HANDLE_GENERIC_OP2(Split, at::aten::split)
@@ -396,6 +403,10 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
       if (node->op() == *ir::ops::ltc_reduce_scatter) {
         return LowerReduceScatter(
             ir::NodeCast<ir::ops::ReduceScatter>(node, *ir::ops::ltc_reduce_scatter));
+      }
+      if (node->op() == *ir::ops::raf_dropout_backward) {
+        return LowerDropoutBackward(
+            ir::NodeCast<ir::ops::DropoutBackward>(node, *ir::ops::raf_dropout_backward));
       }
     }
   }
@@ -539,6 +550,37 @@ Var RAFNodeLowering::LowerLogicalOr(const ir::Node* node) {
 Var RAFNodeLowering::LowerDeviceData(const ir::ops::DeviceData* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   return loctx()->GetParameter(node->data());
+}
+
+Var BuildDropout(const std::vector<Var>& ops, const ir::ops::Dropout* node) {
+  LTC_CHECK_EQ(ops.size(), 1U);
+  Var x = ops[0];
+  Expr p = MakeConstant(Double(node->p()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op._contrib_dropout"), {x, p}));
+}
+
+Var RAFNodeLowering::LowerDropout(const ir::ops::Dropout* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  return BuildDropout({x}, node);
+}
+
+Var BuildDropoutBackward(const std::vector<Var>& ops, const ir::ops::DropoutBackward* node) {
+  LTC_CHECK_EQ(ops.size(), 3U);
+  Var x = ops[0];
+  Var mask = ops[1];
+  Var reserve_space = ops[2];
+  Expr p = MakeConstant(Double(node->p()));
+  return BindSymbol(
+      raf::ir::Call(Op::Get("raf.op._contrib_dropout_dx"), {x, mask, reserve_space, p}));
+}
+
+Var RAFNodeLowering::LowerDropoutBackward(const ir::ops::DropoutBackward* node) {
+  LTC_CHECK_EQ(node->operands().size(), 3U);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Var mask = loctx()->GetOutputOp(node->operand(1));
+  Var reserve_space = loctx()->GetOutputOp(node->operand(2));
+  return BuildDropoutBackward({x, mask, reserve_space}, node);
 }
 
 Var RAFNodeLowering::LowerLogSoftmax(const ir::ops::LogSoftmax* node) {
@@ -1386,6 +1428,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::permute: {
       return InferPermute(ir::NodeCast<ir::ops::Permute>(node, ir::OpKind(at::aten::permute)));
     }
+    case at::aten::dropout: {
+      return InferDropout(ir::NodeCast<ir::ops::Dropout>(node, ir::OpKind(at::aten::dropout)));
+    }
     case at::aten::cat: {
       return InferCat(ir::NodeCast<ir::ops::Cat>(node, ir::OpKind(at::aten::cat)));
     }
@@ -1437,6 +1482,10 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       if (kind == *ir::ops::ltc_reduce_scatter) {
         return InferReduceScatter(
             ir::NodeCast<ir::ops::ReduceScatter>(node, *ir::ops::ltc_reduce_scatter));
+      }
+      if (kind == *ir::ops::raf_dropout_backward) {
+        return InferDropoutBackward(
+            ir::NodeCast<ir::ops::DropoutBackward>(node, *ir::ops::raf_dropout_backward));
       }
       LTC_LOG(FATAL) << "Shape inference not supported for operator: " << kind;
     }
@@ -1523,6 +1572,26 @@ lazy_tensors::Shape RAFNodeLowering::InferConstantPadNd(const ir::ops::ConstantP
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildConstantPadNd(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferDropout(const ir::ops::Dropout* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  std::vector<Var> ops;
+  ops.push_back(MakeVar("operand", ToRAFType(node->operand(0).shape())));
+  Var out = BuildDropout(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferDropoutBackward(const ir::ops::DropoutBackward* node) {
+  LTC_CHECK_EQ(node->operands().size(), 3U);
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildDropoutBackward(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

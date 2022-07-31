@@ -7,6 +7,7 @@ import torch.nn as nn
 
 import ratex
 from ratex.testing import verify_step
+import random
 
 
 def test_conv():
