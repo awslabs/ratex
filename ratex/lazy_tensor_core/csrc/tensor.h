@@ -439,6 +439,12 @@ class LazyTensor {
   // matrix dimensions are specified by dim1 and dim2, the diagonal by offset.
   static LazyTensor diagonal(const LazyTensor& input, int64_t offset, int64_t dim1, int64_t dim2);
 
+  static std::tuple<LazyTensor, LazyTensor, LazyTensor> dropout(const LazyTensor& input, double p,
+                                                                c10::optional<bool> train);
+
+  static LazyTensor dropout_backward(const LazyTensor& dy, const LazyTensor& mask,
+                                     const LazyTensor& reserve_space);
+
   static LazyTensor div(const LazyTensor& input, const LazyTensor& other,
                         const c10::optional<c10::string_view>& = c10::nullopt,
                         c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
