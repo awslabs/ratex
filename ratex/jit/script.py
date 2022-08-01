@@ -260,7 +260,8 @@ def script(module: torch.nn.Module):
         # TODO: use torch.jit.script
         assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
         assert not kwargs, "Do not support kwargs yet"
-        shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
+        arg0_meta = args[0].to("meta")
+        shape_n_dtype = (list(arg0_meta.shape), str(arg0_meta.dtype).rsplit(".", maxsplit=1)[-1])
         cache_key = (hash_torch_module(module), str(shape_n_dtype))
         if cache_key in JIT_CACHE:
             # Cache hit.

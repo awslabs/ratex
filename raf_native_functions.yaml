@@ -74,8 +74,6 @@ supported:
   - _index_put_impl_
   - inverse
   - isnan
-  - kl_div
-  - kl_div_backward
   - kthvalue
   - log
   - log10

@@ -1437,21 +1437,6 @@ at::Tensor LazyNativeFunctions::isnan(const at::Tensor& self) {
   return bridge::AtenFromLtcTensor(LazyTensor::isnan(bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor LazyNativeFunctions::kl_div(const at::Tensor& self, const at::Tensor& target,
-                                       int64_t reduction, bool log_target) {
-  LTC_FN_COUNTER("raf::");
-  return at::native::kl_div(self, target, reduction, log_target);
-}
-
-at::Tensor LazyNativeFunctions::kl_div_backward(const at::Tensor& grad_output,
-                                                const at::Tensor& self, const at::Tensor& target,
-                                                int64_t reduction, bool log_target) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::kl_div_backward(
-      bridge::raf_backend::GetLtcTensor(grad_output), bridge::raf_backend::GetLtcTensor(self),
-      bridge::raf_backend::GetLtcTensor(target), reduction, log_target));
-}
-
 std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::kthvalue(const at::Tensor& self, int64_t k,
                                                                  int64_t dim, bool keepdim) {
   LTC_FN_COUNTER("raf::");
@@ -1459,7 +1444,6 @@ std::tuple<at::Tensor, at::Tensor> LazyNativeFunctions::kthvalue(const at::Tenso
   return std::make_tuple(bridge::AtenFromLtcTensor(std::get<0>(results)),
                          bridge::AtenFromLtcTensor(std::get<1>(results)));
 }
-
 
 at::Tensor LazyNativeFunctions::le(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
@@ -1715,7 +1699,6 @@ at::Tensor LazyNativeFunctions::max_unpool2d(const at::Tensor& self, const at::T
       lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
-
 at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::Tensor& indices,
                                              at::IntArrayRef output_size, at::IntArrayRef stride,
                                              at::IntArrayRef padding) {
@@ -1725,7 +1708,6 @@ at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::T
       lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
-
 at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -1734,12 +1716,12 @@ at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, c10::optional<at::S
       /*keep_reduced_dimensions=*/false, dtype));
 }
 
-at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, at::IntArrayRef dim, bool keepdim,
-                                     c10::optional<at::ScalarType> dtype) {
+at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, at::OptionalIntArrayRef dim,
+                                     bool keepdim, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::mean(bridge::raf_backend::GetLtcTensor(self),
-                                                    lazy_tensors::util::ToVector<int64_t>(dim),
-                                                    /*keep_reduced_dimensions=*/keepdim, dtype));
+  return bridge::AtenFromLtcTensor(LazyTensor::mean(
+      bridge::raf_backend::GetLtcTensor(self), lazy_tensors::util::ToVector<int64_t>(dim.value()),
+      /*keep_reduced_dimensions=*/keepdim, dtype));
 }
 
 at::Tensor LazyNativeFunctions::min(const at::Tensor& self) {
@@ -2547,12 +2529,12 @@ at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, c10::optional<at::Sc
       /*keep_reduced_dimensions=*/false, dtype));
 }
 
-at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, at::IntArrayRef dim, bool keepdim,
-                                    c10::optional<at::ScalarType> dtype) {
+at::Tensor LazyNativeFunctions::sum(const at::Tensor& self, at::OptionalIntArrayRef dim,
+                                    bool keepdim, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::sum(bridge::raf_backend::GetLtcTensor(self),
-                                                   lazy_tensors::util::ToVector<int64_t>(dim),
-                                                   keepdim, dtype));
+  return bridge::AtenFromLtcTensor(
+      LazyTensor::sum(bridge::raf_backend::GetLtcTensor(self),
+                      lazy_tensors::util::ToVector<int64_t>(dim.value()), keepdim, dtype));
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> LazyNativeFunctions::svd(const at::Tensor& self,
@@ -2762,8 +2744,8 @@ at::Tensor LazyNativeFunctions::upsample_nearest2d(
 }
 
 at::Tensor LazyNativeFunctions::upsample_nearest2d_backward(
-    const at::Tensor& grad_output, at::OptionalIntArrayRef output_size,
-    at::IntArrayRef input_size, c10::optional<at::ArrayRef<double>> scale_factors) {
+    const at::Tensor& grad_output, at::OptionalIntArrayRef output_size, at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
   LTC_FN_COUNTER("raf::");
   LazyTensor grad_output_tensor = bridge::raf_backend::GetLtcTensor(grad_output);
   if (grad_output_tensor.GetDevice().hw_type != DeviceType::TPU) {
