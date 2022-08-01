@@ -131,6 +131,7 @@
 #include "lazy_tensor_core/csrc/ops/upsample_nearest2d_backward.h"
 #include "lazy_tensor_core/csrc/ops/var.h"
 #include "lazy_tensor_core/csrc/ops/view.h"
+#include "lazy_tensor_core/csrc/ops/matmul.h"
 #include "lazy_tensor_core/csrc/shape_builder.h"
 #include "lazy_tensor_core/csrc/tensor.h"
 #include "lazy_tensor_core/csrc/tensor_ops.h"
@@ -1409,7 +1410,12 @@ LazyTensor LazyTensor::masked_select(const LazyTensor& input, const LazyTensor& 
 }
 
 LazyTensor LazyTensor::matmul(const LazyTensor& input, const LazyTensor& other) {
-  return input.CreateFrom(ir::ops::MatMul(input.GetIrValue(), other.GetIrValue()));
+  std::vector<int64_t> a_shape =
+      lazy_tensors::util::ToVector<int64_t>(input.shape().get().dimensions());
+  std::vector<int64_t> b_shape =
+      lazy_tensors::util::ToVector<int64_t>(other.shape().get().dimensions());
+  return input.CreateFrom(
+      ir::MakeNode<ir::ops::MatMul>(input.GetIrValue(), other.GetIrValue(), a_shape, b_shape));
 }
 
 LazyTensor LazyTensor::max(const LazyTensor& input, const LazyTensor& other,

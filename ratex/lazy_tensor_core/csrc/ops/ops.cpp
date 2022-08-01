@@ -178,12 +178,6 @@ NodePtr Dot(const Value& input, const Value& weight) {
   return node;
 }
 
-NodePtr MatMul(const Value& lhs, const Value& rhs) {
-  NodePtr node = GenericOp(OpKind(at::aten::matmul), {lhs, rhs});
-  node->SetShapeDeferred([&]() { return compiler::NodeLowering::Get()->Infer(node.get()); });
-  return node;
-}
-
 NodePtr AdaptiveAvgPool3dBackward(const Value& grad_output, const Value& input) {
   NodePtr node = GenericOp(OpKind(at::aten::adaptive_avg_pool3d_backward), {grad_output, input});
   node->SetShapeDeferred([&]() { return compiler::NodeLowering::Get()->Infer(node.get()); });
