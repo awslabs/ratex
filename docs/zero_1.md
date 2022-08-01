@@ -159,7 +159,7 @@ dcfg.zero_opt_level = 1
 
 ## 4. LTC IR FILEs
 
-To see the effect of ZeRO-1, we can increase the verbosity of the output.
+To see the effect of ZeRO-1 in the IR, we can increase the verbosity of the output.
 
 ### 4.1
 
