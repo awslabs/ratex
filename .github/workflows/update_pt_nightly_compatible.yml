@@ -1,0 +1,33 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Update pt-nightly-compatible
+on:
+  schedule:
+    # Note that cron uses UTC times and weeks start from Sunday (0).
+    # We update pt-nightly-compatible every month.
+    - cron:  '0 13 20 * *'
+
+  workflow_dispatch:
+
+jobs:
+  update-n-push:
+    if: github.repository == 'awslabs/ratex'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Checkout all branches and history.
+      - name: Configure git
+        run: |
+          git config user.email "aire-meta-bot@users.noreply.github.com"
+          git config user.name "AIREMetaBot"
+      - name: Create timestamp
+        id: date
+        run: echo "::set-output name=now::$(date +'%Y-%m-%d-%H-%M-%S')"
+      - name: Update pt-nightly-compatible
+        run: |
+          git checkout -b pt-nightly-compatible-${{ steps.date.outputs.now }}
+          git cherry-pick origin/main..origin/pt-nightly-compatible
+          git push origin -f pt-nightly-compatible-${{ steps.date.outputs.now }}

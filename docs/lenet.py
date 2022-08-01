@@ -52,15 +52,14 @@ def train(device, model, image_datasets):
         for x in ["train", "val"]
     }
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
-    model = model.to(device, dtype=torch.float32)
     model.train()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
     num_epochs = 10
     best_acc = 0.0
-    unscripted = model
     if device == "lazy":
         model = ratex.jit.script(model)
+    model = model.to(device, dtype=torch.float32)
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
@@ -100,13 +99,13 @@ def infer(device, model, image_datasets):
         for x in ["train", "val"]
     }
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
-    model = model.to(device)
     model.eval()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
     best_acc = 0.0
 
     if device == "lazy":
         model = ratex.jit.script(model)
+    model = model.to(device)
     running_loss = 0.0
     running_corrects = 0
     # Iterate over data.

@@ -1104,7 +1104,7 @@ Var RAFNodeLowering::LowerScalar(const ir::ops::Scalar* node) {
   Span<const int64_t> dimensions = node->shape().dimensions();
 // 1. Switch case based on the LTC dtype.
 // 2. Get the scalar data from PyTorch and convert to the primitive C type.
-// 3. Make a Meta constant expression using the scalar data.
+// 3. Make a RAF constant expression using the scalar data.
 #define ADD_SCALAR_CASE(LTC_TYPE, PT_TYPE, C_TYPE)                                       \
   case lazy_tensors::PrimitiveType::LTC_TYPE: {                                          \
     tv = MakeScalar<C_TYPE>(static_cast<C_TYPE>(node->value().to##PT_TYPE()), raf_dtype, \
@@ -1174,7 +1174,7 @@ Var BuildConstantPadNd(const std::vector<Var>& ops, const ir::ops::ConstantPadNd
   Var x = ops[0];
   std::vector<int64_t> pad_vec(node->pad());
 
-  // Meta and PyTorch have different padding axis order. Appending zeros to full axis and reverse it
+  // RAF and PyTorch have different padding axis order. Appending zeros to full axis and reverse it
   while (pad_vec.size() < node->operand(0).shape().dimensions_size() * 2)
     pad_vec.insert(pad_vec.end(), {0, 0});
   std::reverse(pad_vec.begin(), pad_vec.end());

@@ -122,7 +122,7 @@ def test_compile_lenet_zero1(optimizer, grad_inplace):
         set_to_none=not grad_inplace,
     )
 
-    # Last meta ir graph is the optimizer graph
+    # Last RAF IR graph is the optimizer graph
     meta_ir_file = os.environ["RATEX_SAVE_IR_FILE"]
     with open(meta_ir_file) as module_file:
         module_json = module_file.read()

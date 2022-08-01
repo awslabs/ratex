@@ -220,6 +220,7 @@ def with_mock_distributed_info(world_size, rank, zero_opt_level=0, enable_data_p
     def test_helper(orig_test):
         @functools.wraps(orig_test)
         def wrapper(*args, **kwargs):
+            dist.set_default_communicator("void")
             dcfg = dist.get_config()
             comm = dist.get_communicator()
             old_dcfg = dcfg.dumps()
@@ -287,12 +288,12 @@ def train(
         dataset, batch_size=batch_size, shuffle=False, num_workers=0
     )
     dataset_size = len(dataset)
-    model = model.to(device, dtype=dtype)
     model.train()
 
-    optimizer = optimizer(model.parameters(), **optimizer_params)
     if "lazy" in device:
         model = ratex.jit.script(model)
+    model = model.to(device, dtype=dtype)
+    optimizer = optimizer(model.parameters(), **optimizer_params)
 
     for epoch in range(num_epochs):
         logger.debug("Epoch %2d starts...", epoch)
@@ -361,9 +362,9 @@ def run_step(device, model_origin, args, jit_script=True):
         and AutoDiff. This is used to evaluate lowering the ops without backward.
     """
     model = copy.deepcopy(model_origin)
-    model = model.to(device, dtype=torch.float32)
     if device == "lazy" and jit_script:
         model = ratex.jit.script(model)
+    model = model.to(device, dtype=torch.float32)
     args = [arg.to(device) for arg in args]
     out = model(*args)
     lm.mark_step()

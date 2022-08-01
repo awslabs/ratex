@@ -105,6 +105,13 @@ struct ToLTCFromTVMHelper {
   }
 };
 
+template <typename T>
+struct ToLTCFromTVMHelper<T, Integer> {
+  T operator()(const Integer& source) {
+    return source.IntValue();
+  }
+};
+
 template <>
 struct ToLTCFromTVMHelper<LTCShape, ObjectRef> {
   LTCShape operator()(const ObjectRef& source) {
