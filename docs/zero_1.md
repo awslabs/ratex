@@ -154,7 +154,7 @@ The ZeRO-1 feature is activated by setting the configuration variable, zero_opt_
 from raf import distributed as dist
 
 dcfg = dist.get_config()
-dcfg.zero_opt_level = 2
+dcfg.zero_opt_level = 1
 ```
 
 ## 4. LTC IR FILEs
