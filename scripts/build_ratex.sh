@@ -10,16 +10,27 @@ export CC=gcc
 export CXX=g++
 export BUILD_CPP_TESTS=0
 
+DEVELOP=0
+if [ $# -eq 1 ]; then
+  if [ $1 = "develop" ]; then
+    DEVELOP=1
+  fi
+fi
+
 if [ -z $PYTORCH_SOURCE_PATH ]; then
   echo "PYTORCH_SOURCE_PATH is not set"
   exit 1
 fi
 
-echo "Building ratex wheels..."
-python3 -m pip install glob2 filelock
-rm -rf ./build/pip/public/ratex
-python3 setup.py bdist_wheel -d ./build/pip/public/ratex
-pip3 install ./build/pip/public/ratex/*.whl --upgrade --force-reinstall --no-deps
+if [ $DEVELOP -eq 0 ]; then
+  echo "Building ratex wheels..."
+  rm -rf ./build/pip/public/ratex
+  python3 setup.py bdist_wheel -d ./build/pip/public/ratex
+  pip3 install ./build/pip/public/ratex/*.whl --upgrade --force-reinstall --no-deps
+else
+  echo "Building ratex develop..."
+  python3 setup.py develop
+fi
 
 echo "Testing..."
 pushd .
