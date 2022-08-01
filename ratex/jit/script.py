@@ -187,7 +187,7 @@ def persist_cache_fn(wrapped_func):
 
 @ltc_timed("RAFTraceConvertModuleToRAF")
 @persist_cache_fn
-def convert_module_to_raf(module, shape_n_dtype, args):
+def convert_module_to_raf(module, shape_n_dtype, arg_np):
     """Convert the PyTorch module to RAF and apply necessary transformations.
     Parameters
     ----------
@@ -195,8 +195,8 @@ def convert_module_to_raf(module, shape_n_dtype, args):
         The PyTorch module to be converted.
     shape_n_dtype : List[Tuple[int, torch.dtype]]
         The shape and dtype of the input tensor.
-    args : List[torch.Tensor]
-        The input tensors.
+    arg_np : np.ndarray
+        The input tensors in numpy array. Note that we do not support multiple arguments for now.
 
     Returns
     -------
@@ -213,7 +213,7 @@ def convert_module_to_raf(module, shape_n_dtype, args):
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
-    record = model._internal(raf.array(asnumpy(args[0].clone())))
+    record = model._internal(raf.array(arg_np))
     mod = record.mod
     mod = AutoDiff([])(InferType()(mod))
     mod = DeadCodeElimination()(mod)
@@ -260,7 +260,8 @@ def script(module: torch.nn.Module):
         # TODO: use torch.jit.script
         assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
         assert not kwargs, "Do not support kwargs yet"
-        shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
+        arg0_np = asnumpy(args[0].clone())
+        shape_n_dtype = (list(arg0_np.shape), str(arg0_np.dtype).rsplit(".", maxsplit=1)[-1])
         cache_key = (hash_torch_module(module), str(shape_n_dtype))
         if cache_key in JIT_CACHE:
             # Cache hit.
@@ -273,7 +274,7 @@ def script(module: torch.nn.Module):
                 inplace_update_map,
                 raf_params_shape,
                 raf_params_dtype,
-            ) = convert_module_to_raf(module, shape_n_dtype, args)
+            ) = convert_module_to_raf(module, shape_n_dtype, arg0_np)
             # Convert missing args
             params_keys = [to_raf_name(k) for k in params.keys()]
             for name in param_names:
