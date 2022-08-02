@@ -100,8 +100,9 @@ def test_embedding(dtype, norm_type):
     x = torch.randint(10, (3, 3))
     verify_step(Model(), [x], jit_script=False)
 
+
 # @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
-@pytest.mark.parametrize("p", [.1, .2, .4, .6])
+@pytest.mark.parametrize("p", [0.1, 0.2, 0.4, 0.6])
 def test_dropout(p):
     class Model(nn.Module):
         def __init__(self):
@@ -112,7 +113,7 @@ def test_dropout(p):
             return self.dropout(x_input)
 
     def check_dropout(x, y, dx=None, dy=None):
-        x, y = x.numpy(), y.numpy()
+        x, y = x.cpu().detach().numpy(), y.cpu().detach().numpy()
         mask = y != 0
         expected = mask * x / (1 - p)
         check(expected, y)
@@ -123,9 +124,8 @@ def test_dropout(p):
             expected = mask / (1 - p) * dy
             check(expected, dx)
 
-    shape = (128,128)
-    n_x = np.random.randn(*shape)
-    t_x_ratex = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
+    shape = (128, 128)
+    t_x_ratex = torch.randn(*shape, requires_grad=True).to("lazy")
     model = Model()
     out = model(t_x_ratex)
 
@@ -137,6 +137,7 @@ def test_dropout(p):
     out.backward(dy)
 
     check_dropout(t_x_ratex, out, t_x_ratex.grad, dy)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
