@@ -84,23 +84,10 @@ def test_gelu():
             return self.gelu(x)
 
     shape = [5, 5]
-    x = torch.randn(*shape)
-    verify_step(Model(), [x], jit_script=False)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
 
-
-def test_gelu_backward():
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.gelu = torch.nn.GELU("none")
-
-        def forward(self, x_input):
-            return self.gelu(x_input)
-
-    shape = (5, 5)
-    t_x = torch.randn(shape, requires_grad=True)
-
-    verify_step(Model(), [t_x], jit_script=False, dx=True)
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
@@ -127,24 +114,11 @@ def test_softmax():
         def forward(self, x_input):
             return self.softmax(x_input)
 
-    x = torch.randn(3, 3)
-
-    verify_step(Model(), [x], jit_script=False)
-
-
-def test_softmax_backward():
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.softmax = nn.Softmax()
-
-        def forward(self, x_input):
-            return self.softmax(x_input)
-
     shape = (3, 3)
-    t_x = torch.randn(shape, requires_grad=True)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
 
-    verify_step(Model(), [t_x], jit_script=False, dx=True)
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
 
 
 if __name__ == "__main__":

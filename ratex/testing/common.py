@@ -341,7 +341,7 @@ def verify(lazy_results, cpu_results, tol=1e-5):
         torch.testing.assert_close(lazy, cpu, atol=tol, rtol=tol)
 
 
-def run_step(device, model_origin, args, jit_script=True):
+def run_step(device, model_origin, args, jit_script=True, with_backward=False):
     """
     Run the model once.
 
@@ -366,63 +366,39 @@ def run_step(device, model_origin, args, jit_script=True):
         model = ratex.jit.script(model)
     args = [arg.to(device) for arg in args]
     out = model(*args)
-    lm.mark_step()
     if isinstance(out, tuple):
         out = [o.to("cpu") for o in out]
     else:
         out = out.to("cpu")
+
+    if with_backward:
+        loss = out.sum()
+        loss.backward()
+        grads = [a.grad.to("cpu") for a in args]
+        lm.mark_step()
+        return (out, grads)
+
+    lm.mark_step()
     return out
 
 
-def run_step_dx(device, model_origin, args, jit_script=True):
-    """
-    Run the model once.
-
-    Parameters
-    ----------
-    device : str
-        Device to run on
-
-    model_origin : torch.nn.Module
-        The original PyTorch model
-
-    args : List[torch.Tensor]
-        Args of the model
-
-    jit_script :
-        If False, the graph will be traced directly instead of leveraging TorchScript
-        and AutoDiff. This is used to evaluate lowering the ops without backward.
-    """
-    model = copy.deepcopy(model_origin)
-    model.train()
-    model = model.to(device, dtype=torch.float32)
-    if device == "lazy" and jit_script:
-        model = ratex.jit.script(model)
-    args = [arg.to(device) for arg in args]
-    out = model(*args)
-    loss = out.sum()
-    loss.backward()
-    lm.mark_step()
-    return args
-
-
-def verify_step(model, args, jit_script=True, dx=False, tol=1e-5):
+def verify_step(model, args, jit_script=True, with_backward=False, tol=1e-5):
     """Verify the results between CPU and Lazy"""
-    if dx:
+    if with_backward:
         args_ratex = []
+        args_cpu = args
         for x in args:
             n_x = np.copy(x.data)
             t_x_ratex = torch.tensor(n_x, device="lazy", dtype=torch.float32, requires_grad=True)
             args_ratex.append(t_x_ratex)
-        grad_cpu = run_step_dx("cpu", model, args)
-        grad_lazy = run_step_dx("lazy", model, args_ratex, jit_script)
-        for x, y in zip(grad_cpu, grad_lazy):
-            torch.testing.assert_close(x.grad, y.grad.to("cpu"), rtol=tol, atol=tol)
-
+        out_cpu, grad_cpu = run_step("cpu", model, args_cpu, with_backward=with_backward)
+        out_lazy, grad_lazy = run_step("lazy", model, args_ratex, jit_script, with_backward)
+        torch.testing.assert_close(grad_cpu, grad_lazy, rtol=tol, atol=tol)
+        torch.testing.assert_close(out_cpu, out_lazy, rtol=tol, atol=tol)
     else:
         torch.testing.assert_close(
-            run_step("cpu", model, args),
-            run_step("lazy", model, args, jit_script),
+            run_step("cpu", model, args, with_backward=with_backward),
+            run_step("lazy", model, args, jit_script=jit_script, with_backward=with_backward),
             rtol=tol,
             atol=tol,
         )
