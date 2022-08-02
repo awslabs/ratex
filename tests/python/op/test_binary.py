@@ -74,5 +74,22 @@ def test_op_with_alpha(op, dtype):
     verify_step(BinaryModelWithAlpha(op), [a, b], jit_script=False)
 
 
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+@pytest.mark.parametrize("op", [torch.lt, torch.gt, torch.eq, torch.ne])
+def test_comparison(op, dtype):
+    class BinaryModel(nn.Module):
+        def __init__(self, op):
+            super().__init__()
+            self.op = op
+
+        def forward(self, x1, x2):
+            return self.op(x1, x2)
+
+    shape = [3, 4]
+    a = torch.randn(*shape).to(dtype)
+    b = torch.randn(*shape).to(dtype)
+    verify_step(BinaryModel(op), [a, b], jit_script=False)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
