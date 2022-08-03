@@ -3,3 +3,4 @@
 
 """Torch raf core."""
 from . import lazy_model
+from . import distributed
