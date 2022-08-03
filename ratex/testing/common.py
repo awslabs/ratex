@@ -407,7 +407,6 @@ def verify_step(model, args, jit_script=True, with_backward=False, tol=1e-5):
         )
 
 
-
 def compile_model(model_origin, args, jit_script=True):
     """
     Trace and compile the model without execution.
