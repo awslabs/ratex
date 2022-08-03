@@ -12,6 +12,7 @@ namespace ops {
 const OpKindWrapper raf_relay_expr("ratex::relay_expr");
 const OpKindWrapper raf_relay_function("ratex::relay_function");
 const OpKindWrapper raf_log_softmax_backward_use_in("ratex::log_softmax_backward_use_in");
+const OpKindWrapper raf_dropout_backward("razor::dropout_backward");
 
 }  // namespace ops
 }  // namespace ir
