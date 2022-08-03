@@ -101,9 +101,9 @@ def test_embedding(dtype, norm_type):
     verify_step(Model(), [x], jit_script=False)
 
 
-# @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
-@pytest.mark.parametrize("p", [0.1, 0.2, 0.4, 0.6])
-def test_dropout(p):
+@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("p", [0.2, 0.6])
+def test_dropout(p, dtype):
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
@@ -125,14 +125,14 @@ def test_dropout(p):
             check(expected, dx)
 
     shape = (128, 128)
-    t_x_ratex = torch.randn(*shape, requires_grad=True).to("lazy")
+    t_x_ratex = torch.randn(*shape, dtype=dtype, requires_grad=True).to("lazy")
     model = Model()
     out = model(t_x_ratex)
 
     check_dropout(t_x_ratex, out)
 
     d_x = np.random.randn(*shape)
-    dy = torch.tensor(d_x, device="lazy", dtype=torch.float32, requires_grad=True)
+    dy = torch.tensor(d_x, device="lazy", dtype=dtype, requires_grad=True)
 
     out.backward(dy)
 

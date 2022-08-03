@@ -22,8 +22,9 @@ namespace ops {
 
 DropoutBackward::DropoutBackward(const Value& grad_output, const Value& mask,
                                  const Value& reserve_space)
-    : Node(raf_dropout_backward, {grad_output, mask, reserve_space}, grad_output.shape(),
+    : Node(raf_dropout_backward, {grad_output, mask, reserve_space},
            /*num_outputs=*/1) {
+  SetShapeDeferred([&]() { return compiler::NodeLowering::Get()->Infer(this); });
 }
 
 NodePtr DropoutBackward::Clone(OpList operands) const {
