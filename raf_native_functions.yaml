@@ -302,8 +302,6 @@ supported:
   - upsample_nearest2d_backward
   - sigmoid_backward
   - tanh_backward
-  - ger
-  - matmul
 autograd:
   - max_pool2d
   - max_pool3d

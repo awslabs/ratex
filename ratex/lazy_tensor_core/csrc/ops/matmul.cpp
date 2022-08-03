@@ -17,9 +17,7 @@ namespace ops {
 
 MatMul::MatMul(const Value& input, const Value& other, std::vector<int64_t> a_shape,
                std::vector<int64_t> b_shape)
-    : Node(ir::OpKind(at::aten::matmul), {input, other}),
-      a_shape_(a_shape),
-      b_shape_(b_shape) {
+    : Node(ir::OpKind(at::aten::matmul), {input, other}), a_shape_(a_shape), b_shape_(b_shape) {
   SetShapeDeferred([&]() { return compiler::NodeLowering::Get()->Infer(this); });
 }
 

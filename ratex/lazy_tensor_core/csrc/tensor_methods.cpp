@@ -1515,7 +1515,7 @@ void LazyTensor::min_out(LazyTensor& min, LazyTensor& min_indices, const LazyTen
   min_indices.SetIrValue(ir::Value(node, 1));
 }
 LazyTensor LazyTensor::mm(const LazyTensor& input, const LazyTensor& weight) {
-  return input.CreateFrom(ir::ops::Dot(input.GetIrValue(), weight.GetIrValue()));
+  return matmul(input, weight);
 }
 
 LazyTensor LazyTensor::mse_loss(const LazyTensor& input, const LazyTensor& target,
@@ -1544,11 +1544,14 @@ LazyTensor LazyTensor::mul(const LazyTensor& input, const at::Scalar& other,
 }
 
 LazyTensor LazyTensor::mv(const LazyTensor& input, const LazyTensor& vec) {
-  return input.CreateFrom(ir::ops::Dot(input.GetIrValue(), vec.GetIrValue()));
+  return matmul(input, vec);
 }
 
 void LazyTensor::mv_out(LazyTensor& out, const LazyTensor& input, const LazyTensor& vec) {
-  out.SetIrValue(ir::ops::Dot(input.GetIrValue(), vec.GetIrValue()));
+  out.SetIrValue(ir::MakeNode<ir::ops::MatMul>(
+      input.GetIrValue(), vec.GetIrValue(),
+      lazy_tensors::util::ToVector<int64_t>(input.shape().get().dimensions()),
+      lazy_tensors::util::ToVector<int64_t>(vec.shape().get().dimensions())));
 }
 
 LazyTensor LazyTensor::narrow(const LazyTensor& input, int64_t dim, int64_t start, int64_t length) {

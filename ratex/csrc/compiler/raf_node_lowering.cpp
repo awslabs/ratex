@@ -1003,103 +1003,28 @@ Var BuildMatMul(const std::vector<Var>& ops, const ir::ops::MatMul* node) {
   Var x = ops[0];
   Var y = ops[1];
   Var mm;
-  std::vector<int64_t> a_shape = node->a_shape();
-  std::vector<int64_t> b_shape = node->b_shape();
-  int64_t a_size = a_shape.size();
-  int64_t b_size = b_shape.size();
-
+  int64_t a_size = node->a_shape().size();
+  int64_t b_size = node->b_shape().size();
+  bool need_squeeze = false;
   if (a_size > 2 && b_size > 2) {
-    if (a_size != 3) {
-      x = BindSymbol(raf::ir::Call(
-          Op::Get("raf.op.reshape"),
-          {x, MakeConstant(TupleInt({-1, a_shape[a_size - 2], a_shape[a_size - 1]}))}));
+    mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.batch_matmul"), {x, y}));
+  } else {
+    if (a_size == 1) {
+      x = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"), {x, MakeConstant(Int(0))}));
+      need_squeeze = true;
     }
 
-    auto trans_axes = lazy_tensors::util::Iota<int64_t>(b_size);
-    std::swap(trans_axes[b_size - 2], trans_axes[b_size - 1]);
-    y = BindSymbol(
-        raf::ir::Call(Op::Get("raf.op.transpose"), {y, MakeConstant(TupleInt(trans_axes))}));
-
-    if (b_size != 3) {
-      y = BindSymbol(raf::ir::Call(
-          Op::Get("raf.op.reshape"),
-          {y, MakeConstant(TupleInt({-1, b_shape[b_size - 1], b_shape[b_size - 2]}))}));
+    if (b_size == 1) {
+      y = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"), {y, MakeConstant(Int(1))}));
+      need_squeeze = true;
     }
 
-    mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.batch_matmul_nt"), {x, y}));
+    mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
 
-    if (a_size != 3) {
-      a_shape.pop_back();
-      a_shape.push_back(b_shape[b_size - 1]);
-      return BindSymbol(
-          raf::ir::Call(Op::Get("raf.op.reshape"), {mm, MakeConstant(TupleInt(a_shape))}));
+    if (need_squeeze) {
+      mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.squeeze"), {mm}));
     }
-
-    return mm;
-
   }
-
-  else if (a_size > 2) {
-    x = BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"),
-                                 {x, MakeConstant(TupleInt({-1, a_shape[a_size - 1]}))}));
-  }
-
-  else if (a_size == 1) {
-    x = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"), {x, MakeConstant(Int(0))}));
-  }
-
-  if (b_size > 2) {
-    auto trans_axes = lazy_tensors::util::Iota<int64_t>(b_size);
-    std::swap(trans_axes[b_size - 2], trans_axes[b_size - 1]);
-    y = BindSymbol(
-        raf::ir::Call(Op::Get("raf.op.transpose"), {y, MakeConstant(TupleInt(trans_axes))}));
-    y = BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"),
-                                 {y, MakeConstant(TupleInt({-1, b_shape[b_size - 2]}))}));
-  }
-
-  else if (b_size == 2)
-    y = BindSymbol(raf::ir::Call(Op::Get("raf.op.transpose"), {y, MakeConstant(TupleInt({1, 0}))}));
-
-  else if (b_size == 1)
-    y = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"),
-                                 {y, MakeConstant(Int(0)), MakeConstant(Int(1))}));
-
-  mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.dense"), {x, y}));
-
-  if (b_size == 1) {
-    a_shape.pop_back();
-    return BindSymbol(
-        raf::ir::Call(Op::Get("raf.op.reshape"), {mm, MakeConstant(TupleInt(a_shape))}));
-  }
-
-  else if (a_size == 1) {
-    b_shape.pop_back();
-    return BindSymbol(
-        raf::ir::Call(Op::Get("raf.op.reshape"), {mm, MakeConstant(TupleInt(b_shape))}));
-  }
-
-  if (a_size > 2) {
-    a_shape.pop_back();
-    a_shape.push_back(b_shape[b_size - 1]);
-    mm =
-        BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"), {mm, MakeConstant(TupleInt(a_shape))}));
-  }
-
-  else if (b_size > 2) {
-    mm = BindSymbol(raf::ir::Call(
-        Op::Get("raf.op.reshape"),
-        {mm, MakeConstant(TupleInt({a_shape[a_size - 2], -1, b_shape[b_size - 1]}))}));
-    mm = BindSymbol(
-        raf::ir::Call(Op::Get("raf.op.transpose"), {mm, MakeConstant(TupleInt({1, 0, 2}))}));
-    auto temp = b_shape[b_size - 1];
-    b_shape.pop_back();
-    b_shape.pop_back();
-    b_shape.push_back(a_shape[a_size - 1]);
-    b_shape.push_back(temp);
-    mm =
-        BindSymbol(raf::ir::Call(Op::Get("raf.op.reshape"), {mm, MakeConstant(TupleInt(b_shape))}));
-  }
-
   return mm;
 }
 

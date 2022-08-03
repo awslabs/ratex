@@ -100,8 +100,10 @@ def test_embedding(dtype, norm_type):
     x = torch.randint(10, (3, 3))
     verify_step(Model(), [x], jit_script=False)
 
-@pytest.mark.parametrize("shape", [(3, 3, 3, 3)])
-def test_matmul(shape):
+
+@pytest.mark.parametrize("x_shape", [(3,), (3, 3), (3, 3, 3), (3, 3, 3, 3)])
+@pytest.mark.parametrize("y_shape", [(3,), (3, 3), (3, 3, 3), (3, 3, 3, 3)])
+def test_matmul(x_shape, y_shape):
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
@@ -109,13 +111,10 @@ def test_matmul(shape):
         def forward(self, x_input, y_input):
             return torch.matmul(x_input, y_input)
 
-    for i in range(1, len(shape) + 1):
-        x_s = shape[::i]
-        x = torch.randn(x_s)
-        for j in range(1, len(shape) + 1):
-            y_s = shape[::j]
-            y = torch.randn(y_s)
-            verify_step(Model(), [x, y], jit_script=False)
+    x = torch.randn(*x_shape, requires_grad=True)
+    y = torch.randn(*y_shape, requires_grad=True)
+    verify_step(Model(), [x, y], jit_script=False, with_backward=True)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])
