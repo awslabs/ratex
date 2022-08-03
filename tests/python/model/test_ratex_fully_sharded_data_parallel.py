@@ -18,6 +18,7 @@ from ratex.optimizer import SGD, Adam
 
 import numpy as np
 
+
 class SingleLayerLogistics(nn.Module):
     def __init__(self, input_shape=28, num_classes=10):
         super(SingleLayerLogistics, self).__init__()
@@ -32,7 +33,16 @@ class SingleLayerLogistics(nn.Module):
         return out
 
 
-def train(device, model, optimizer, optimizer_config, image_datasets, fsdp=False, num_epochs=10, dtype=torch.float32):
+def train(
+    device,
+    model,
+    optimizer,
+    optimizer_config,
+    image_datasets,
+    fsdp=False,
+    num_epochs=10,
+    dtype=torch.float32,
+):
     dataloaders = {
         x: torch.utils.data.DataLoader(
             image_datasets[x], batch_size=1, shuffle=False, num_workers=1
@@ -109,13 +119,15 @@ def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, 
     model_mnm = SingleLayerLogistics()
     no_zero1_loss = train(device, model_mnm, optimizer[0], optimizer[1], image_datasets)
 
-    assert (abs(no_zero1_loss - optimizer_zero1_loss) < tolerance)
+    assert abs(no_zero1_loss - optimizer_zero1_loss) < tolerance
 
     torch.manual_seed(seed)
     model_mnm = SingleLayerLogistics()
-    fsdp_zero1_loss = train(device, model_mnm, optimizer[0], optimizer[1], image_datasets, fsdp=True)
+    fsdp_zero1_loss = train(
+        device, model_mnm, optimizer[0], optimizer[1], image_datasets, fsdp=True
+    )
 
-    assert (abs(fsdp_zero1_loss - optimizer_zero1_loss) < tolerance)
+    assert abs(fsdp_zero1_loss - optimizer_zero1_loss) < tolerance
 
 
 if __name__ == "__main__":

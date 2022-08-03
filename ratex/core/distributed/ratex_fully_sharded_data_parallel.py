@@ -1,13 +1,19 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Module wrapper implementing ZeRO-1 in an FSDP style interface"""
 import torch.nn as nn
 import torch.nn.functional as F
+
+from raf import distributed as dist
 
 import ratex.optimizer as optim
 from ratex.core.lazy_model import all_gather, all_reduce, REDUCE_SUM
 
-from raf import distributed as dist
 
 class RatexFullyShardedDataParallel(nn.Module):
-    def __init__(self, module, optimizer=optim.SGD, optimizer_config={}):
+    """FSDP ZeRO-1 wrapper"""
+    def __init__(self, module, optimizer=optim.SGD, optimizer_config=None):
         super().__init__()
         comm = dist.get_communicator()
         self.rank = comm.rank
@@ -18,7 +24,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         # Shard parameters for use in optimizer
         self._shard_parameters()
         # Optimizer initialization
-        self.optimizer = optimizer(self.parameters(shards=True), **optimizer_config)
+        self.optimizer = optimizer(self.parameters(shards=True), **optimizer_config or {})
 
     def _shard_parameters(self):
         """
@@ -26,10 +32,10 @@ class RatexFullyShardedDataParallel(nn.Module):
         Shards are stored in a tuple with the respective parameter ie (parameter, shard)
         """
         self.sharded_params = []
-        for p in self.params:
-            shard_data = self._get_shard(p.data)
-            p_shard = nn.Parameter(shard_data, requires_grad=p.requires_grad)
-            self.sharded_params.append((p, p_shard))
+        for param in self.params:
+            shard_data = self._get_shard(param.data)
+            shard = nn.Parameter(shard_data, requires_grad=param.requires_grad)
+            self.sharded_params.append((param, shard))
 
     def _get_shard(self, tensor):
         """
@@ -45,13 +51,13 @@ class RatexFullyShardedDataParallel(nn.Module):
     def parameters(self, shards=False):
         """
         Generator for parameters
-        If shards is set to True, then the respective parameter shards of this rank are yielded instead
+        If shards is set to True, then the parameter shards of this rank are yielded instead
         """
         if not shards:
             yield from self.params
-        elif hasattr(self, "sharded_params"):
-            for p, s in self.sharded_params:
-                yield s
+        else:
+            for param, shard in self.sharded_params:
+                yield shard
 
     def forward(self, *args, **kwargs):
         """
@@ -64,17 +70,18 @@ class RatexFullyShardedDataParallel(nn.Module):
         """
         Zero gradients of the parameters
         """
-        # Todo: Calling self.optimizer.zero_grad() may not be necessary since the shard gradients are replaced
-        for p in self.params:
-            if p.grad is not None:
-                p.grad.zero_()
+        # Todo: Optimizer's zero_grad may not be necessary since shard gradients are replaced
+        for param in self.params:
+            if param.grad is not None:
+                param.grad.zero_()
         return self.optimizer.zero_grad(*args, **kwargs)
 
     def step(self, *args, **kwargs):
         """
         Step the optimizer and update parameter weights
         """
-        # Reduce full gradients across ranks and assign gradient shards to the respective parameter shards
+        # Reduce full gradients across ranks
+        # Assign gradient shards to the respective parameter shards
         for param, shard in self.sharded_params:
             if param.grad is not None:
                 all_reduce(REDUCE_SUM, [param.grad], scale=1.0 / self.world_size)
@@ -83,7 +90,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         # Step the wrapped optimizer
         loss = self.optimizer.step(*args, **kwargs)
 
-        # All gather the resulting new weights across the ranks and assign them to the full parameters
+        # All gather the new weights across the ranks and assign them to the full parameters
         for param, shard in self.sharded_params:
             all_gather(shard.data, dim=0, output=param.data)
 
