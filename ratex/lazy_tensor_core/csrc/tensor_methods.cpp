@@ -49,6 +49,8 @@
 #include "lazy_tensor_core/csrc/ops/device_data.h"
 #include "lazy_tensor_core/csrc/ops/diagonal.h"
 #include "lazy_tensor_core/csrc/ops/discrete_uniform.h"
+#include "lazy_tensor_core/csrc/ops/dropout.h"
+#include "ratex/csrc/ops/dropout_backward.h"
 #include "lazy_tensor_core/csrc/ops/expand.h"
 #include "lazy_tensor_core/csrc/ops/exponential.h"
 #include "lazy_tensor_core/csrc/ops/embedding.h"
@@ -991,6 +993,22 @@ LazyTensor LazyTensor::div(const LazyTensor& input, const at::Scalar& other) {
   ir::Value other_value =
       GetIrValueForScalar(other, input_value.shape().element_type(), input.GetDevice());
   return input.CreateFrom(input_value / other_value, scalar_type);
+}
+
+std::tuple<LazyTensor, LazyTensor, LazyTensor> LazyTensor::dropout(const LazyTensor& input,
+                                                                   double p,
+                                                                   c10::optional<bool> train) {
+  ir::NodePtr node = ir::MakeNode<ir::ops::Dropout>(input.GetIrValue(), p);
+  auto output = input.CreateFrom(ir::Value(node, 0));
+  auto mask = input.CreateFrom(ir::Value(node, 1));
+  auto reserve_space = input.CreateFrom(ir::Value(node, 2));
+  return std::make_tuple(std::move(output), std::move(mask), std::move(reserve_space));
+}
+
+LazyTensor LazyTensor::dropout_backward(const LazyTensor& dy, const LazyTensor& mask,
+                                        const LazyTensor& reserve_space) {
+  return dy.CreateFrom(ir::MakeNode<ir::ops::DropoutBackward>(dy.GetIrValue(), mask.GetIrValue(),
+                                                              reserve_space.GetIrValue()));
 }
 
 LazyTensor LazyTensor::eq(const LazyTensor& input, const at::Scalar& other) {

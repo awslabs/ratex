@@ -117,5 +117,31 @@ torch::autograd::variable_list MaxPool3dAutogradFunction::backward(
   return grad_inputs;
 }
 
+torch::Tensor Dropout::forward(torch::autograd::AutogradContext* ctx, const at::Tensor& input,
+                               double p, bool train) {
+  ctx->saved_data["p"] = p;
+  auto outputs = LazyTensor::dropout(bridge::GetLtcTensor(input), p, train);
+  ctx->save_for_backward({bridge::AtenFromLtcTensor(std::get<1>(outputs)),
+                          bridge::AtenFromLtcTensor(std::get<2>(outputs))});
+  return bridge::AtenFromLtcTensor(std::get<0>(outputs));
+}
+
+torch::autograd::variable_list Dropout::backward(torch::autograd::AutogradContext* ctx,
+                                                 torch::autograd::variable_list grad_output) {
+  auto p = ctx->saved_data["p"];
+
+  auto saved = ctx->get_saved_variables();
+  auto mask = bridge::GetLtcTensor(saved[0]);
+  auto reserved_space = bridge::GetLtcTensor(saved[1]);
+  auto grad = bridge::GetLtcTensor(grad_output[0]);
+  auto results = LazyTensor::dropout_backward(grad, mask, reserved_space);
+
+  auto grad_outputs = bridge::AtenFromLtcTensor(results);
+  torch::Tensor undef;
+  torch::autograd::variable_list grad_result = {grad_outputs, undef, undef};
+
+  return grad_result;
+}
+
 }  // namespace aten_autograd_ops
 }  // namespace torch_lazy_tensors
