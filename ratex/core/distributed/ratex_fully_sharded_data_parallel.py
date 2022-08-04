@@ -24,7 +24,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         # Shard parameters for use in optimizer
         self._shard_parameters()
         # Optimizer initialization
-        self.optimizer = optimizer(self.parameters(shards=True), **optimizer_config or {})
+        self.optimizer = optimizer(self.sharded_parameters(), **optimizer_config or {})
 
     def _shard_parameters(self):
         """
@@ -35,7 +35,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         for param in self.params:
             shard_data = self._get_shard(param.data)
             shard = nn.Parameter(shard_data, requires_grad=param.requires_grad)
-            self.sharded_params.append((param, shard))
+            self.sharded_params.append(shard)
 
     def _get_shard(self, tensor):
         """
@@ -48,16 +48,11 @@ class RatexFullyShardedDataParallel(nn.Module):
         tensor = tensor.chunk(self.world_size)[self.rank]
         return tensor
 
-    def parameters(self, shards=False):
+    def sharded_parameters(self):
         """
-        Generator for parameters
-        If shards is set to True, then the parameter shards of this rank are yielded instead
+        Generator for the sharded parameters
         """
-        if not shards:
-            yield from self.params
-        else:
-            for param, shard in self.sharded_params:
-                yield shard
+        yield from self.sharded_params
 
     def forward(self, *args, **kwargs):
         """
@@ -66,23 +61,14 @@ class RatexFullyShardedDataParallel(nn.Module):
         outputs = self.module(*args, **kwargs)
         return outputs
 
-    def zero_grad(self, *args, **kwargs):
-        """
-        Zero gradients of the parameters
-        """
-        # Todo: Optimizer's zero_grad may not be necessary since shard gradients are replaced
-        for param in self.params:
-            if param.grad is not None:
-                param.grad.zero_()
-        return self.optimizer.zero_grad(*args, **kwargs)
-
     def step(self, *args, **kwargs):
         """
         Step the optimizer and update parameter weights
         """
         # Reduce full gradients across ranks
         # Assign gradient shards to the respective parameter shards
-        for param, shard in self.sharded_params:
+        for param_index in range(len(self.params)):
+            param, shard = self.params[param_index], self.sharded_params[param_index]
             if param.grad is not None:
                 all_reduce(REDUCE_SUM, [param.grad], scale=1.0 / self.world_size)
                 shard.grad = self._get_shard(param.grad)
@@ -91,7 +77,8 @@ class RatexFullyShardedDataParallel(nn.Module):
         loss = self.optimizer.step(*args, **kwargs)
 
         # All gather the new weights across the ranks and assign them to the full parameters
-        for param, shard in self.sharded_params:
+        for param_index in range(len(self.params)):
+            param, shard = self.params[param_index], self.sharded_params[param_index]
             all_gather(shard.data, dim=0, output=param.data)
 
         return loss
