@@ -1067,6 +1067,10 @@ at::Tensor LazyNativeFunctions::dot(const at::Tensor& self, const at::Tensor& te
                                                       bridge::raf_backend::GetLtcTensor(tensor)));
 }
 
+at::Tensor LazyNativeFunctions::dropout(const at::Tensor& input, double p, bool train) {
+  return aten_autograd_ops::Dropout::apply(input, p, train);
+}
+
 at::Tensor LazyNativeFunctions::elu(const at::Tensor& self, const at::Scalar& alpha,
                                     const at::Scalar& scale, const at::Scalar& input_scale) {
   LTC_FN_COUNTER("raf::");

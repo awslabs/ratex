@@ -367,19 +367,21 @@ def run_step(device, model_origin, args, jit_script=True, with_backward=False):
     model = model.to(device, dtype=torch.float32)
     args = [arg.to(device) for arg in args]
     out = model(*args)
+
+    if with_backward:
+        loss = out.sum()
+        loss.backward()
+
+    lm.mark_step()
     if isinstance(out, tuple):
         out = [o.to("cpu") for o in out]
     else:
         out = out.to("cpu")
 
     if with_backward:
-        loss = out.sum()
-        loss.backward()
         grads = [a.grad.to("cpu") for a in args]
-        lm.mark_step()
         return (out, grads)
 
-    lm.mark_step()
     return out
 
 
