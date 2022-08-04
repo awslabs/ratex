@@ -440,6 +440,7 @@ at::Tensor LazyNativeFunctions::where(const at::Tensor& condition, const at::Ten
 at::Tensor LazyNativeFunctions::_softmax(const at::Tensor& self, int64_t dim,
                                          bool /* half_to_float */) {
   LTC_FN_COUNTER("raf::");
+  LTC_CHECK_EQ(dim, self.dim() - 1);
   return bridge::AtenFromLtcTensor(
       LazyTensor::softmax(bridge::raf_backend::GetLtcTensor(self), dim, c10::nullopt));
 }

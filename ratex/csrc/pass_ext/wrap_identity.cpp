@@ -34,18 +34,36 @@ namespace wrap_identity {
 using namespace raf::ir;
 using namespace raf::op;
 
+/*! \brief This pass processes the output tuple to make it RAF friendly.
+ * Given an output tuple %ret = (%x_0, %x1, ..., %x_n),
+ * 1. constants are copied. If %x_i is a constant node, it becomes
+ *     let %new_x_i = raf.op.copy(%x_i)
+ * 2. input parameters are copied. If %x_i is a input parameter %p_j, it becomes
+ *     let %new_x_i = raf.op.copy(%p_j)
+ * 3. duplicated fields are copied. If %xi is outputed twice, it becomes
+ *     let %new_x_i = raf.op.copy(%x_i)
+ *     let %ret = (%x0, %x1, ..., %xi, ..., %new_x_i, ...)
+ */
 class IdentityWrapper : ExprMutator {
  public:
   IdentityWrapper() {
   }
 
-  Expr VisitExpr_(const VarNode* node) {
+  Var Copy(const ExprNode* node) {
     const static Op copy = Op::Get("raf.op.copy");
+    return ll_->Push(MakeVar("copy" + std::to_string(cnt_++), {}),
+                     Call(copy, {GetRef<Expr>(node)}));
+  }
+
+  Expr VisitExpr_(const VarNode* node) {
     if (params_.find(GetRef<Var>(node)) != params_.end()) {
-      Var v1 = MakeVar("copy" + std::to_string(cnt_++), {});
-      return ll_->Push(v1, Call(copy, {GetRef<Var>(node)}));
+      return Copy(node);
     }
-    return ExprMutator::VisitExpr_(node);
+    return Downcast<Var>(ExprMutator::VisitExpr_(node));
+  }
+
+  Expr VisitExpr_(const RelayConstantNode* node) {
+    return Copy(node);
   }
 
   Expr operator()(const Expr& e) {
@@ -76,7 +94,30 @@ class IdentityWrapper : ExprMutator {
       for (size_t i = 0; i + 1 < n; ++i) {
         ll->Push(vars[i], exprs[i]);
       }
-      ll->Push(vars[n - 1], VisitExpr(exprs[n - 1]));
+      Expr ret = exprs[n - 1];
+      // ret can be of two nodes: TupleNode or CallNode
+      // For TupleNode, each of its fields cannot be constants or input parameters
+      if (ret.as<TupleNode>()) {
+        ret = VisitExpr(ret);
+      }
+      // Deduplicate
+      // We cannot use ExprMutator for deduplicate, because ExprMutator is cached
+      // The second time it sees a variable, the cache will be hit and thus gives
+      // the same result as the first use of this variable.
+      if (const auto* tup = ret.as<TupleNode>()) {
+        Array<Expr> arr;
+        for (const auto& i : tup->fields) {
+          auto var = Downcast<Var>(i);
+          if (outputs_.find(var) != outputs_.end()) {
+            arr.push_back(Copy(var.as<VarNode>()));
+          } else {
+            outputs_.insert(var);
+            arr.push_back(var);
+          }
+        }
+        ret = Tuple(arr);
+      }
+      ll->Push(vars[n - 1], ret);
       return ell->ret;
     });
     return Function(func->params, body, func->ret_type, func->type_params);
@@ -85,6 +126,7 @@ class IdentityWrapper : ExprMutator {
  private:
   LetList* ll_;
   std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> params_;
+  std::unordered_set<Var, ObjectPtrHash, ObjectPtrEqual> outputs_;
   int cnt_{0};
 };
 

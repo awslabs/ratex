@@ -209,6 +209,6 @@ for text of these licenses.
 Apache Software Foundation License 2.0
 --------------------------------------
 
-third_party/meta
+third_party/raf
 third_party/abseil-cpp
 
