@@ -13,6 +13,7 @@ from ratex.core.lazy_model import all_gather, all_reduce, REDUCE_SUM
 
 class RatexFullyShardedDataParallel(nn.Module):
     """FSDP ZeRO-1 wrapper"""
+
     def __init__(self, module, optimizer=optim.SGD, optimizer_config=None):
         super().__init__()
         comm = dist.get_communicator()
