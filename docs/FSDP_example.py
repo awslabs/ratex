@@ -37,6 +37,7 @@ class SingleLayerLogistics(nn.Module):
 
 
 def train(device, model, image_datasets, num_epochs=10):
+    torch.manual_seed(0)
     # Data Setup
     dataloaders = {
         x: torch.utils.data.DataLoader(
@@ -51,6 +52,7 @@ def train(device, model, image_datasets, num_epochs=10):
     optimizer_config = {"lr": 0.001, "momentum": 0.1}
 
     # Model Setup
+    model = ratex.jit.script(model)
     model = model.to(device, dtype=torch.float32)
 
     # Ratex FSDP Wrapper
@@ -58,7 +60,7 @@ def train(device, model, image_datasets, num_epochs=10):
 
     model.train()
     unscripted = model
-    model = ratex.jit.script(model)
+
 
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
@@ -90,6 +92,7 @@ def train(device, model, image_datasets, num_epochs=10):
 
 
 def main():
+    torch.manual_seed(0)
     model_mnm = SingleLayerLogistics()
     data_transforms = {
         "train": transforms.Compose(

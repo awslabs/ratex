@@ -50,6 +50,8 @@ def train(
         for x in ["train", "val"]
     }
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+
+    model = ratex.jit.script(model)
     model = model.to(device, dtype=dtype)
     if fsdp:
         model = RatexFullyShardedDataParallel(model, optimizer, optimizer_config)
@@ -58,7 +60,6 @@ def train(
     else:
         model.train()
         optimizer = optimizer(model.parameters(), **optimizer_config)
-    model = ratex.jit.script(model)
 
     for epoch in range(num_epochs):
         running_loss = 0.0
