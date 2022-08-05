@@ -197,6 +197,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP(Ne);
   DECLARE_OP(Eq);
   DECLARE_OP(Gt);
+  DECLARE_OP(Lt);
   DECLARE_OP(Ceil);
   DECLARE_OP(Abs);
   DECLARE_OP(Pow);
@@ -244,10 +245,14 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(ArgMax);
   DECLARE_OP2(Embedding);
   DECLARE_OP(Gelu);
+  DECLARE_OP(GeluBackward);
   DECLARE_OP2(Mean);
+  DECLARE_OP2(SoftmaxBackward);
+  DECLARE_OP2(Softmax);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
+  lazy_tensors::Shape InferLt(const ir::Node* node);
   lazy_tensors::Shape InferPow(const ir::Node* node);
   lazy_tensors::Shape InferMm(const ir::Node* node);
   lazy_tensors::Shape InferAddMatMul(const ir::Node* node);
@@ -319,6 +324,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP(Ne, at::aten::ne)
     HANDLE_GENERIC_OP(Eq, at::aten::eq)
     HANDLE_GENERIC_OP(Gt, at::aten::gt)
+    HANDLE_GENERIC_OP(Lt, at::aten::lt)
     HANDLE_GENERIC_OP(Pow, at::aten::pow)
     HANDLE_GENERIC_OP(Abs, at::aten::abs)
     HANDLE_GENERIC_OP(ReciprocalOp, at::aten::reciprocal)
@@ -349,7 +355,10 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(ArgMax, at::aten::argmax)
     HANDLE_GENERIC_OP2(Embedding, at::aten::embedding)
     HANDLE_GENERIC_OP(Gelu, at::aten::gelu)
+    HANDLE_GENERIC_OP(GeluBackward, at::aten::gelu_backward)
     HANDLE_GENERIC_OP2(Mean, at::aten::mean)
+    HANDLE_GENERIC_OP2(Softmax, at::aten::softmax)
+    HANDLE_GENERIC_OP2(SoftmaxBackward, at::aten::_softmax_backward_data)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -633,6 +642,13 @@ Var RAFNodeLowering::LowerGelu(const ir::Node* node) {
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.gelu"), {x}));
 }
 
+Var RAFNodeLowering::LowerGeluBackward(const ir::Node* node) {
+  LTC_CHECK_EQ(node->num_outputs(), 1);
+  Var grad = loctx()->GetOutputOp(node->operand(0));
+  Var input = loctx()->GetOutputOp(node->operand(1));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.gelu_dx"), {input, MakeNull(), grad}));
+}
+
 Var RAFNodeLowering::LowerWhere(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var cond = loctx()->GetOutputOp(node->operand(0));
@@ -645,6 +661,21 @@ Var RAFNodeLowering::LowerSqrt(const ir::Node* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
   Var x = loctx()->GetOutputOp(node->operand(0));
   return BindSymbol(raf::ir::Call(Op::Get("raf.op.sqrt"), {x}));
+}
+
+Var RAFNodeLowering::LowerSoftmax(const ir::ops::Softmax* node) {
+  LTC_CHECK_EQ(node->operands().size(), 1U);
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Expr dim = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.softmax"), {x, dim}));
+}
+
+Var RAFNodeLowering::LowerSoftmaxBackward(const ir::ops::SoftmaxBackward* node) {
+  LTC_CHECK_EQ(node->operands().size(), 2U);
+  Var grad = loctx()->GetOutputOp(node->operand(0));
+  Var output = loctx()->GetOutputOp(node->operand(1));
+  Expr dim = MakeConstant(Int(node->dim()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.softmax_dx"), {output, grad, dim}));
 }
 
 Var RAFNodeLowering::LowerIsnan(const ir::Node* node) {
@@ -1069,6 +1100,7 @@ DEFINE_UNARY_OP(ReciprocalOp, reciprocal);
 DEFINE_COMPARISON_OP(Ne, not_equal)
 DEFINE_COMPARISON_OP(Eq, equal)
 DEFINE_COMPARISON_OP(Gt, greater)
+DEFINE_COMPARISON_OP(Lt, less)
 
 #undef DEFINE_COMPARISON_OP
 #undef DEFINE_UNARY_OP
@@ -1460,6 +1492,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::mean: {
       return InferMean(ir::NodeCast<ir::ops::Mean>(node, ir::OpKind(at::aten::mean)));
     }
+    case at::aten::lt: {
+      return InferLt(node);
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1764,6 +1799,7 @@ lazy_tensors::Shape RAFNodeLowering::InferEmbedding(const ir::ops::Embedding* no
 DEFINE_INFER_COMPARISON_OP(Ne)
 DEFINE_INFER_COMPARISON_OP(Eq)
 DEFINE_INFER_COMPARISON_OP(Gt)
+DEFINE_INFER_COMPARISON_OP(Lt)
 
 #undef DEFINE_INFER_COMPARISON_OP
 

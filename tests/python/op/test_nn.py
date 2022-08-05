@@ -4,6 +4,7 @@
 import pytest
 import torch
 import torch.nn as nn
+from ratex.lazy_tensor_core.core import lazy_model as lm
 import numpy as np
 import ratex
 from ratex.testing import verify_step, check
@@ -82,8 +83,10 @@ def test_gelu():
             return self.gelu(x)
 
     shape = [5, 5]
-    x = torch.randn(*shape)
-    verify_step(Model(), [x], jit_script=False)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
+
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
@@ -99,6 +102,22 @@ def test_embedding(dtype, norm_type):
 
     x = torch.randint(10, (3, 3))
     verify_step(Model(), [x], jit_script=False)
+
+
+def test_softmax():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.softmax = nn.Softmax()
+
+        def forward(self, x_input):
+            return self.softmax(x_input)
+
+    shape = (3, 3)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
+
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32])
