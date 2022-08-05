@@ -133,6 +133,7 @@
 #include "lazy_tensor_core/csrc/ops/upsample_nearest2d_backward.h"
 #include "lazy_tensor_core/csrc/ops/var.h"
 #include "lazy_tensor_core/csrc/ops/view.h"
+#include "lazy_tensor_core/csrc/ops/matmul.h"
 #include "lazy_tensor_core/csrc/shape_builder.h"
 #include "lazy_tensor_core/csrc/tensor.h"
 #include "lazy_tensor_core/csrc/tensor_ops.h"
@@ -1427,7 +1428,12 @@ LazyTensor LazyTensor::masked_select(const LazyTensor& input, const LazyTensor& 
 }
 
 LazyTensor LazyTensor::matmul(const LazyTensor& input, const LazyTensor& other) {
-  return input.CreateFrom(ir::ops::MatMul(input.GetIrValue(), other.GetIrValue()));
+  std::vector<int64_t> a_shape =
+      lazy_tensors::util::ToVector<int64_t>(input.shape().get().dimensions());
+  std::vector<int64_t> b_shape =
+      lazy_tensors::util::ToVector<int64_t>(other.shape().get().dimensions());
+  return input.CreateFrom(
+      ir::MakeNode<ir::ops::MatMul>(input.GetIrValue(), other.GetIrValue(), a_shape, b_shape));
 }
 
 LazyTensor LazyTensor::max(const LazyTensor& input, const LazyTensor& other,
@@ -1527,7 +1533,7 @@ void LazyTensor::min_out(LazyTensor& min, LazyTensor& min_indices, const LazyTen
   min_indices.SetIrValue(ir::Value(node, 1));
 }
 LazyTensor LazyTensor::mm(const LazyTensor& input, const LazyTensor& weight) {
-  return input.CreateFrom(ir::ops::Dot(input.GetIrValue(), weight.GetIrValue()));
+  return matmul(input, weight);
 }
 
 LazyTensor LazyTensor::mse_loss(const LazyTensor& input, const LazyTensor& target,
@@ -1556,11 +1562,14 @@ LazyTensor LazyTensor::mul(const LazyTensor& input, const at::Scalar& other,
 }
 
 LazyTensor LazyTensor::mv(const LazyTensor& input, const LazyTensor& vec) {
-  return input.CreateFrom(ir::ops::Dot(input.GetIrValue(), vec.GetIrValue()));
+  return matmul(input, vec);
 }
 
 void LazyTensor::mv_out(LazyTensor& out, const LazyTensor& input, const LazyTensor& vec) {
-  out.SetIrValue(ir::ops::Dot(input.GetIrValue(), vec.GetIrValue()));
+  out.SetIrValue(ir::MakeNode<ir::ops::MatMul>(
+      input.GetIrValue(), vec.GetIrValue(),
+      lazy_tensors::util::ToVector<int64_t>(input.shape().get().dimensions()),
+      lazy_tensors::util::ToVector<int64_t>(vec.shape().get().dimensions())));
 }
 
 LazyTensor LazyTensor::narrow(const LazyTensor& input, int64_t dim, int64_t start, int64_t length) {

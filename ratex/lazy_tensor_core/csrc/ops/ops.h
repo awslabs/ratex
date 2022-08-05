@@ -156,8 +156,6 @@ NodePtr AddMatMulOp(const Value& input, const Value& weight, const Value& bias);
 
 NodePtr Dot(const Value& input, const Value& weight);
 
-NodePtr MatMul(const Value& lhs, const Value& rhs);
-
 NodePtr AdaptiveAvgPool2dBackward(const Value& grad_output, const Value& input);
 
 NodePtr AdaptiveAvgPool3dBackward(const Value& grad_output, const Value& input);

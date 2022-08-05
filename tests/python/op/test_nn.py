@@ -101,6 +101,21 @@ def test_embedding(dtype, norm_type):
     verify_step(Model(), [x], jit_script=False)
 
 
+@pytest.mark.parametrize("x_shape", [(3,), (3, 3), (3, 3, 3), (3, 3, 3, 3)])
+@pytest.mark.parametrize("y_shape", [(3,), (3, 3), (3, 3, 3), (3, 3, 3, 3)])
+def test_matmul(x_shape, y_shape):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, x_input, y_input):
+            return torch.matmul(x_input, y_input)
+
+    x = torch.randn(*x_shape, requires_grad=True)
+    y = torch.randn(*y_shape, requires_grad=True)
+    verify_step(Model(), [x, y], jit_script=False, with_backward=True)
+
+
 @pytest.mark.parametrize("dtype", [torch.float32])
 @pytest.mark.parametrize("p", [0.2, 0.6])
 def test_dropout(p, dtype):

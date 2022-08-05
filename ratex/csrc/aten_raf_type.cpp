@@ -1303,11 +1303,6 @@ at::Tensor LazyNativeFunctions::gelu_backward(const at::Tensor& grad, const at::
       bridge::raf_backend::GetLtcTensor(grad), bridge::raf_backend::GetLtcTensor(self)));
 }
 
-at::Tensor LazyNativeFunctions::ger(const at::Tensor& self, const at::Tensor& vec2) {
-  LTC_FN_COUNTER("raf::");
-  return bridge::AtenFromLtcTensor(LazyTensor::ger(bridge::raf_backend::GetLtcTensor(self),
-                                                   bridge::raf_backend::GetLtcTensor(vec2)));
-}
 
 at::Tensor LazyNativeFunctions::gt(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");
@@ -1745,7 +1740,6 @@ at::Tensor LazyNativeFunctions::max_unpool3d(const at::Tensor& self, const at::T
       lazy_tensors::util::ToVector<int64_t>(output_size)));
 }
 
-
 at::Tensor LazyNativeFunctions::mean(const at::Tensor& self, c10::optional<at::ScalarType> dtype) {
   LTC_FN_COUNTER("raf::");
   LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(self);
@@ -1798,9 +1792,8 @@ at::Tensor LazyNativeFunctions::mm(const at::Tensor& self, const at::Tensor& mat
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(mat2)) {
     return FALLBACK_ATEN_OP(mm, self, mat2);
   }
-  return bridge::AtenFromLtcTensor(
-      LazyTensor::mm(/*input=*/bridge::raf_backend::GetLtcTensor(self),
-                     /*weight=*/bridge::raf_backend::GetLtcTensor(mat2)));
+  return bridge::AtenFromLtcTensor(LazyTensor::matmul(bridge::raf_backend::GetLtcTensor(self),
+                                                      bridge::raf_backend::GetLtcTensor(mat2)));
 }
 
 at::Tensor LazyNativeFunctions::mse_loss(const at::Tensor& self, const at::Tensor& target,
@@ -1842,8 +1835,8 @@ at::Tensor LazyNativeFunctions::mv(const at::Tensor& self, const at::Tensor& vec
   if (!at::native::is_floating_point(self) || !at::native::is_floating_point(vec)) {
     return FALLBACK_ATEN_OP(mv, self, vec);
   }
-  return bridge::AtenFromLtcTensor(LazyTensor::mv(bridge::raf_backend::GetLtcTensor(self),
-                                                  bridge::raf_backend::GetLtcTensor(vec)));
+  return bridge::AtenFromLtcTensor(LazyTensor::matmul(bridge::raf_backend::GetLtcTensor(self),
+                                                      bridge::raf_backend::GetLtcTensor(vec)));
 }
 
 at::Tensor& LazyNativeFunctions::mv_out(const at::Tensor& self, const at::Tensor& vec,

@@ -120,6 +120,7 @@
 #include "lazy_tensor_core/csrc/ops/var.h"
 #include "lazy_tensor_core/csrc/ops/view.h"
 #include "lazy_tensor_core/csrc/ops/embedding.h"
+#include "lazy_tensor_core/csrc/ops/matmul.h"
 #include "lazy_tensor_core/csrc/tensor_util.h"
 #include "lazy_tensor_core/csrc/helpers.h"
 #include "lazy_tensors/shape_util.h"
@@ -245,6 +246,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(Embedding);
   DECLARE_OP(Gelu);
   DECLARE_OP2(Mean);
+  DECLARE_OP2(MatMul);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -277,6 +279,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node);
   lazy_tensors::Shape InferEmbedding(const ir::ops::Embedding* node);
   lazy_tensors::Shape InferMean(const ir::ops::Mean* node);
+  lazy_tensors::Shape InferMatMul(const ir::ops::MatMul* node);
 };
 
 #undef DECLARE_OP2
@@ -350,6 +353,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Embedding, at::aten::embedding)
     HANDLE_GENERIC_OP(Gelu, at::aten::gelu)
     HANDLE_GENERIC_OP2(Mean, at::aten::mean)
+    HANDLE_GENERIC_OP2(MatMul, at::aten::matmul)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -1036,6 +1040,42 @@ Var RAFNodeLowering::LowerMean(const ir::ops::Mean* node) {
   return BuildMean({x}, node);
 }
 
+Var BuildMatMul(const std::vector<Var>& ops, const ir::ops::MatMul* node) {
+  LTC_CHECK_EQ(node->operands().size(), 2) << "Unexpected number of operands";
+  Var x = ops[0];
+  Var y = ops[1];
+  Var mm;
+  int64_t a_size = node->a_shape().size();
+  int64_t b_size = node->b_shape().size();
+  bool need_squeeze = false;
+  if (a_size > 2 && b_size > 2) {
+    mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.batch_matmul"), {x, y}));
+  } else {
+    if (a_size == 1) {
+      x = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"), {x, MakeConstant(Int(0))}));
+      need_squeeze = true;
+    }
+
+    if (b_size == 1) {
+      y = BindSymbol(raf::ir::Call(Op::Get("raf.op.expand_dims"), {y, MakeConstant(Int(1))}));
+      need_squeeze = true;
+    }
+
+    mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.matmul"), {x, y}));
+
+    if (need_squeeze) {
+      mm = BindSymbol(raf::ir::Call(Op::Get("raf.op.squeeze"), {mm}));
+    }
+  }
+  return mm;
+}
+
+Var RAFNodeLowering::LowerMatMul(const ir::ops::MatMul* node) {
+  Var x = loctx()->GetOutputOp(node->operand(0));
+  Var y = loctx()->GetOutputOp(node->operand(1));
+  return BuildMatMul({x, y}, node);
+}
+
 #define DEFINE_COMPARISON_OP(name, op)                                    \
   Var Build##name(const std::vector<Var>& ops, const ir::Node* node) {    \
     LTC_CHECK_EQ(node->num_outputs(), 1);                                 \
@@ -1460,6 +1500,9 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::mean: {
       return InferMean(ir::NodeCast<ir::ops::Mean>(node, ir::OpKind(at::aten::mean)));
     }
+    case at::aten::matmul: {
+      return InferMatMul(ir::NodeCast<ir::ops::MatMul>(node, ir::OpKind(at::aten::matmul)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1728,6 +1771,16 @@ lazy_tensors::Shape RAFNodeLowering::InferMean(const ir::ops::Mean* node) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildMean(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferMatMul(const ir::ops::MatMul* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildMatMul(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }
