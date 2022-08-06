@@ -45,7 +45,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         Returns: None
         """
         for param in self.params:
-            shard_data = self._get_shard(param.data)
+            shard_data = self._shard_tensor(param.data)
             shard = nn.Parameter(shard_data, requires_grad=param.requires_grad)
             self.sharded_params.append(shard)
 
@@ -95,7 +95,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         for param, shard in zip(self.params, self.sharded_params):
             if param.grad is not None:
                 all_reduce(REDUCE_SUM, [param.grad], scale=1.0 / self.world_size)
-                shard.grad = self._get_shard(param.grad)
+                shard.grad = self._shard_tensor(param.grad)
 
         # Step the wrapped optimizer
         loss = self.optimizer.step(*args, **kwargs)
