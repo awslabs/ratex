@@ -37,7 +37,6 @@ class SingleLayerLogistics(nn.Module):
 
 
 def train(device, model, image_datasets, num_epochs=10):
-    torch.manual_seed(0)
     # Data Setup
     dataloaders = {
         x: torch.utils.data.DataLoader(
