@@ -49,7 +49,7 @@ class RatexFullyShardedDataParallel(nn.Module):
             shard = nn.Parameter(shard_data, requires_grad=param.requires_grad)
             self.sharded_params.append(shard)
 
-    def _get_shard(self, tensor: torch.Tensor):
+    def _shard_tensor(self, tensor: torch.Tensor):
         """
         Get the shard of the input tensor that is associated with this rank
         The input tensor is padded if the length is not divisible across the ranks
@@ -92,8 +92,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         """
         # Reduce full gradients across ranks
         # Assign gradient shards to the respective parameter shards
-        for param_index in range(len(self.params)):
-            param, shard = self.params[param_index], self.sharded_params[param_index]
+        for param, shard in zip(self.params, self.sharded_params):
             if param.grad is not None:
                 all_reduce(REDUCE_SUM, [param.grad], scale=1.0 / self.world_size)
                 shard.grad = self._get_shard(param.grad)
@@ -102,8 +101,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         loss = self.optimizer.step(*args, **kwargs)
 
         # All gather the new weights across the ranks and assign them to the full parameters
-        for param_index in range(len(self.params)):
-            param, shard = self.params[param_index], self.sharded_params[param_index]
+        for param, shard in zip(self.params, self.sharded_params):
             all_gather(shard.data, dim=0, output=param.data)
 
         return loss
