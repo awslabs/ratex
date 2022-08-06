@@ -61,7 +61,6 @@ def train(device, model, image_datasets, num_epochs=10):
     model.train()
     unscripted = model
 
-
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
