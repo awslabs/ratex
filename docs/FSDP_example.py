@@ -63,7 +63,7 @@ def train(device, model, image_datasets, num_epochs=10):
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
-        running_loss = 0.0
+        running_losses = []
         # Iterate over data.
         for inputs, labels in dataloaders["train"]:
 
@@ -83,9 +83,11 @@ def train(device, model, image_datasets, num_epochs=10):
             unscripted.step()
 
             lm.mark_step()
-            running_loss += loss.item() * inputs.size(0)
+            running_losses.append((loss, inputs.size(0)))
 
-        epoch_loss = running_loss / dataset_sizes["train"]
+        epoch_loss = (
+            sum([loss.item() * size for loss, size in running_losses]) / dataset_sizes["train"]
+        )
         print("{} Loss: {:.4f}".format("train", epoch_loss))
 
 
