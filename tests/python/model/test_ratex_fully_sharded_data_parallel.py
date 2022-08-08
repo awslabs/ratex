@@ -34,14 +34,14 @@ class SingleLayerLogistics(nn.Module):
 
 
 def train(
-        device,
-        model,
-        optimizer,
-        optimizer_config,
-        image_datasets,
-        fsdp=False,
-        num_epochs=10,
-        dtype=torch.float32,
+    device,
+    model,
+    optimizer,
+    optimizer_config,
+    image_datasets,
+    fsdp=False,
+    num_epochs=10,
+    dtype=torch.float32,
 ):
     dataloaders = {
         x: torch.utils.data.DataLoader(
@@ -61,8 +61,8 @@ def train(
         model.train()
         optimizer = optimizer(model.parameters(), **optimizer_config)
 
-    running_losses = []
     for epoch in range(num_epochs):
+        running_losses = []
         # Iterate over data.
         for inputs, labels in dataloaders["train"]:
             inputs = inputs.to(device)
@@ -77,8 +77,11 @@ def train(
             lm.mark_step()
             running_losses.append((loss, inputs.size(0)))
 
-        epoch_loss = sum([loss.item() * size for loss, size in running_losses]) / dataset_sizes["train"]
+        epoch_loss = (
+            sum([loss.item() * size for loss, size in running_losses]) / dataset_sizes["train"]
+        )
     return epoch_loss
+
 
 @pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason="ZeRO-1 requires multiple GPU's")
 @pytest.mark.parametrize(
