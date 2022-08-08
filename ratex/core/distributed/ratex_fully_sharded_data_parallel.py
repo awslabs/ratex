@@ -17,13 +17,18 @@ class RatexFullyShardedDataParallel(nn.Module):
     FSDP ZeRO-1 wrapper
     Args:
       module (nn.Module): The module to be wrapped and sharded
-      optimizer (torch.optim.Optimizer): The optimizer class to be used for initializing the optimizer
+      optimizer (torch.optim.Optimizer): The constructor to be used for initializing the optimizer
         Default: ratex.Optimizer.SGD
       optimizer_config (dict): Arguments to be passed into the optimizer constructor
         Default: None - Corresponds to an empty dictionary
     """
 
-    def __init__(self, module: nn.Module, optimizer: torch.optim.Optimizer = optim.SGD, optimizer_config: dict = None):
+    def __init__(
+        self,
+        module: nn.Module,
+        optimizer: torch.optim.Optimizer = optim.SGD,
+        optimizer_config: dict = None,
+    ):
         super().__init__()
         comm = dist.get_communicator()
         self.rank = comm.rank
