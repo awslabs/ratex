@@ -8,14 +8,14 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 
-from raf.testing import get_dist_comm_info
+from raf.testing import get_dist_comm_info, skip_dist_test
 from raf import distributed as dist
 
 import ratex
 import ratex.lazy_tensor_core.core.lazy_model as lm
 from ratex.core.distributed.ratex_fully_sharded_data_parallel import RatexFullyShardedDataParallel
 from ratex.optimizer import SGD, Adam
-
+from ratex.testing import check
 import numpy as np
 
 
@@ -34,14 +34,14 @@ class SingleLayerLogistics(nn.Module):
 
 
 def train(
-    device,
-    model,
-    optimizer,
-    optimizer_config,
-    image_datasets,
-    fsdp=False,
-    num_epochs=10,
-    dtype=torch.float32,
+        device,
+        model,
+        optimizer,
+        optimizer_config,
+        image_datasets,
+        fsdp=False,
+        num_epochs=10,
+        dtype=torch.float32,
 ):
     dataloaders = {
         x: torch.utils.data.DataLoader(
@@ -61,9 +61,8 @@ def train(
         model.train()
         optimizer = optimizer(model.parameters(), **optimizer_config)
 
+    running_losses = []
     for epoch in range(num_epochs):
-        running_loss = 0.0
-
         # Iterate over data.
         for inputs, labels in dataloaders["train"]:
             inputs = inputs.to(device)
@@ -76,12 +75,12 @@ def train(
             loss.backward()
             optimizer.step()
             lm.mark_step()
-            running_loss += loss.item() * inputs.size(0)
+            running_losses.append((loss, inputs.size(0)))
 
-        epoch_loss = running_loss / dataset_sizes["train"]
+        epoch_loss = sum([loss.item() * size for loss, size in running_losses]) / dataset_sizes["train"]
     return epoch_loss
 
-
+@pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason="ZeRO-1 requires multiple GPU's")
 @pytest.mark.parametrize(
     "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}, 1), (Adam, {"lr": 0.001}, 2)]
 )
@@ -120,7 +119,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, 
     model_mnm = SingleLayerLogistics()
     no_zero1_loss = train(device, model_mnm, optimizer[0], optimizer[1], image_datasets)
 
-    assert abs(no_zero1_loss - optimizer_zero1_loss) < tolerance
+    check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
 
     torch.manual_seed(seed)
     model_mnm = SingleLayerLogistics()
@@ -128,7 +127,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, 
         device, model_mnm, optimizer[0], optimizer[1], image_datasets, fsdp=True
     )
 
-    assert abs(fsdp_zero1_loss - optimizer_zero1_loss) < tolerance
+    check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
 
 
 if __name__ == "__main__":
