@@ -17,7 +17,6 @@ from ratex.core.lazy_model import all_gather
 from .optimizer import Optimizer
 
 
-
 class SGD(Optimizer):
     """distributed SGD optimizer."""
 

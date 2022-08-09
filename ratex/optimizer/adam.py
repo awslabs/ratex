@@ -156,8 +156,8 @@ class Adam(Optimizer):
                     state["step"] += 1
                     state_step = state["step"]
 
-                    bias_correction1 = 1 - beta1 ** state_step
-                    bias_correction2 = 1 - beta2 ** state_step
+                    bias_correction1 = 1 - beta1**state_step
+                    bias_correction2 = 1 - beta2**state_step
 
                     if group["weight_decay"] != 0:
                         grad = grad.add(param_with_grad_local, alpha=group["weight_decay"])
