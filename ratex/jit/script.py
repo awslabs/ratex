@@ -211,9 +211,9 @@ def convert_module_to_raf(module, shape_n_dtype, args):
         if para.dtype == torch.bfloat16:
             bf16_dtpye_detected = True
             break
-    # When any bfloat16 parameter is found, we covert the whole module to float.
-    # The assumption is that when one parameter (except the input which is always int)
-    # is bfloat16, then all the parameter is bfloat16
+    # When any bfloat16 parameter is found, we assume the dtype of this module is bfloat16.
+    # In this case, we first convert the module to float32 in order to convert it to a RAF module.
+    # Afterward, we apply a pass to make the RAF module bfloat16.
     if bf16_dtpye_detected:
         cloned_module.to("cpu")
         cloned_module.float()
@@ -222,20 +222,12 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     raf_params = model.state()
     # ensure raf_params are cachable
     raf_params_shape = {k: v.shape for k, v in raf_params.items()}
-    # if it is a bfloat16 model, we need to modify raf_params_dtype back to bfloat16.
-    if bf16_dtpye_detected:
-        raf_params_dtype = {
-            k: "bfloat16" if v.dtype == "float32" else v.dtype for k, v in raf_params.items()
-        }
-    else:
-        raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
-    if bf16_dtpye_detected and args[0].dtype == torch.bfloat16:
-        arg = args[0].float().clone()
-    else:
-        arg = args[0].clone()
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
+    arg = args[0].clone()
+    # if arg is bfloat16, we convert it to float32 for tracing
+    arg = arg.float() if bf16_dtpye_detected and arg.dtype == torch.bfloat16 else arg
     record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
 
@@ -263,6 +255,13 @@ def convert_module_to_raf(module, shape_n_dtype, args):
 
         # convert float32 constants to bfloat16 constants
         mod = ConvertBf16Constant()(mod)
+
+        # if it is a bfloat16 model, we need to modify raf_params_dtype back to bfloat16.
+        raf_params_dtype = {
+            k: "bfloat16" if v.dtype == "float32" else v.dtype for k, v in raf_params.items()
+        }
+    else:
+        raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
 
     mod = AutoDiff([])(InferType()(mod))
     mod = DeadCodeElimination()(mod)

@@ -83,14 +83,13 @@ class Bf16ConstantConverter : public ExprMutator {
   // helper function to determine whether an Expr is a constant float32 tensor
   bool is_constant_float32_tensor(Expr value) const {
     auto const_val = value.as<ConstantNode>();
-    if (const_val && const_val->IsTensor() &&
-        tvm::runtime::DLDataType2String(Downcast<TensorValue>(const_val->value)->tensor->dtype) ==
-            "float32") {
-      return true;
-    } else {
-      return false;
+    if (const_val && const_val->IsTensor()) {
+        auto dtype = tvm::runtime::DataType(Downcast<TensorValue>(const_val->value)->tensor->dtype);
+        return dtype.is_float() && dtype.bits() == 32;
     }
+    return false;
   }
+
 };
 
 }  // namespace convert_bf16_constant
