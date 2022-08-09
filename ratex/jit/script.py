@@ -26,7 +26,7 @@ logger = logging.getLogger("jit.script")
 _APIS = raf._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("raf.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRATEX = _APIS.get("raf.pass_.CanonicalizeParamsForRATEX", None)
-ConvertBf16Constant = _APIS.get("raf.pass_.ConvertBf16Constant", None)
+ConvertBfFp16Constant = _APIS.get("raf.pass_.ConvertBfFp16Constant", None)
 # pylint: enable=invalid-name
 
 TORCH_DTYPES = {
@@ -206,15 +206,20 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     """
     cloned_module = copy.deepcopy(module)
 
-    bf16_dtpye_detected = False
+    bf_fp_16_dtpye_detected = False
     for (name, para) in cloned_module.named_parameters():
         if para.dtype == torch.bfloat16:
-            bf16_dtpye_detected = True
+            bf_fp_16_dtpye_detected = True
+            bf_fp_16_dtype = "bfloat16"
             break
-    # When any bfloat16 parameter is found, we assume the dtype of this module is bfloat16.
+        if para.dtype == torch.float16:
+            bf_fp_16_dtpye_detected = True
+            bf_fp_16_dtype = "float16"
+            break
+    # When any bf16/fp16 parameter is found, we assume the dtype of this module is bf16/fp32.
     # In this case, we first convert the module to float32 in order to convert it to a RAF module.
-    # Afterward, we apply a pass to make the RAF module bfloat16.
-    if bf16_dtpye_detected:
+    # Afterward, we apply a pass to make the RAF module bf16/fp32.
+    if bf_fp_16_dtpye_detected:
         cloned_module.to("cpu")
         cloned_module.float()
 
@@ -226,35 +231,34 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
     arg = args[0].clone()
-    # if arg is bfloat16, we convert it to float32 for tracing
-    arg = arg.float() if bf16_dtpye_detected and arg.dtype == torch.bfloat16 else arg
+    # if arg is bf16/fp16, we convert it to float32 for tracing
+    arg = arg.float() if bf_fp_16_dtpye_detected and arg.dtype in (torch.bfloat16, torch.float16) else arg
     record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
 
     # if it is a bfloat16 model, we first convert all the float parameters back to bfloat16;
     # then resolve the float constants.
-    if bf16_dtpye_detected:
-        # fisrt create a new function with bfloat16 parameters
-        # collect the float16-to-bfloat32 mapping
+    if bf_fp_16_dtpye_detected:
+        # fisrt create a new function with bf16/fp16 parameters
+        # collect the float32-to-bf16/fp16 mapping
         params, param_map = [], {}
         for para in mod["main"].params:
             name, shape = para.name_hint, para.type_annotation.shape
             dtype = para.type_annotation.dtype
-            # The assumption is that when one parameter (except the input which is always int)
-            # is bfloat16, then all the parameter is bfloat16
+            # The assumption is that when one parameter is bf16/fp32, then all the parameter is bf16/fp16
             if dtype == "float32":
-                para_bf16 = raf._core.ir_ext.extended_var(name, shape=shape, dtype="bfloat16")
-                params.append(para_bf16)
-                param_map[para] = para_bf16
+                para_bf_fp_16 = raf._core.ir_ext.extended_var(name, shape=shape, dtype=bf_fp_16_dtype)
+                params.append(para_bf_fp_16)
+                param_map[para] = para_bf_fp_16
             else:
                 params.append(para)
-        # substitute the float32 parameters with bfloat16 parameters
-        body_bf16 = Substitute(mod["main"].body, param_map)
-        f_bf16 = tvm.relay.Function(params=params, body=body_bf16)
-        mod.update_func(mod.get_global_var("main"), f_bf16)
+        # substitute the float32 parameters with bf16/fp16 parameters
+        body_bf_fp_16 = Substitute(mod["main"].body, param_map)
+        f_bf_fp_16 = tvm.relay.Function(params=params, body=body_bf_fp_16)
+        mod.update_func(mod.get_global_var("main"), f_bf_fp_16)
 
         # convert float32 constants to bfloat16 constants
-        mod = ConvertBf16Constant()(mod)
+        mod = ConvertBfFp16Constant(bf_fp_16_dtype)(mod)
 
         # if it is a bfloat16 model, we need to modify raf_params_dtype back to bfloat16.
         raf_params_dtype = {

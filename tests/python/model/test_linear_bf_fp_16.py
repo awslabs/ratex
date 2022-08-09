@@ -3,7 +3,6 @@
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 
 from ratex._lib import raf
 from raf.ir import ScopeBuilder
@@ -18,9 +17,9 @@ from tvm import relay
 import pytest
 
 @pytest.mark.xfail(reason="raf does not compute bf16 correctly")
+@pytest.mark.parametrize("dtype", ["bfloat16", "float16"])
 @with_seed(0)
-def test_linear_bf16_from_raf():
-
+def test_linear_bf_fp_16_from_raf(dtype):
     def np_float2np_bf16(arr):
         """Convert a numpy array of float to a numpy array
         of bf16 in uint16"""
@@ -38,9 +37,9 @@ def test_linear_bf16_from_raf():
         matmul_op = raf._ffi.op.GetOp("raf.op.matmul_nt")
         add_op = raf._ffi.op.GetOp("raf.op.bias_add")
 
-        data_0 = raf.ir.var("input", shape=(1, 128), dtype="bfloat16")
-        data_1 = raf.ir.var("w", shape=(128, 128), dtype="bfloat16")
-        data_2 = raf.ir.var("b", shape=(128,), dtype="bfloat16")
+        data_0 = raf.ir.var("input", shape=(1, 128), dtype=dtype)
+        data_1 = raf.ir.var("w", shape=(128, 128), dtype=dtype)
+        data_2 = raf.ir.var("b", shape=(128,), dtype=dtype)
 
         sb = ScopeBuilder()
         a_2 = sb.let("a2", relay.Call(matmul_op, [data_0, data_1]))
@@ -63,24 +62,36 @@ def test_linear_bf16_from_raf():
     w = np.random.randn(128, 128).astype("float32")
     b = np.random.randn(128).astype("float32")
 
-    x_raf = raf.array(np_float2np_bf16(x), device="cpu")
-    w_raf = raf.array(np_float2np_bf16(w), device="cpu")
-    b_raf = raf.array(np_float2np_bf16(b), device="cpu")
-    out_raf = res_from_raf(x_raf, w_raf, b_raf)
-    out_raf = np_bf162np_float(numpy(out_raf))
+    if dtype == "bfloat16":
+        x_raf = raf.array(np_float2np_bf16(x), device="cpu")
+        w_raf = raf.array(np_float2np_bf16(w), device="cpu")
+        b_raf = raf.array(np_float2np_bf16(b), device="cpu")
+    else:
+        assert dtype == "float16", "unexpected dtype"
+        x_raf = raf.array(x.astype(np.float16), device="cpu")
+        w_raf = raf.array(w.astype(np.float16), device="cpu")
+        b_raf = raf.array(b.astype(np.float16), device="cpu")
 
-    x_pt = torch.from_numpy(x).to("cpu").type(torch.bfloat16)
-    w_pt = torch.from_numpy(w).to("cpu").type(torch.bfloat16)
-    b_pt = torch.from_numpy(b).to("cpu").type(torch.bfloat16)
+    out_raf = res_from_raf(x_raf, w_raf, b_raf)
+
+    if dtype == "bfloat16":
+        out_raf = np_bf162np_float(numpy(out_raf))
+
+    dtype_pt = torch.bfloat16 if dtype == "bfloat16" else torch.float16
+    x_pt = torch.from_numpy(x).to("cuda").type(dtype_pt)
+    w_pt = torch.from_numpy(w).to("cuda").type(dtype_pt)
+    b_pt = torch.from_numpy(b).to("cuda").type(dtype_pt)
     out_pt = res_from_py(x_pt, w_pt, b_pt)
     out_pt = numpy(out_pt.float())
 
-    check(out_raf, out_pt)
+    check(out_raf, out_pt, rtol=1e-3, atol=1e-3)
 
-@pytest.mark.xfail(reason="(1) raf does not compute bf16 correctly \
-                           (2) need to pull latest raf for bf16 tracing")
+# Currently, if pulling raf tracing update, bf16 may fail randomly but fp16 should pass.
+@pytest.mark.xfail(reason="(1) raf does not compute bf16/fp16 correctly \
+                           (2) need to pull latest raf for bf16/fp16 tracing")
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 @with_seed(0)
-def test_linear_bf16_from_pt():
+def test_linear_bf16_from_pt(dtype):
 
     class SingleLayerLogistics(torch.nn.Module):
         def __init__(self, input_shape=28, num_classes=10):
@@ -98,29 +109,29 @@ def test_linear_bf16_from_pt():
     num_classes = 10
     batch_size = 1
 
-    dataset = fake_image_dataset(batch_size, 1, 28, 10, dtype=torch.bfloat16)
-    model = SingleLayerLogistics(num_classes=num_classes).to(dtype=torch.bfloat16)
+    dataset = fake_image_dataset(batch_size, 1, 28, 10, dtype=dtype)
+    model = SingleLayerLogistics(num_classes=num_classes).to(dtype=dtype)
     lazy_results = train(
         "lazy",
         model,
         dataset,
-        dtype=torch.bfloat16,
+        dtype=dtype,
         optimizer=Adam,
         num_classes=num_classes,
         batch_size=batch_size,
     )
     print(lazy_results)
     cpu_results = train(
-        "cpu",
+        "cuda",
         model,
         dataset,
-        dtype=torch.bfloat16,
+        dtype=dtype,
         optimizer=Adam,
         num_classes=num_classes,
         batch_size=batch_size,
     )
     print(cpu_results)
-    verify(lazy_results, cpu_results)
+    verify(lazy_results, cpu_results, tol=1e-3)
 
 if __name__ == "__main__":
     pytest.main([__file__])
