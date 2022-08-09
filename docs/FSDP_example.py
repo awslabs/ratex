@@ -93,7 +93,7 @@ def train(device, model, image_datasets, num_epochs=10):
 
 def main():
     torch.manual_seed(0)
-    model_mnm = SingleLayerLogistics()
+    model = SingleLayerLogistics()
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -122,7 +122,7 @@ def main():
     total_rank, rank, local_rank = get_dist_comm_info()
 
     print("raf starts...")
-    train(lazy_device(rank), model_mnm, image_datasets)
+    train(lazy_device(rank), model, image_datasets)
 
 
 if __name__ == "__main__":

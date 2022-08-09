@@ -89,7 +89,7 @@ def train(
 )
 def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, seed=0):
     torch.manual_seed(seed)
-    model_mnm = SingleLayerLogistics()
+    model = SingleLayerLogistics()
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -115,19 +115,19 @@ def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, 
     dcfg.zero_opt_level = 1
     total_rank, rank, local_rank = get_dist_comm_info()
     device = lm.lazy_device(rank)
-    optimizer_zero1_loss = train(device, model_mnm, optimizer[0], optimizer[1], image_datasets)
+    optimizer_zero1_loss = train(device, model, optimizer[0], optimizer[1], image_datasets)
 
     torch.manual_seed(seed)
     dcfg.zero_opt_level = 0
-    model_mnm = SingleLayerLogistics()
-    no_zero1_loss = train(device, model_mnm, optimizer[0], optimizer[1], image_datasets)
+    model = SingleLayerLogistics()
+    no_zero1_loss = train(device, model, optimizer[0], optimizer[1], image_datasets)
 
     check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
 
     torch.manual_seed(seed)
-    model_mnm = SingleLayerLogistics()
+    model = SingleLayerLogistics()
     fsdp_zero1_loss = train(
-        device, model_mnm, optimizer[0], optimizer[1], image_datasets, fsdp=True
+        device, model, optimizer[0], optimizer[1], image_datasets, fsdp=True
     )
 
     check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
