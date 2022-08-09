@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """SGD optimizer"""
-# pylint: disable=too-many-locals, invalid-name, too-many-branches
+# pylint: disable=too-many-locals, invalid-name, too-many-branches, c-extension-no-member, protected-access
 import math
 from importlib import import_module
 
 import numpy as np
 import torch
 
+import _RATEXC
+
 from raf import distributed as dist
 from ratex.core.lazy_model import all_gather
 
 from .optimizer import Optimizer
+
 
 
 class SGD(Optimizer):
@@ -47,6 +50,7 @@ class SGD(Optimizer):
 
             for p in group["params"]:
                 if p.grad is not None:
+                    _RATEXC._raf_mark_parameter(p.grad)
                     state = self.state[p]
                     if group["momentum"] == 0:
                         p.add_(p.grad, alpha=-lr)
@@ -59,6 +63,7 @@ class SGD(Optimizer):
                             state["momentum_buffer"] = self._create_partitioned_buffer(p)
                         else:
                             state["momentum_buffer"] = torch.clone(p).detach().to(p.device)
+                        _RATEXC._raf_mark_parameter(state["momentum_buffer"])
 
                     momentum_buffer = state["momentum_buffer"]
                     if self._need_partition(p):

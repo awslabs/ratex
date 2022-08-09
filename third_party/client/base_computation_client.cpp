@@ -12,6 +12,7 @@
 #include "ratex/csrc/compiler/utils.h"
 #include "ratex/csrc/compiler/raf_lowering_context.h"
 #include "ratex/csrc/utils/file.h"
+#include "ratex/csrc/serialization/utils.h"
 
 #include "raf/serialization.h"
 
@@ -147,6 +148,11 @@ std::vector<ComputationClient::ComputationPtr> BaseComputationClient::Compile(
     if (!dump_alias_path.empty()) {
       DumpComputationAlias(ins, dump_alias_path);
     }
+    std::string dump_marked_params_path =
+        lazy_tensors::sys_util::GetEnvString("RATEX_DUMP_MARKED_PARAMS", "");
+    if (!dump_marked_params_path.empty()) {
+      DumpComputationMarkedParams(ins, dump_marked_params_path);
+    }
   }
   return results;
 }
@@ -156,17 +162,11 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
       static_cast<torch_lazy_tensors::compiler::raf_backend::GenericComputationRAF*>(
           instance.computation.get());
   auto func = Downcast<Function>(computation->computation());
-  Array<Integer> model_states;
-  Map<Integer, Integer> alias;
-  for (size_t i = 0; i < func->params.size(); ++i) {
-    Var var = func->params[i];
-    if (computation->model_states().find(var) != computation->model_states().end()) {
-      model_states.push_back(i);
-    }
-  }
-  for (const auto& kv : computation->alias()) {
-    alias.Set(kv.first, kv.second);
-  }
+  Array<Integer> marked_params = torch_lazy_tensors::serialization::ToTVMFromLTC<Array<Integer>>(
+      GetComputationMarkedParamsIdx(instance));
+  Map<Integer, Integer> alias =
+      torch_lazy_tensors::serialization::ToTVMFromLTC<Map<Integer, Integer>>(
+          GetComputationAlias(instance));
 
   IRModule ir_module = IRModule::FromExpr(computation->computation());
   // Canonicalize IR.
@@ -174,19 +174,55 @@ ObjectRef BaseComputationClient::CompileCacheKey(CompileInstance instance) {
   ir_module = raf::pass::InferType()(ir_module);
   String json(raf::ir::serialization::SaveJSON(ir_module));
 
-  return Array<ObjectRef>({json, model_states, alias});
+  return Array<ObjectRef>({json, marked_params, alias});
+}
+
+std::unordered_map<int, int> BaseComputationClient::GetComputationAlias(
+    const CompileInstance& instance) {
+  auto* computation =
+      static_cast<torch_lazy_tensors::compiler::raf_backend::GenericComputationRAF*>(
+          instance.computation.get());
+  std::unordered_map<int, int> alias;
+  for (const auto& kv : computation->alias()) {
+    alias[kv.first] = kv.second;
+  }
+  return alias;
 }
 
 void BaseComputationClient::DumpComputationAlias(const CompileInstance& instance,
                                                  std::string path) {
+  std::unordered_map<int, int> alias_map = GetComputationAlias(instance);
+  std::string alias = "";
+  for (auto it = alias_map.begin(); it != alias_map.end(); it++) {
+    alias.append(std::to_string(it->first) + " " + std::to_string(it->second) + "\n");
+  }
+  Save(path, alias);
+}
+
+std::vector<int> BaseComputationClient::GetComputationMarkedParamsIdx(
+    const CompileInstance& instance) {
   auto* computation =
       static_cast<torch_lazy_tensors::compiler::raf_backend::GenericComputationRAF*>(
           instance.computation.get());
-  std::string alias = "";
-  for (const auto& kv : computation->alias()) {
-    alias.append(std::to_string(kv.first) + " " + std::to_string(kv.second) + "\n");
+  auto func = Downcast<Function>(computation->computation());
+  std::vector<int> marked_params;
+  for (size_t i = 0; i < func->params.size(); ++i) {
+    Var var = func->params[i];
+    if (computation->marked_params().find(var) != computation->marked_params().end()) {
+      marked_params.push_back(i);
+    }
   }
-  Save(path, alias);
+  return marked_params;
+}
+
+void BaseComputationClient::DumpComputationMarkedParams(const CompileInstance& instance,
+                                                        std::string path) {
+  std::vector<int> marked_params_vec = GetComputationMarkedParamsIdx(instance);
+  std::string marked_params = "";
+  for (int id : marked_params_vec) {
+    marked_params.append(std::to_string(id) + " ");
+  }
+  Save(path, marked_params);
 }
 
 }  // namespace ratex

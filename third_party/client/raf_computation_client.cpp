@@ -261,7 +261,6 @@ ComputationClient::ComputationPtr RAFComputationClient::Compile(
   if (file_path != "") {
     Save(file_path, raf::serialization::SaveJSON(ir_module));
   }
-
   return ret;
 }
 

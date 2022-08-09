@@ -177,7 +177,13 @@ class BaseComputationClient : public lazy_tensors::ComputationClient {
  private:
   Options options_;
 
+  std::unordered_map<int, int> GetComputationAlias(const CompileInstance& instance);
+
   void DumpComputationAlias(const CompileInstance& instance, std::string path);
+
+  std::vector<int> GetComputationMarkedParamsIdx(const CompileInstance& instance);
+
+  void DumpComputationMarkedParams(const CompileInstance& instance, std::string path);
 };
 
 void PopulateLocalDevices(BaseComputationClient::Options* options);
