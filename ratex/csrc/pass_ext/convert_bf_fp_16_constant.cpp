@@ -29,7 +29,7 @@ class BfFp16ConstantConverter : public ExprMutator {
 
       if (this->is_constant_float32_tensor(value)) {
         // map float32 constant tenosr to a new bf16/fp16 constant tensor
-        this->memo_[let_node->var] = MakeVar(let_node->var->name_hint() + bf_fp_16_dtype_, {});
+        this->memo_[let_node->var] = MakeVar(let_node->var->name_hint() + "_" + bf_fp_16_dtype_, {});
       } else {
         this->Mutate(let_node->var);
       }
