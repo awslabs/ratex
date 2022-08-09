@@ -229,10 +229,14 @@ def convert_module_to_raf(module, shape_n_dtype, args):
         }
     else:
         raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
+    if bf16_dtpye_detected and args[0].dtype == torch.bfloat16:
+        arg = args[0].float().clone()
+    else:
+        arg = args[0].clone()
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
-    record = model._internal(raf.array(asnumpy(args[0].clone())))
+    record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
 
     # if it is a bfloat16 model, we first convert all the float parameters back to bfloat16;
