@@ -89,7 +89,7 @@ def test_linear_bf_fp_16_from_raf(dtype):
 
 
 # Currently, bf16 may fail randomly but fp16 should pass.
-@pytest.mark.xfail(reason="raf does not compute bf16/fp16 correctly")
+@pytest.mark.skip(reason="raf does not compute bf16/fp16 correctly")
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 @with_seed(0)
 def test_linear_bf16_from_pt(dtype):
