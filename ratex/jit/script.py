@@ -206,20 +206,18 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     """
     cloned_module = copy.deepcopy(module)
 
-    bf_fp_16_dtpye_detected = False
+    bf_fp_16_dtype = None
     for (name, para) in cloned_module.named_parameters():
         if para.dtype == torch.bfloat16:
-            bf_fp_16_dtpye_detected = True
             bf_fp_16_dtype = "bfloat16"
             break
         if para.dtype == torch.float16:
-            bf_fp_16_dtpye_detected = True
             bf_fp_16_dtype = "float16"
             break
     # When any bf16/fp16 parameter is found, we assume the dtype of this module is bf16/fp32.
     # In this case, we first convert the module to float32 in order to convert it to a RAF module.
     # Afterward, we apply a pass to make the RAF module bf16/fp32.
-    if bf_fp_16_dtpye_detected:
+    if bf_fp_16_dtype is not None:
         cloned_module.to("cpu")
         cloned_module.float()
 
@@ -232,14 +230,14 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     # because asnumpy() calls *.cpu()
     arg = args[0].clone()
     # if arg is bf16/fp16, we convert it to float32 for tracing
-    if bf_fp_16_dtpye_detected and arg.dtype in (torch.bfloat16, torch.float16):
+    if bf_fp_16_dtype is not None and arg.dtype in (torch.bfloat16, torch.float16):
         arg = arg.float()
     record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
 
     # if it is a bfloat16 model, we first convert all the float parameters back to bfloat16;
     # then resolve the float constants.
-    if bf_fp_16_dtpye_detected:
+    if bf_fp_16_dtype is not None:
         # fisrt create a new function with bf16/fp16 parameters
         # collect the float32-to-bf16/fp16 mapping
         params, param_map = [], {}
