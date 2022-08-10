@@ -16,6 +16,7 @@ from tvm import relay
 
 import pytest
 
+
 @pytest.mark.xfail(reason="raf does not compute bf16 correctly")
 @pytest.mark.parametrize("dtype", ["bfloat16", "float16"])
 @with_seed(0)
@@ -86,13 +87,15 @@ def test_linear_bf_fp_16_from_raf(dtype):
 
     check(out_raf, out_pt, rtol=1e-3, atol=1e-3)
 
+
 # Currently, if pulling raf tracing update, bf16 may fail randomly but fp16 should pass.
-@pytest.mark.xfail(reason="(1) raf does not compute bf16/fp16 correctly \
-                           (2) need to pull latest raf for bf16/fp16 tracing")
+@pytest.mark.xfail(
+    reason="(1) raf does not compute bf16/fp16 correctly \
+            (2) need to pull latest raf for bf16/fp16 tracing"
+)
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 @with_seed(0)
 def test_linear_bf16_from_pt(dtype):
-
     class SingleLayerLogistics(torch.nn.Module):
         def __init__(self, input_shape=28, num_classes=10):
             super(SingleLayerLogistics, self).__init__()
@@ -120,7 +123,6 @@ def test_linear_bf16_from_pt(dtype):
         num_classes=num_classes,
         batch_size=batch_size,
     )
-    print(lazy_results)
     cpu_results = train(
         "cuda",
         model,
@@ -130,8 +132,8 @@ def test_linear_bf16_from_pt(dtype):
         num_classes=num_classes,
         batch_size=batch_size,
     )
-    print(cpu_results)
     verify(lazy_results, cpu_results, tol=1e-3)
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -29,7 +29,8 @@ class BfFp16ConstantConverter : public ExprMutator {
 
       if (this->is_constant_float32_tensor(value)) {
         // map float32 constant tenosr to a new bf16/fp16 constant tensor
-        this->memo_[let_node->var] = MakeVar(let_node->var->name_hint() + "_" + bf_fp_16_dtype_, {});
+        this->memo_[let_node->var] =
+            MakeVar(let_node->var->name_hint() + "_" + bf_fp_16_dtype_, {});
       } else {
         this->Mutate(let_node->var);
       }
@@ -45,8 +46,9 @@ class BfFp16ConstantConverter : public ExprMutator {
       if (this->is_constant_float32_tensor(value)) {
         assert(!var.same_as(let_node->var));
         // cast the float32 constant tensor to the new bf16/fp16 constant tensor
-        auto cast_call = Call(Op::Get("raf.op.cast"),
-                              {let_node->var, MakeConstant(StringValue::make(bf_fp_16_dtype_))}, {});
+        auto cast_call =
+            Call(Op::Get("raf.op.cast"),
+                 {let_node->var, MakeConstant(StringValue::make(bf_fp_16_dtype_))}, {});
         this->memo_[expr] = Let(let_node->var, value, Let(var, cast_call, body));
       } else {
         if (var.same_as(let_node->var) && value.same_as(let_node->value) &&
@@ -72,8 +74,9 @@ class BfFp16ConstantConverter : public ExprMutator {
            call_node->args[1].as<ConstantNode>()->value.as<StringValueObj>());
     auto cast_dest_type = call_node->args[1].as<ConstantNode>()->value.as<StringValueObj>()->value;
     if (cast_dest_type == "float32") {
-      return Call(call_node->op, {call_node->args[0], MakeConstant(StringValue::make(bf_fp_16_dtype_))},
-                  {}, call_node->type_args);
+      return Call(call_node->op,
+                  {call_node->args[0], MakeConstant(StringValue::make(bf_fp_16_dtype_))}, {},
+                  call_node->type_args);
     } else {
       return res;
     }
@@ -87,12 +90,11 @@ class BfFp16ConstantConverter : public ExprMutator {
   bool is_constant_float32_tensor(Expr value) const {
     auto const_val = value.as<ConstantNode>();
     if (const_val && const_val->IsTensor()) {
-        auto dtype = tvm::runtime::DataType(Downcast<TensorValue>(const_val->value)->tensor->dtype);
-        return dtype.is_float() && dtype.bits() == 32;
+      auto dtype = tvm::runtime::DataType(Downcast<TensorValue>(const_val->value)->tensor->dtype);
+      return dtype.is_float() && dtype.bits() == 32;
     }
     return false;
   }
-
 };
 
 }  // namespace convert_bf_fp_16_constant
@@ -100,7 +102,8 @@ class BfFp16ConstantConverter : public ExprMutator {
 Pass ConvertBfFp16Constant(tvm::String bf_fp_16_dtype) {
   TypedPackedFunc<Function(Function, IRModule, PassContext)> pass_func = [=](Function f, IRModule m,
                                                                              PassContext pc) {
-    return Downcast<Function>(convert_bf_fp_16_constant::BfFp16ConstantConverter(bf_fp_16_dtype).Mutate(f));
+    return Downcast<Function>(
+        convert_bf_fp_16_constant::BfFp16ConstantConverter(bf_fp_16_dtype).Mutate(f));
   };
   return CreateRAFFunctionPass(pass_func, 1, "ConvertBfFp16Constant", {});
 }

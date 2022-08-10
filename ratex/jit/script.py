@@ -232,7 +232,8 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     # because asnumpy() calls *.cpu()
     arg = args[0].clone()
     # if arg is bf16/fp16, we convert it to float32 for tracing
-    arg = arg.float() if bf_fp_16_dtpye_detected and arg.dtype in (torch.bfloat16, torch.float16) else arg
+    if bf_fp_16_dtpye_detected and arg.dtype in (torch.bfloat16, torch.float16):
+        arg = arg.float()
     record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
 
@@ -245,9 +246,12 @@ def convert_module_to_raf(module, shape_n_dtype, args):
         for para in mod["main"].params:
             name, shape = para.name_hint, para.type_annotation.shape
             dtype = para.type_annotation.dtype
-            # The assumption is that when one parameter is bf16/fp32, then all the parameter is bf16/fp16
+            # The assumption is that when one parameter is bf16/fp32,
+            # then all the parameter is bf16/fp16
             if dtype == "float32":
-                para_bf_fp_16 = raf._core.ir_ext.extended_var(name, shape=shape, dtype=bf_fp_16_dtype)
+                para_bf_fp_16 = raf._core.ir_ext.extended_var(
+                    name, shape=shape, dtype=bf_fp_16_dtype
+                )
                 params.append(para_bf_fp_16)
                 param_map[para] = para_bf_fp_16
             else:
