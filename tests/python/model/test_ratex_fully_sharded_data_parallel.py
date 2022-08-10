@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, transforms
 
-from raf.testing import get_dist_comm_info, skip_dist_test
+from raf.testing import with_seed, get_dist_comm_info, skip_dist_test
 from raf import distributed as dist
 
 import ratex
@@ -36,13 +36,17 @@ class SingleLayerLogistics(nn.Module):
 def train(
     device,
     model,
+    model_config,
     optimizer,
     optimizer_config,
     image_datasets,
     fsdp=False,
     num_epochs=10,
     dtype=torch.float32,
+    seed=None,
 ):
+    if seed is not None:
+        torch.manual_seed(seed)
     dataloaders = {
         x: torch.utils.data.DataLoader(
             image_datasets[x], batch_size=1, shuffle=False, num_workers=1
@@ -51,6 +55,7 @@ def train(
     }
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
 
+    model = model(**model_config)
     model = ratex.jit.script(model)
     model = model.to(device, dtype=dtype)
     if fsdp:
@@ -87,9 +92,8 @@ def train(
 @pytest.mark.parametrize(
     "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}, 1), (Adam, {"lr": 0.001}, 2)]
 )
-def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, seed=0):
-    torch.manual_seed(seed)
-    model = SingleLayerLogistics()
+@pytest.mark.parametrize("model", [(SingleLayerLogistics, {}, 1)])
+def test_ratex_fully_sharded_data_parallelism_zero1(model, optimizer, tolerance=1e-10, seed=0):
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -115,19 +119,18 @@ def test_ratex_fully_sharded_data_parallelism_zero1(optimizer, tolerance=1e-10, 
     dcfg.zero_opt_level = 1
     total_rank, rank, local_rank = get_dist_comm_info()
     device = lm.lazy_device(rank)
-    optimizer_zero1_loss = train(device, model, optimizer[0], optimizer[1], image_datasets)
+    optimizer_zero1_loss = train(
+        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, seed=seed
+    )
 
-    torch.manual_seed(seed)
     dcfg.zero_opt_level = 0
-    model = SingleLayerLogistics()
-    no_zero1_loss = train(device, model, optimizer[0], optimizer[1], image_datasets)
+    no_zero1_loss = train(
+        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, seed=seed
+    )
 
     check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
-
-    torch.manual_seed(seed)
-    model = SingleLayerLogistics()
     fsdp_zero1_loss = train(
-        device, model, optimizer[0], optimizer[1], image_datasets, fsdp=True
+        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
     )
 
     check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
