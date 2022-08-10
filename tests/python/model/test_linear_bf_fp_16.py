@@ -17,7 +17,7 @@ from tvm import relay
 import pytest
 
 
-@pytest.mark.xfail(reason="raf does not compute bf16 correctly")
+@pytest.mark.xfail(reason="raf does not compute bf16/fp16 correctly")
 @pytest.mark.parametrize("dtype", ["bfloat16", "float16"])
 @with_seed(0)
 def test_linear_bf_fp_16_from_raf(dtype):
@@ -88,11 +88,8 @@ def test_linear_bf_fp_16_from_raf(dtype):
     check(out_raf, out_pt, rtol=1e-3, atol=1e-3)
 
 
-# Currently, if pulling raf tracing update, bf16 may fail randomly but fp16 should pass.
-@pytest.mark.xfail(
-    reason="(1) raf does not compute bf16/fp16 correctly \
-            (2) need to pull latest raf for bf16/fp16 tracing"
-)
+# Currently, bf16 may fail randomly but fp16 should pass.
+@pytest.mark.xfail(reason="raf does not compute bf16/fp16 correctly")
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
 @with_seed(0)
 def test_linear_bf16_from_pt(dtype):

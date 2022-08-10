@@ -220,6 +220,9 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     if bf_fp_16_dtype is not None:
         cloned_module.to("cpu")
         cloned_module.float()
+        # if the input dtype is bf16/fp16, we make up a float32 input for cpu tracing
+        if shape_n_dtype[1] == bf_fp_16_dtype:
+            shape_n_dtype = (shape_n_dtype[0], "float32")
 
     model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
     raf_params = model.state()
