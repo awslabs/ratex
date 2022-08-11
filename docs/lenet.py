@@ -45,7 +45,9 @@ class TorchLeNet(nn.Module):
 
 
 def train(device, model, image_datasets):
-    dataloaders = torch.utils.data.DataLoader(image_datasets, batch_size=1, shuffle=False, num_workers=1)
+    dataloaders = torch.utils.data.DataLoader(
+        image_datasets, batch_size=1, shuffle=False, num_workers=1
+    )
     dataset_size = len(image_datasets)
     model.train()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
@@ -90,7 +92,9 @@ def train(device, model, image_datasets):
 
 
 def infer(device, model, image_datasets):
-    dataloader = torch.utils.data.DataLoader(image_datasets, batch_size=1, shuffle=False, num_workers=1)
+    dataloader = torch.utils.data.DataLoader(
+        image_datasets, batch_size=1, shuffle=False, num_workers=1
+    )
     dataset_size = len(image_datasets)
     model.eval()
     model = model.to(device)
@@ -145,5 +149,4 @@ def main():
 
 
 if __name__ == "__main__":
-     main()
-
+    main()
