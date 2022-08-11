@@ -17,7 +17,7 @@ import _RATEXC
 
 from .._lib import raf
 from ..value import ValueToHandle
-from ..utils.utils import ltc_timed
+from ..utils.utils import ltc_timed, to_raf_name, to_torch_name
 from ..utils.cache import cache as persist_cache
 
 # pylint: disable=invalid-name
@@ -35,20 +35,6 @@ TORCH_DTYPES = {
     "float32": torch.float32,
     "float64": torch.float64,
 }
-
-
-def to_torch_name(name):
-    """Transform the parameter naming style to PyTorch."""
-    if name.startswith("model_"):
-        assert name.startswith("model_")
-        name = name[len("model_") :]
-        name = name.replace("_", ".")
-    return name
-
-
-def to_raf_name(name):
-    """Transform the parameter naming style to RAF."""
-    return "model_" + name.replace(".", "_")
 
 
 def get_positional_args(param_names, *args, **kwargs):
@@ -285,33 +271,6 @@ def convert_module_to_raf(module, shape_n_dtype, args):
 # Module based cache that maps the input shape/dtype to a tuple of
 # (processed Relay function, function parameter names, inplace update map).
 JIT_CACHE = {}
-
-
-def getattr_recursive(obj, attr_str):
-    """Recursively get an attribute from an object.
-
-    Parameters
-    ----------
-    obj : Object
-        The object to get attribute from.
-
-    attr_str : str
-        The attribute string, e.g. "conv1.weight".
-
-    Returns
-    -------
-    obj : Object
-        The attribute object.
-    """
-    attrs = attr_str.split(".")
-    for attr in attrs:
-        try:
-            obj = getattr(obj, attr)
-        except AttributeError:
-            raise AttributeError(
-                "Attribute {} not found in object of type {}".format(attr, type(obj))
-            ) from None
-    return obj
 
 
 def script(module: torch.nn.Module):

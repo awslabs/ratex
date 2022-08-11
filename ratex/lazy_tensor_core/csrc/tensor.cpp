@@ -18,8 +18,6 @@
 #include <stdexcept>
 #include <unordered_set>
 
-#include <raf/registry.h>
-
 #include "absl/memory/memory.h"
 #include "absl/strings/str_join.h"
 #include "lazy_tensor_core/csrc/debug_util.h"
@@ -1510,7 +1508,6 @@ LazyTensor::CompilationResult LazyTensor::Compile(const std::vector<LazyTensor>&
 std::shared_ptr<LazyTensor::Async> LazyTensor::SyncTensorsGraphInternal(
     std::vector<LazyTensor>* tensors, lazy_tensors::Span<const std::string> devices,
     const SyncTensorsConfig& config) {
-  LTC_COUNTER("SyncTensorsGraphInternal", 1);
   SyncTensorCollection coll = CollectSyncTensors(*tensors, config);
   if (coll.indices.empty()) {
     return nullptr;
