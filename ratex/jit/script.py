@@ -326,29 +326,41 @@ def script(module: torch.nn.Module):
     func: Callable
         A function to run on RAF.
     """
+    cloned_module = copy.deepcopy(module)
+    cloned_module = cloned_module.cpu()
 
     class ScriptModule(torch.nn.Module):
-        """A wrapper of module to run on RAF."""
+        """The script module to leverage RAF for compilation and execution.
+        Note that all parameters in the original PyTorch module will be flatten in this module,
+        as RAF does not need the hierarchical structure of parameters. For example, the original
+        model.conv1.weight will become model_conv1_weight. This is intentional because we cannot
+        keep the original module as the sub-module of this one for unknown reasons, which result
+        in parameters not being updated during training.
 
-        def __init__(self, module):
+        Accordingly, we now use a workaround by introducing an API "native_cpu" that copies
+        the trained parameter values to the vanilla PyTorch module on CPU.
+        """
+
+        def __init__(self):
             super().__init__()
-            self.native_module = module
-            self._param_raf_names = {}
-            for key, _ in module.named_parameters():
-                self._param_raf_names[to_raf_name(key)] = "native_module." + key
-            for key, _ in module.named_buffers():
-                raf_name = to_raf_name(key)
-                assert raf_name not in self._param_raf_names, f"duplicate raf_name: {raf_name}"
-                self._param_raf_names[raf_name] = "native_module." + key
+            self._param_names = []
+            for key, value in cloned_module.named_parameters():
+                name = to_raf_name(key)
+                self._param_names.append(name)
+                self.register_parameter(name, value)
+            for key, value in cloned_module.named_buffers():
+                name = to_raf_name(key)
+                self._param_names.append(name)
+                self.register_buffer(name, value)
 
         @ltc_timed("RAFTrace")
-        def _lazy_forward(self, *args, **kwargs):
+        def forward(self, *args, **kwargs):
             """forward computation"""
             # TODO: use torch.jit.script
             assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
             assert not kwargs, "Do not support kwargs yet"
             shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
-            cache_key = (hash_torch_module(self.native_module), str(shape_n_dtype))
+            cache_key = (hash_torch_module(cloned_module), str(shape_n_dtype))
             if cache_key in JIT_CACHE:
                 # Cache hit.
                 func, param_names, inplace_update_map = JIT_CACHE[cache_key]
@@ -360,13 +372,13 @@ def script(module: torch.nn.Module):
                     inplace_update_map,
                     raf_params_shape,
                     raf_params_dtype,
-                ) = convert_module_to_raf(self.native_module, shape_n_dtype, args)
+                ) = convert_module_to_raf(cloned_module, shape_n_dtype, args)
                 # Convert missing args
                 for name in param_names:
                     if name == "input0":
                         continue
-                    if name not in self._param_raf_names.keys():
-                        self._param_raf_names[name] = name
+                    if name not in self._param_names:
+                        self._param_names.append(name)
                         self.register_buffer(
                             name,
                             torch.zeros(
@@ -380,14 +392,19 @@ def script(module: torch.nn.Module):
                         )
                 # Updated cached function, param_names, and inplace update map
                 JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
-            lazy_params = {k: getattr_recursive(self, v) for k, v in self._param_raf_names.items()}
+            lazy_params = {k: getattr(self, k) for k in self._param_names}
             positional_args = get_positional_args(param_names, *args, **lazy_params)
             return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
-        def forward(self, *args, **kwargs):
-            """Entry point of the forward function."""
-            if args[0].device.type == "lazy":
-                return self._lazy_forward(*args, **kwargs)
-            return self.native_module(*args, **kwargs)
+        def native_cpu(self):
+            """Copy the current parameters to the native module on CPU for inference."""
+            cloned_module_state_dict = cloned_module.state_dict()
+            for raf_name in self._param_names:
+                torch_name = to_torch_name(raf_name)
+                if torch_name not in cloned_module_state_dict:
+                    continue
+                cloned_module_state_dict[torch_name] = getattr(self, raf_name).cpu()
+            cloned_module.load_state_dict(cloned_module_state_dict)
+            return cloned_module
 
-    return ScriptModule(module)
+    return ScriptModule()

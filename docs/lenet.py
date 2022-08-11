@@ -57,9 +57,6 @@ def train(device, model, image_datasets):
     model = model.to(device, dtype=torch.float32)
     optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-    import pdb
-    pdb.set_trace()
-
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
@@ -137,14 +134,14 @@ def main():
     }
     print("raf starts...")
     model_raf = train("lazy", model_raf, image_datasets["train"])
-    #print("cpu starts...")
-    #train("cpu", model_cpu, image_datasets["train"])
+    print("cpu starts...")
+    train("cpu", model_cpu, image_datasets["train"])
 
-    #print("raf starts...")
-    infer("cpu", model_raf, image_datasets["test"])
+    print("raf starts...")
+    infer("cpu", model_raf.native_cpu(), image_datasets["test"])
 
     # statistics
-    #print(metrics.metrics_report())
+    print(metrics.metrics_report())
 
 
 if __name__ == "__main__":
