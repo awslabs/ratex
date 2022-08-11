@@ -287,6 +287,33 @@ def convert_module_to_raf(module, shape_n_dtype, args):
 JIT_CACHE = {}
 
 
+def getattr_recursive(obj, attr_str):
+    """Recursively get an attribute from an object.
+
+    Parameters
+    ----------
+    obj : Object
+        The object to get attribute from.
+
+    attr_str : str
+        The attribute string, e.g. "conv1.weight".
+
+    Returns
+    -------
+    obj : Object
+        The attribute object.
+    """
+    attrs = attr_str.split(".")
+    for attr in attrs:
+        try:
+            obj = getattr(obj, attr)
+        except AttributeError:
+            raise AttributeError(
+                "Attribute {} not found in object of type {}".format(attr, type(obj))
+            ) from None
+    return obj
+
+
 def script(module: torch.nn.Module):
     """wraps a torch.nn.Module to support control flow
 
@@ -299,32 +326,29 @@ def script(module: torch.nn.Module):
     func: Callable
         A function to run on RAF.
     """
-    cloned_module = copy.deepcopy(module)
-    cloned_module = cloned_module.cpu()
 
     class ScriptModule(torch.nn.Module):
         """A wrapper of module to run on RAF."""
 
         def __init__(self, module):
             super().__init__()
-            self._param_names = []
-            for key, value in module.named_parameters():
-                name = to_raf_name(key)
-                self._param_names.append(name)
-                self.register_parameter(name, value)
-            for key, value in module.named_buffers():
-                name = to_raf_name(key)
-                self._param_names.append(name)
-                self.register_buffer(name, value)
+            self.native_module = module
+            self._param_raf_names = {}
+            for key, _ in module.named_parameters():
+                self._param_raf_names[to_raf_name(key)] = "native_module." + key
+            for key, _ in module.named_buffers():
+                raf_name = to_raf_name(key)
+                assert raf_name not in self._param_raf_names, f"duplicate raf_name: {raf_name}"
+                self._param_raf_names[raf_name] = "native_module." + key
 
         @ltc_timed("RAFTrace")
-        def forward(self, *args, **kwargs):
+        def _lazy_forward(self, *args, **kwargs):
             """forward computation"""
             # TODO: use torch.jit.script
             assert len(args) == 1, f"Only support single input for now, but got {len(args)}"
             assert not kwargs, "Do not support kwargs yet"
             shape_n_dtype = (list(args[0].shape), str(args[0].dtype).rsplit(".", maxsplit=1)[-1])
-            cache_key = (hash_torch_module(cloned_module), str(shape_n_dtype))
+            cache_key = (hash_torch_module(self.native_module), str(shape_n_dtype))
             if cache_key in JIT_CACHE:
                 # Cache hit.
                 func, param_names, inplace_update_map = JIT_CACHE[cache_key]
@@ -336,13 +360,13 @@ def script(module: torch.nn.Module):
                     inplace_update_map,
                     raf_params_shape,
                     raf_params_dtype,
-                ) = convert_module_to_raf(cloned_module, shape_n_dtype, args)
+                ) = convert_module_to_raf(self.native_module, shape_n_dtype, args)
                 # Convert missing args
                 for name in param_names:
                     if name == "input0":
                         continue
-                    if name not in self._param_names:
-                        self._param_names.append(name)
+                    if name not in self._param_raf_names.keys():
+                        self._param_raf_names[name] = name
                         self.register_buffer(
                             name,
                             torch.zeros(
@@ -351,12 +375,19 @@ def script(module: torch.nn.Module):
                             ).to(device=args[0].device),
                         )
                         logger.warning(
-                            "%s parameter has been converted from raf.array to torch.Tensor.", name
+                            "%s parameter has been converted from raf.array to torch.Tensor.",
+                            name,
                         )
                 # Updated cached function, param_names, and inplace update map
                 JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
-            lazy_params = {k: getattr(self, k) for k in self._param_names}
+            lazy_params = {k: getattr_recursive(self, v) for k, v in self._param_raf_names.items()}
             positional_args = get_positional_args(param_names, *args, **lazy_params)
             return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
-    return ScriptModule(cloned_module)
+        def forward(self, *args, **kwargs):
+            """Entry point of the forward function."""
+            if args[0].device.type == "lazy":
+                return self._lazy_forward(*args, **kwargs)
+            return self.native_module(*args, **kwargs)
+
+    return ScriptModule(module)

@@ -45,21 +45,21 @@ class TorchLeNet(nn.Module):
 
 
 def train(device, model, image_datasets):
-    dataloaders = {
-        x: torch.utils.data.DataLoader(
-            image_datasets[x], batch_size=1, shuffle=False, num_workers=1
-        )
-        for x in ["train", "val"]
-    }
-    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+    dataloaders = torch.utils.data.DataLoader(image_datasets, batch_size=1, shuffle=False, num_workers=1)
+    dataset_size = len(image_datasets)
     model.train()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
     num_epochs = 10
     best_acc = 0.0
+
     if device == "lazy":
         model = ratex.jit.script(model)
     model = model.to(device, dtype=torch.float32)
     optimizer = optim.SGD(model.parameters(), lr=0.001)
+
+    import pdb
+    pdb.set_trace()
+
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
@@ -67,7 +67,7 @@ def train(device, model, image_datasets):
         running_corrects = 0
 
         # Iterate over data.
-        for inputs, labels in dataloaders["train"]:
+        for inputs, labels in dataloaders:
             inputs = inputs.to(device)
             inputs.requires_grad = True
             labels_one_hot = torch.tensor(np.eye(10, dtype=np.float32)[labels])
@@ -86,48 +86,35 @@ def train(device, model, image_datasets):
             running_loss += loss.item() * inputs.size(0)
             # running_corrects += torch.sum(preds == labels.data)
 
-        epoch_loss = running_loss / dataset_sizes["train"]
+        epoch_loss = running_loss / dataset_size
         epoch_acc = 0
         print("{} Loss: {:.4f}".format("train", epoch_loss))
+    return model
 
 
 def infer(device, model, image_datasets):
-    dataloaders = {
-        x: torch.utils.data.DataLoader(
-            image_datasets[x], batch_size=1, shuffle=False, num_workers=1
-        )
-        for x in ["train", "val"]
-    }
-    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+    dataloader = torch.utils.data.DataLoader(image_datasets, batch_size=1, shuffle=False, num_workers=1)
+    dataset_size = len(image_datasets)
     model.eval()
-    criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
-    best_acc = 0.0
-
-    if device == "lazy":
-        model = ratex.jit.script(model)
     model = model.to(device)
-    running_loss = 0.0
+
     running_corrects = 0
+
     # Iterate over data.
-    for inputs, labels in dataloaders["val"]:
+    for inputs, labels in dataloader:
         inputs = inputs.to(device)
         labels = labels.to(device)
-        outputs = model(inputs)
-        # _, preds = torch.max(outputs, 1)
-        loss = criterion(outputs, labels)
-        # statistics
-        running_loss += loss.item() * inputs.size(0)
-        # running_corrects += torch.sum(preds == labels.data)
+        with torch.no_grad():
+            preds = model(inputs)
+        running_corrects += torch.sum(preds == labels.data)
 
-    epoch_loss = running_loss / dataset_sizes["val"]
-    # epoch_acc = running_corrects.double() / dataset_sizes["train"]
-    epoch_acc = 0
-    print("{} Loss: {:.4f} Acc: {:.4f}".format("val", epoch_loss, epoch_acc))
+    acc = running_corrects.double() / dataset_size
+    print("{} Acc: {:.4f}".format("test", acc))
 
 
 def main():
-    model_mnm = TorchLeNet()
-    model_cpu = copy.deepcopy(model_mnm)
+    model_raf = TorchLeNet()
+    model_cpu = copy.deepcopy(model_raf)
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -135,7 +122,7 @@ def main():
                 transforms.ToTensor(),
             ]
         ),
-        "val": transforms.Compose(
+        "test": transforms.Compose(
             [
                 transforms.CenterCrop(28),
                 transforms.ToTensor(),
@@ -146,21 +133,20 @@ def main():
         x: datasets.FakeData(
             size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
         )
-        for x in ["train", "val"]
+        for x in ["train", "test"]
     }
     print("raf starts...")
-    train("lazy", model_mnm, image_datasets)
-    print("cpu starts...")
-    train("cpu", model_cpu, image_datasets)
+    model_raf = train("lazy", model_raf, image_datasets["train"])
+    #print("cpu starts...")
+    #train("cpu", model_cpu, image_datasets["train"])
 
-    # print("raf starts...")
-    # infer("raf", model_mnm, image_datasets)
-    # print("cpu starts...")
-    # infer("cpu", model_cpu, image_datasets)
+    #print("raf starts...")
+    infer("cpu", model_raf, image_datasets["test"])
 
     # statistics
-    print(metrics.metrics_report())
+    #print(metrics.metrics_report())
 
 
 if __name__ == "__main__":
-    main()
+     main()
+
