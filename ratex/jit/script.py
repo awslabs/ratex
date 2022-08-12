@@ -17,7 +17,7 @@ import _RATEXC
 
 from .._lib import raf
 from ..value import ValueToHandle
-from ..utils.utils import ltc_timed
+from ..utils.utils import ltc_timed, to_raf_name, to_torch_name
 from ..utils.cache import cache as persist_cache
 
 # pylint: disable=invalid-name
@@ -35,20 +35,6 @@ TORCH_DTYPES = {
     "float32": torch.float32,
     "float64": torch.float64,
 }
-
-
-def to_torch_name(name):
-    """Transform the parameter naming style to PyTorch."""
-    if name.startswith("model_"):
-        assert name.startswith("model_")
-        name = name[len("model_") :]
-        name = name.replace("_", ".")
-    return name
-
-
-def to_raf_name(name):
-    """Transform the parameter naming style to RAF."""
-    return "model_" + name.replace(".", "_")
 
 
 def get_positional_args(param_names, *args, **kwargs):
@@ -303,16 +289,25 @@ def script(module: torch.nn.Module):
     cloned_module = cloned_module.cpu()
 
     class ScriptModule(torch.nn.Module):
-        """A wrapper of module to run on RAF."""
+        """The script module to leverage RAF for compilation and execution.
+        Note that all parameters in the original PyTorch module will be flatten in this module,
+        as RAF does not need the hierarchical structure of parameters. For example, the original
+        model.conv1.weight will become model_conv1_weight. This is intentional because we cannot
+        keep the original module as the sub-module of this one for unknown reasons, which result
+        in parameters not being updated during training.
 
-        def __init__(self, module):
+        Accordingly, we now use a workaround by introducing an API "native_cpu" that copies
+        the trained parameter values to the vanilla PyTorch module on CPU.
+        """
+
+        def __init__(self):
             super().__init__()
             self._param_names = []
-            for key, value in module.named_parameters():
+            for key, value in cloned_module.named_parameters():
                 name = to_raf_name(key)
                 self._param_names.append(name)
                 self.register_parameter(name, value)
-            for key, value in module.named_buffers():
+            for key, value in cloned_module.named_buffers():
                 name = to_raf_name(key)
                 self._param_names.append(name)
                 self.register_buffer(name, value)
@@ -351,7 +346,8 @@ def script(module: torch.nn.Module):
                             ).to(device=args[0].device),
                         )
                         logger.warning(
-                            "%s parameter has been converted from raf.array to torch.Tensor.", name
+                            "%s parameter has been converted from raf.array to torch.Tensor.",
+                            name,
                         )
                 # Updated cached function, param_names, and inplace update map
                 JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
@@ -359,4 +355,15 @@ def script(module: torch.nn.Module):
             positional_args = get_positional_args(param_names, *args, **lazy_params)
             return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
-    return ScriptModule(cloned_module)
+        def native_cpu(self):
+            """Copy the current parameters to the native module on CPU for inference."""
+            cloned_module_state_dict = cloned_module.state_dict()
+            for raf_name in self._param_names:
+                torch_name = to_torch_name(raf_name)
+                if torch_name not in cloned_module_state_dict:
+                    continue
+                cloned_module_state_dict[torch_name] = getattr(self, raf_name).cpu()
+            cloned_module.load_state_dict(cloned_module_state_dict)
+            return cloned_module
+
+    return ScriptModule()

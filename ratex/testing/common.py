@@ -277,6 +277,7 @@ def train(
     set_to_none=True,
     acc_grad_steps=None,
     force_one_hot=True,
+    return_model=False,
 ):
     """Run training."""
     if optimizer_params is None:
@@ -331,7 +332,7 @@ def train(
         end = time.time()
         logger.debug("Epoch %2d, Loss %.4f, Time %.4f", epoch, epoch_loss, (end - start))
         results.append(epoch_loss)
-    return results
+    return results if not return_model else (results, model)
 
 
 def verify(lazy_results, cpu_results, tol=1e-5):
