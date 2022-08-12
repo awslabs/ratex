@@ -84,6 +84,8 @@
 #include "lazy_tensor_core/csrc/ops/mse_loss_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_forward.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm_backward.h
 #include "lazy_tensor_core/csrc/ops/nll_loss.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d_backward.h"
