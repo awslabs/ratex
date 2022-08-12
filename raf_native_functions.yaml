@@ -303,6 +303,8 @@ supported:
   - sigmoid_backward
   - tanh_backward
   - ger
+  - native_layer_norm
+  - native_layer_norm_backward
 autograd:
   - max_pool2d
   - max_pool3d
