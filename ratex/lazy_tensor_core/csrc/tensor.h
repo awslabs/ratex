@@ -223,7 +223,7 @@ class LazyTensor {
                                   const ir::Value& token, int64_t dim, int64_t shard_count,
                                   std::vector<std::vector<int64_t>> groups);
 
-  static std::pair<LazyTensor, ir::Value> reduce_scatter(std::vector<LazyTensor>* inputs,
+  static std::pair<LazyTensor, ir::Value> reduce_scatter(const LazyTensor& input,
                                                          const ir::Value& token,
                                                          AllReduceType reduce_type,
                                                          std::vector<std::vector<int64_t>> groups);
