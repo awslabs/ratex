@@ -118,11 +118,13 @@ def test_all_gather_out(dtype):
 def test_reduce_scatter(dtype):
     """Test of tracing and lowering reduce_scatter op."""
     total_rank, rank, local_rank = get_dist_comm_info()
+    device = lazy_device(rank)
     n_ones = np.ones(shape=(4, 4), dtype=dtype)
     tmps = []
     for i in range(total_rank):
         tmps.append(n_ones * (rank + i))
     x = torch.from_numpy(np.concatenate(tmps))
+    x = x.to(device)
     ret = reduce_scatter(x, "sum")
     target_ret = n_ones * sum(range(rank, total_rank + rank))
     check(ret, target_ret)
@@ -136,9 +138,9 @@ def test_reduce_scatter_with_rank_list(computation, rank_list, dtype):
     total_rank, rank, local_rank = get_dist_comm_info(verbose=True)
     device = lazy_device(rank)
     n_ones = np.ones(shape=(4, 4), dtype=dtype)
-    x1 = torch.from_numpy(n_ones * (rank + 1)).to(device)
-    x2 = torch.from_numpy(-n_ones * (rank + 1)).to(device)
-    inputs = torch.cat([x1, x2])
+    x1 = torch.from_numpy(n_ones * (rank + 1))
+    x2 = torch.from_numpy(-n_ones * (rank + 1))
+    inputs = torch.cat([x1, x2]).to(device)
     ret = reduce_scatter(inputs, computation, groups=rank_list)
 
     for group in rank_list:

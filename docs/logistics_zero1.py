@@ -23,8 +23,9 @@ import time
 import os
 import copy
 
-#import _RATEXC
-#_RATEXC._set_ratex_vlog_level(-5)
+# import _RATEXC
+# _RATEXC._set_ratex_vlog_level(-5)
+
 
 class SingleLayerLogistics(nn.Module):
     def __init__(self, input_shape=28, num_classes=10):
@@ -120,6 +121,6 @@ def main():
     print("raf starts...")
     train(lazy_device(rank), model_mnm, image_datasets)
 
+
 if __name__ == "__main__":
     main()
-
