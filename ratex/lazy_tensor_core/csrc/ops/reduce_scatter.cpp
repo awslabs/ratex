@@ -14,19 +14,10 @@
 namespace torch_lazy_tensors {
 namespace ir {
 namespace ops {
-namespace {
 
-std::vector<Value> GetOperandList(lazy_tensors::Span<const Value> operands, const Value& token) {
-  std::vector<Value> operand_list(operands.begin(), operands.end());
-  operand_list.push_back(token);
-  return operand_list;
-}
-
-}  // namespace
-
-ReduceScatter::ReduceScatter(lazy_tensors::Span<const Value> operands, const Value& token,
-                             AllReduceType reduce_type, std::vector<std::vector<int64_t>> groups)
-    : Node(ltc_reduce_scatter, GetOperandList(operands, token),
+ReduceScatter::ReduceScatter(const Value& input, const Value& token, AllReduceType reduce_type,
+                             std::vector<std::vector<int64_t>> groups)
+    : Node(ltc_reduce_scatter, {input, token},
            /*num_outputs=*/2,
            lazy_tensors::util::MHash(lazy_tensors::util::GetEnumValue(reduce_type), groups)),
       reduce_type_(reduce_type),
@@ -35,8 +26,7 @@ ReduceScatter::ReduceScatter(lazy_tensors::Span<const Value> operands, const Val
 }
 
 NodePtr ReduceScatter::Clone(OpList operands) const {
-  std::vector<Value> operand_list(operands.begin(), operands.end() - 1);
-  return MakeNode<ReduceScatter>(operand_list, operands.back(), reduce_type_, groups_);
+  return MakeNode<AllGather>(operands.at(0), operands.at(1), reduce_type_, groups_);
 }
 
 std::string ReduceScatter::ToString() const {

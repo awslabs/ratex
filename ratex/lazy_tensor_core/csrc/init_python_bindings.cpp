@@ -221,13 +221,12 @@ std::shared_ptr<ir::Value> AllGatherOut(at::Tensor& output, const at::Tensor& in
 }
 
 std::pair<at::Tensor, std::shared_ptr<ir::Value>> ReduceScatter(
-    const std::vector<at::Tensor>& tensors, const std::shared_ptr<ir::Value>& token,
+    const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
     const std::string& reduce_type, const std::vector<std::vector<int64_t>>& replica_groups) {
-  std::vector<LazyTensor> xtensors = GetLtcTensors(tensors, /*want_all=*/true);
   LazyTensor result;
   ir::Value new_token;
-  std::tie(result, new_token) =
-      LazyTensor::reduce_scatter(&xtensors, *token, GetReduceType(reduce_type), replica_groups);
+  std::tie(result, new_token) = LazyTensor::reduce_scatter(
+      bridge::GetLtcTensor(input), *token, GetReduceType(reduce_type), replica_groups);
   return {bridge::AtenFromLtcTensor(std::move(result)), std::make_shared<ir::Value>(new_token)};
 }
 
@@ -564,15 +563,14 @@ void InitLtcModuleBindings(py::module m) {
           }
           return new_token;
         });
-  m.def("_ltc_reduce_scatter", [](const std::vector<at::Tensor>& tensors,
-                                  const std::shared_ptr<ir::Value>& token,
+  m.def("_ltc_reduce_scatter", [](const at::Tensor& input, const std::shared_ptr<ir::Value>& token,
                                   const std::string& reduce_type, const py::list& groups) {
     std::vector<std::vector<int64_t>> replica_groups = CreateReduceGroups(groups);
     at::Tensor result;
     std::shared_ptr<ir::Value> new_token;
     {
       NoGilSection nogil;
-      std::tie(result, new_token) = ReduceScatter(tensors, token, reduce_type, replica_groups);
+      std::tie(result, new_token) = ReduceScatter(input, token, reduce_type, replica_groups);
     }
     auto result_tuple = py::tuple(2);
     result_tuple[0] =

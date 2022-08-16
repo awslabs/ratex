@@ -1378,6 +1378,7 @@ Var RAFNodeLowering::LowerAllGather(const ir::ops::AllGather* node) {
 }
 
 Var BuildReduceScatter(const std::vector<Var>& ops, const ir::ops::ReduceScatter* node) {
+  LTC_CHECK_EQ(ops.size(), 2U);
   Expr computation;
   if (node->reduce_type() == AllReduceType::kSum) {
     computation = MakeConstant(String("sum"));
@@ -1393,11 +1394,10 @@ Var BuildReduceScatter(const std::vector<Var>& ops, const ir::ops::ReduceScatter
   }
   // The last element in the operands is token
   Var token = ops.back();
-  std::vector<Expr> ops_expr(ops.begin(), ops.end() - 1);
-  Var input = BindSymbol(raf::ir::Tuple(Array<Expr>(ops_expr)));
+  Var x = ops[0];
   Expr rank_list = MakeConstant(ConvertReplicaGroupsToValue(node->groups()));
   Var ret =
-      BindSymbol(raf::ir::Call(Op::Get("raf.op._reduce_scatter"), {input, computation, rank_list}));
+      BindSymbol(raf::ir::Call(Op::Get("raf.op._reduce_scatter"), {x, computation, rank_list}));
   return BindSymbol(raf::ir::Tuple(Array<Expr>({ret, token})));
 }
 
@@ -1482,8 +1482,8 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
       return InferLogicalOr(node);
     }
     case at::aten::convolution_overrideable: {
-      return InferConvolutionOverrideable(
-        ir::NodeCast<ir::ops::ConvolutionOverrideable>(node, ir::OpKind(at::aten::convolution_overrideable)));
+      return InferConvolutionOverrideable(ir::NodeCast<ir::ops::ConvolutionOverrideable>(
+          node, ir::OpKind(at::aten::convolution_overrideable)));
     }
     case at::aten::embedding: {
       return InferEmbedding(
@@ -1631,7 +1631,8 @@ lazy_tensors::Shape RAFNodeLowering::InferDropoutBackward(const ir::ops::Dropout
   return ToLTCShape(body->checked_type());
 }
 
-lazy_tensors::Shape RAFNodeLowering::InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node) {
+lazy_tensors::Shape RAFNodeLowering::InferConvolutionOverrideable(
+    const ir::ops::ConvolutionOverrideable* node) {
   std::vector<Var> ops;
   for (const auto& x : node->operands()) {
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
