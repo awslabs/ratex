@@ -375,7 +375,7 @@ std::pair<LazyTensor, ir::Value> LazyTensor::reduce_scatter(
     std::vector<std::vector<int64_t>> groups) {
   ir::NodePtr node = ir::MakeNode<ir::ops::ReduceScatter>(input.GetIrValue(), token, reduce_type,
                                                           std::move(groups));
-  return {(*inputs)[0].CreateFrom(ir::Value(node, 0)), ir::Value(node, 1)};
+  return {input.CreateFrom(ir::Value(node, 0)), ir::Value(node, 1)};
 }
 
 LazyTensor LazyTensor::get_dimensions_size(const LazyTensor& input,

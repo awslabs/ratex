@@ -574,7 +574,7 @@ void InitLtcModuleBindings(py::module m) {
     }
     auto result_tuple = py::tuple(2);
     result_tuple[0] =
-        torch::autograd::make_variable(result, /*requires_grad=*/tensors[0].requires_grad());
+        torch::autograd::make_variable(result, /*requires_grad=*/input.requires_grad());
     result_tuple[1] = new_token;
     return result_tuple;
   });

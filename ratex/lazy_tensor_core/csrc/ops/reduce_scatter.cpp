@@ -26,7 +26,7 @@ ReduceScatter::ReduceScatter(const Value& input, const Value& token, AllReduceTy
 }
 
 NodePtr ReduceScatter::Clone(OpList operands) const {
-  return MakeNode<AllGather>(operands.at(0), operands.at(1), reduce_type_, groups_);
+  return MakeNode<ReduceScatter>(operands.at(0), operands.at(1), reduce_type_, groups_);
 }
 
 std::string ReduceScatter::ToString() const {

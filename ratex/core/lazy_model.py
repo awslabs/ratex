@@ -87,10 +87,10 @@ def all_gather(value, dim=0, groups=None, output=None):
     return result[0]
 
 
-def reduce_scatter(input, reduce_type="sum", groups=None):
+def reduce_scatter(value, reduce_type="sum", groups=None):
     """Performs a reduce-scatter operation on the input tensor.
     Args:
-      input: A single `torch.Tensor` to perform the reduce scatter op to.
+      value: A single `torch.Tensor` to perform the reduce scatter op to.
       reduce_type (string): One of "sum", "prod", "min", "max", "avg".
       groups (list, optional): A list of list, representing the replica groups for
         the `all_reduce()` operation. Example: `[[0, 1, 2, 3], [4, 5, 6, 7]]`
@@ -101,12 +101,12 @@ def reduce_scatter(input, reduce_type="sum", groups=None):
       A single `torch.Tensor` holding the reduce-scattered value (across the replicas).
     """
     comm = dist.get_communicator()
-    token = _RATEXC._raf_create_token(input[0].device.type)
+    token = _RATEXC._raf_create_token(value.device.type)
 
     if groups is None:
         groups = [list(range(0, comm.size))]
 
-    result = _RATEXC._ltc_reduce_scatter(input, token, reduce_type, groups)
+    result = _RATEXC._ltc_reduce_scatter(value, token, reduce_type, groups)
     return result[0]
 
 
