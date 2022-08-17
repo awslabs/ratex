@@ -94,7 +94,9 @@ def train(
 @pytest.mark.parametrize(
     "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}), (Adam, {"lr": 0.001})]
 )
-def test_ratex_fully_sharded_data_parallelism_zero1(input_shape, num_classes, optimizer, tolerance=1e-10, seed=0):
+def test_ratex_fully_sharded_data_parallelism_zero1(
+    input_shape, num_classes, optimizer, tolerance=1e-10, seed=0
+):
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -111,7 +113,10 @@ def test_ratex_fully_sharded_data_parallelism_zero1(input_shape, num_classes, op
     }
     image_datasets = {
         x: datasets.FakeData(
-            size=1, image_size=(1, input_shape, input_shape), num_classes=num_classes, transform=data_transforms[x]
+            size=1,
+            image_size=(1, input_shape, input_shape),
+            num_classes=num_classes,
+            transform=data_transforms[x],
         )
         for x in ["train", "val"]
     }
@@ -122,21 +127,40 @@ def test_ratex_fully_sharded_data_parallelism_zero1(input_shape, num_classes, op
 
     dcfg.zero_opt_level = 0
     no_zero1_loss = train(
-        device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, seed=seed
+        device,
+        input_shape,
+        num_classes,
+        optimizer[0],
+        optimizer[1],
+        image_datasets,
+        seed=seed,
     )
 
     # Error in optimizer ZeRO-1 when tensor padding is required
     if num_classes % total_rank == 0:
         dcfg.zero_opt_level = 1
         optimizer_zero1_loss = train(
-            device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, seed=seed
+            device,
+            input_shape,
+            num_classes,
+            optimizer[0],
+            optimizer[1],
+            image_datasets,
+            seed=seed,
         )
 
         check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
 
     dcfg.zero_opt_level = 0
     fsdp_zero1_loss = train(
-        device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
+        device,
+        input_shape,
+        num_classes,
+        optimizer[0],
+        optimizer[1],
+        image_datasets,
+        fsdp=True,
+        seed=seed,
     )
 
     check(no_zero1_loss, fsdp_zero1_loss, atol=tolerance)
