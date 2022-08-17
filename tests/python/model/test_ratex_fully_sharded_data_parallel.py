@@ -20,10 +20,10 @@ import numpy as np
 
 
 class SingleLayerLogistics(nn.Module):
-    def __init__(self, input_shape=28, num_classes=10):
+    def __init__(self, input_shape=28, num_classes=12):
         super(SingleLayerLogistics, self).__init__()
         self.log_softmax = nn.LogSoftmax(dim=-1)
-        self.linear = nn.Linear(784, num_classes)
+        self.linear = nn.Linear(input_shape**2, num_classes)
 
     def forward(self, x):
         out = torch.flatten(x, 1)
@@ -72,7 +72,7 @@ def train(
         for inputs, labels in dataloaders["train"]:
             inputs = inputs.to(device)
             inputs.requires_grad = True
-            labels_one_hot = torch.tensor(np.eye(10, dtype=np.float32)[labels])
+            labels_one_hot = torch.tensor(np.eye(12, dtype=np.float32)[labels])
             labels_one_hot = labels_one_hot.to(device)  # One-hot
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -110,7 +110,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(model, optimizer, tolerance=
     }
     image_datasets = {
         x: datasets.FakeData(
-            size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
+            size=1, image_size=(1, 28, 28), num_classes=12, transform=data_transforms[x]
         )
         for x in ["train", "val"]
     }
@@ -133,7 +133,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(model, optimizer, tolerance=
         device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
     )
 
-    check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
+    check(fsdp_zero1_loss, no_zero1_loss, atol=tolerance)
 
 
 if __name__ == "__main__":
