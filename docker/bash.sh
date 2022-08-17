@@ -58,7 +58,7 @@ echo "Running '${COMMAND[@]}' inside ${DOCKER_IMAGE_NAME}..."
 # By default we cleanup - remove the container once it finish running (--rm)
 # and share the PID namespace (--pid=host) so the process inside does not have
 # pid 1 and SIGKILL is propagated to the process inside (jenkins can kill it).
-${DOCKER_BINARY} run --rm --pid=host \
+${DOCKER_BINARY} run --shm-size=256m --rm --pid=host \
     -v ${WORKSPACE}:/workspace \
     -v ${SCRIPT_DIR}:/docker \
     -w /workspace \

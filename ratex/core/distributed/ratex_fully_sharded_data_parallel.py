@@ -63,9 +63,10 @@ class RatexFullyShardedDataParallel(nn.Module):
         Returns:
           A tensor that corresponds to the respective shard of this rank
         """
-        if tensor.numel() % self.world_size != 0:
-            pad_size = self.world_size - (tensor.numel() % self.world_size)
-            tensor = F.pad(tensor, (0, pad_size))
+        if self.rank == self.world_size - 1 and tensor.size()[0] % self.world_size != 0:
+            padding = [0] * (len(tensor.size()) * 2)
+            padding[-1] = self.world_size - (tensor.size()[0] % self.world_size)
+            tensor = F.pad(tensor, tuple(padding))
         tensor = tensor.chunk(self.world_size)[self.rank]
         return tensor
 
@@ -107,6 +108,6 @@ class RatexFullyShardedDataParallel(nn.Module):
 
         # All gather the new weights across the ranks and assign them to the full parameters
         for param, shard in zip(self.params, self.sharded_params):
-            all_gather(shard.data, dim=0, output=param.data)
+            param.data = all_gather(shard.data, dim=0)[: param.data.shape[0]]
 
         return loss
