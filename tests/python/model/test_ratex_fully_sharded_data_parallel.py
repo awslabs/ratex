@@ -20,7 +20,7 @@ import numpy as np
 
 
 class SingleLayerLogistics(nn.Module):
-    def __init__(self, input_shape=28, num_classes=12):
+    def __init__(self, input_shape=28, num_classes=11):
         super(SingleLayerLogistics, self).__init__()
         self.log_softmax = nn.LogSoftmax(dim=-1)
         self.linear = nn.Linear(input_shape**2, num_classes)
@@ -35,8 +35,8 @@ class SingleLayerLogistics(nn.Module):
 
 def train(
     device,
-    model,
-    model_config,
+    input_shape,
+    num_classes,
     optimizer,
     optimizer_config,
     image_datasets,
@@ -55,7 +55,7 @@ def train(
     }
     dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
 
-    model = model(**model_config)
+    model = SingleLayerLogistics(input_shape=input_shape, num_classes=num_classes)
     model = ratex.jit.script(model)
     model = model.to(device, dtype=dtype)
     if fsdp:
@@ -72,7 +72,7 @@ def train(
         for inputs, labels in dataloaders["train"]:
             inputs = inputs.to(device)
             inputs.requires_grad = True
-            labels_one_hot = torch.tensor(np.eye(12, dtype=np.float32)[labels])
+            labels_one_hot = torch.tensor(np.eye(num_classes, dtype=np.float32)[labels])
             labels_one_hot = labels_one_hot.to(device)  # One-hot
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -89,51 +89,57 @@ def train(
 
 
 @pytest.mark.skipif(skip_dist_test(min_rank_num=2), reason="ZeRO-1 requires multiple GPU's")
+@pytest.mark.parametrize("input_shape", [28])
+@pytest.mark.parametrize("num_classes", [12, 13])
 @pytest.mark.parametrize(
-    "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}, 1), (Adam, {"lr": 0.001}, 2)]
+    "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}), (Adam, {"lr": 0.001})]
 )
-@pytest.mark.parametrize("model", [(SingleLayerLogistics, {}, 1)])
-def test_ratex_fully_sharded_data_parallelism_zero1(model, optimizer, tolerance=1e-10, seed=0):
+def test_ratex_fully_sharded_data_parallelism_zero1(input_shape, num_classes, optimizer, tolerance=1e-10, seed=0):
     data_transforms = {
         "train": transforms.Compose(
             [
-                transforms.CenterCrop(28),
+                transforms.CenterCrop(input_shape),
                 transforms.ToTensor(),
             ]
         ),
         "val": transforms.Compose(
             [
-                transforms.CenterCrop(28),
+                transforms.CenterCrop(input_shape),
                 transforms.ToTensor(),
             ]
         ),
     }
     image_datasets = {
         x: datasets.FakeData(
-            size=1, image_size=(1, 28, 28), num_classes=12, transform=data_transforms[x]
+            size=1, image_size=(1, input_shape, input_shape), num_classes=num_classes, transform=data_transforms[x]
         )
         for x in ["train", "val"]
     }
 
     dcfg = dist.get_config()
-    dcfg.zero_opt_level = 1
     total_rank, rank, local_rank = get_dist_comm_info()
     device = lm.lazy_device(rank)
-    optimizer_zero1_loss = train(
-        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, seed=seed
-    )
 
     dcfg.zero_opt_level = 0
     no_zero1_loss = train(
-        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, seed=seed
+        device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, seed=seed
     )
 
-    check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
+    # Error in optimizer ZeRO-1 when tensor padding is required
+    if num_classes % total_rank == 0:
+        dcfg.zero_opt_level = 1
+        optimizer_zero1_loss = train(
+            device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, seed=seed
+        )
+
+        check(no_zero1_loss, optimizer_zero1_loss, atol=tolerance)
+
+    dcfg.zero_opt_level = 0
     fsdp_zero1_loss = train(
-        device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
+        device, input_shape, num_classes, optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
     )
 
-    check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
+    check(no_zero1_loss, fsdp_zero1_loss, atol=tolerance)
 
 
 if __name__ == "__main__":
