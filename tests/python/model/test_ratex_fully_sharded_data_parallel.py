@@ -133,7 +133,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(model, optimizer, tolerance=
         device, model[0], model[1], optimizer[0], optimizer[1], image_datasets, fsdp=True, seed=seed
     )
 
-    check(fsdp_zero1_loss, no_zero1_loss, atol=tolerance)
+    check(fsdp_zero1_loss, optimizer_zero1_loss, atol=tolerance)
 
 
 if __name__ == "__main__":

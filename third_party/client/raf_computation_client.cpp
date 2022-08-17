@@ -93,6 +93,10 @@ void PopulateRn(lazy_tensors::Literal& literal, void* buf) {
     case PrimitiveType::F64:
       return PopulateRn(literal, Span<const double>(reinterpret_cast<const double*>(buf),
                                                     literal.value().numel()));
+    case PrimitiveType::BF16:
+      return PopulateRn(literal,
+                        Span<const at::BFloat16>(reinterpret_cast<const at::BFloat16*>(buf),
+                                                 literal.value().numel()));
     default:
       LTC_LOG(FATAL) << "NotImplementedError: " << literal.shape().element_type();
   }

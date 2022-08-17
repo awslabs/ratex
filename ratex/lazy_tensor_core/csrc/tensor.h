@@ -223,7 +223,7 @@ class LazyTensor {
                                   const ir::Value& token, int64_t dim, int64_t shard_count,
                                   std::vector<std::vector<int64_t>> groups);
 
-  static std::pair<LazyTensor, ir::Value> reduce_scatter(std::vector<LazyTensor>* inputs,
+  static std::pair<LazyTensor, ir::Value> reduce_scatter(const LazyTensor& input,
                                                          const ir::Value& token,
                                                          AllReduceType reduce_type,
                                                          std::vector<std::vector<int64_t>> groups);
@@ -438,6 +438,12 @@ class LazyTensor {
   // Returns the diagonal of a matrix (2-D tensor) or batch of matrices. The
   // matrix dimensions are specified by dim1 and dim2, the diagonal by offset.
   static LazyTensor diagonal(const LazyTensor& input, int64_t offset, int64_t dim1, int64_t dim2);
+
+  static std::tuple<LazyTensor, LazyTensor, LazyTensor> dropout(const LazyTensor& input, double p,
+                                                                c10::optional<bool> train);
+
+  static LazyTensor dropout_backward(const LazyTensor& dy, const LazyTensor& mask,
+                                     const LazyTensor& reserve_space);
 
   static LazyTensor div(const LazyTensor& input, const LazyTensor& other,
                         const c10::optional<c10::string_view>& = c10::nullopt,

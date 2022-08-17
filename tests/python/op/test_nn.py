@@ -4,9 +4,10 @@
 import pytest
 import torch
 import torch.nn as nn
-
+from ratex.lazy_tensor_core.core import lazy_model as lm
+import numpy as np
 import ratex
-from ratex.testing import verify_step
+from ratex.testing import verify_step, check
 
 
 def test_conv():
@@ -82,8 +83,10 @@ def test_gelu():
             return self.gelu(x)
 
     shape = [5, 5]
-    x = torch.randn(*shape)
-    verify_step(Model(), [x], jit_script=False)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
+
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
 
 
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
@@ -99,6 +102,60 @@ def test_embedding(dtype, norm_type):
 
     x = torch.randint(10, (3, 3))
     verify_step(Model(), [x], jit_script=False)
+
+
+def test_softmax():
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.softmax = nn.Softmax()
+
+        def forward(self, x_input):
+            return self.softmax(x_input)
+
+    shape = (3, 3)
+    t_x_cpu = torch.randn(shape, requires_grad=True)
+
+    verify_step(Model(), [t_x_cpu], jit_script=False)
+    verify_step(Model(), [t_x_cpu], jit_script=False, with_backward=True)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("p", [0.2, 0.6])
+def test_dropout(p, dtype):
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dropout = nn.Dropout(p=p)
+
+        def forward(self, x_input):
+            return self.dropout(x_input)
+
+    def check_dropout(x, y, dx=None, dy=None):
+        x, y = x.cpu().detach().numpy(), y.cpu().detach().numpy()
+        mask = y != 0
+        expected = mask * x / (1 - p)
+        check(expected, y)
+        frac = np.sum(y == 0) / y.size
+        assert p - 0.1 < frac < p + 0.1
+        if dx is not None and dy is not None:
+            dx, dy = dx.numpy(), dy.numpy()
+            expected = mask / (1 - p) * dy
+            check(expected, dx)
+
+    shape = (128, 128)
+    t_x_ratex = torch.randn(*shape, dtype=dtype, requires_grad=True).to("lazy")
+    model = Model()
+    out = model(t_x_ratex)
+
+    check_dropout(t_x_ratex, out)
+
+    d_x = np.random.randn(*shape)
+    dy = torch.tensor(d_x, device="lazy", dtype=dtype, requires_grad=True)
+
+    out.backward(dy)
+
+    check_dropout(t_x_ratex, out, t_x_ratex.grad, dy)
 
 
 if __name__ == "__main__":

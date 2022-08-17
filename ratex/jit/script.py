@@ -11,13 +11,13 @@ import torch
 import raf
 import tvm
 from raf import distributed as dist
-from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType
+from raf._ffi.pass_ import AutoDiff, DeadCodeElimination, InferType, Substitute
 
 import _RATEXC
 
 from .._lib import raf
 from ..value import ValueToHandle
-from ..utils.utils import ltc_timed
+from ..utils.utils import ltc_timed, to_raf_name, to_torch_name
 from ..utils.cache import cache as persist_cache
 
 # pylint: disable=invalid-name
@@ -26,6 +26,7 @@ logger = logging.getLogger("jit.script")
 _APIS = raf._lib._get_apis()
 InplaceUpdateAnalysis = _APIS.get("raf.pass_.InplaceUpdateAnalysis", None)
 CanonicalizeParamsForRATEX = _APIS.get("raf.pass_.CanonicalizeParamsForRATEX", None)
+ConvertBfFp16Constant = _APIS.get("raf.pass_.ConvertBfFp16Constant", None)
 # pylint: enable=invalid-name
 
 TORCH_DTYPES = {
@@ -34,20 +35,6 @@ TORCH_DTYPES = {
     "float32": torch.float32,
     "float64": torch.float64,
 }
-
-
-def to_torch_name(name):
-    """Transform the parameter naming style to PyTorch."""
-    if name.startswith("model_"):
-        assert name.startswith("model_")
-        name = name[len("model_") :]
-        name = name.replace("_", ".")
-    return name
-
-
-def to_raf_name(name):
-    """Transform the parameter naming style to RAF."""
-    return "model_" + name.replace(".", "_")
 
 
 def get_positional_args(param_names, *args, **kwargs):
@@ -203,16 +190,74 @@ def convert_module_to_raf(module, shape_n_dtype, args):
     ret: Tuple[relay.Function, Dict[str, str], Dict[int, int], Dict[str, raf.array]]
         A tuple of converted function, parameter names, inplace update map, and parameter map
     """
-    model = raf.frontend.from_pytorch(module, {"input0": shape_n_dtype})
+    cloned_module = copy.deepcopy(module)
+
+    bf_fp_16_dtype = None
+    for (name, para) in cloned_module.named_parameters():
+        if para.dtype == torch.bfloat16:
+            bf_fp_16_dtype = "bfloat16"
+            break
+        if para.dtype == torch.float16:
+            bf_fp_16_dtype = "float16"
+            break
+    # When any bf16/fp16 parameter is found, we assume the dtype of this module is bf16/fp32.
+    # In this case, we first convert the module to float32 in order to convert it to a RAF module.
+    # Afterward, we apply a pass to make the RAF module bf16/fp32.
+    if bf_fp_16_dtype is not None:
+        cloned_module.to("cpu")
+        cloned_module.float()
+        # if the input dtype is bf16/fp16, we make up a float32 input for cpu tracing
+        if shape_n_dtype[1] == bf_fp_16_dtype:
+            shape_n_dtype = (shape_n_dtype[0], "float32")
+
+    model = raf.frontend.from_pytorch(cloned_module, {"input0": shape_n_dtype})
     raf_params = model.state()
     # ensure raf_params are cachable
     raf_params_shape = {k: v.shape for k, v in raf_params.items()}
-    raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
 
     # Must use *.clone(), otherwise the tensor will be removed from live tensors graph
     # because asnumpy() calls *.cpu()
-    record = model._internal(raf.array(asnumpy(args[0].clone())))
+    arg = args[0].clone()
+    # if arg is bf16/fp16, we convert it to float32 for tracing
+    if bf_fp_16_dtype is not None and arg.dtype in (torch.bfloat16, torch.float16):
+        arg = arg.float()
+    record = model._internal(raf.array(asnumpy(arg)))
     mod = record.mod
+
+    # if it is a bfloat16 model, we first convert all the float parameters back to bfloat16;
+    # then resolve the float constants.
+    if bf_fp_16_dtype is not None:
+        # fisrt create a new function with bf16/fp16 parameters
+        # collect the float32-to-bf16/fp16 mapping
+        params, param_map = [], {}
+        for para in mod["main"].params:
+            name, shape = para.name_hint, para.type_annotation.shape
+            dtype = para.type_annotation.dtype
+            # The assumption is that when one parameter is bf16/fp32,
+            # then all the parameter is bf16/fp16
+            if dtype == "float32":
+                para_bf_fp_16 = raf._core.ir_ext.extended_var(
+                    name, shape=shape, dtype=bf_fp_16_dtype
+                )
+                params.append(para_bf_fp_16)
+                param_map[para] = para_bf_fp_16
+            else:
+                params.append(para)
+        # substitute the float32 parameters with bf16/fp16 parameters
+        body_bf_fp_16 = Substitute(mod["main"].body, param_map)
+        f_bf_fp_16 = tvm.relay.Function(params=params, body=body_bf_fp_16)
+        mod.update_func(mod.get_global_var("main"), f_bf_fp_16)
+
+        # convert float32 constants to bfloat16 constants
+        mod = ConvertBfFp16Constant(bf_fp_16_dtype)(mod)
+
+        # if it is a bfloat16 model, we need to modify raf_params_dtype back to bfloat16.
+        raf_params_dtype = {
+            k: "bfloat16" if v.dtype == "float32" else v.dtype for k, v in raf_params.items()
+        }
+    else:
+        raf_params_dtype = {k: v.dtype for k, v in raf_params.items()}
+
     mod = AutoDiff([])(InferType()(mod))
     mod = DeadCodeElimination()(mod)
     mod = CanonicalizeParamsForRATEX()(InferType()(mod))
@@ -244,16 +289,25 @@ def script(module: torch.nn.Module):
     cloned_module = cloned_module.cpu()
 
     class ScriptModule(torch.nn.Module):
-        """A wrapper of module to run on RAF."""
+        """The script module to leverage RAF for compilation and execution.
+        Note that all parameters in the original PyTorch module will be flatten in this module,
+        as RAF does not need the hierarchical structure of parameters. For example, the original
+        model.conv1.weight will become model_conv1_weight. This is intentional because we cannot
+        keep the original module as the sub-module of this one for unknown reasons, which result
+        in parameters not being updated during training.
 
-        def __init__(self, module):
+        Accordingly, we now use a workaround by introducing an API "native_cpu" that copies
+        the trained parameter values to the vanilla PyTorch module on CPU.
+        """
+
+        def __init__(self):
             super().__init__()
             self._param_names = []
-            for key, value in module.named_parameters():
+            for key, value in cloned_module.named_parameters():
                 name = to_raf_name(key)
                 self._param_names.append(name)
                 self.register_parameter(name, value)
-            for key, value in module.named_buffers():
+            for key, value in cloned_module.named_buffers():
                 name = to_raf_name(key)
                 self._param_names.append(name)
                 self.register_buffer(name, value)
@@ -292,7 +346,8 @@ def script(module: torch.nn.Module):
                             ).to(device=args[0].device),
                         )
                         logger.warning(
-                            "%s parameter has been converted from raf.array to torch.Tensor.", name
+                            "%s parameter has been converted from raf.array to torch.Tensor.",
+                            name,
                         )
                 # Updated cached function, param_names, and inplace update map
                 JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
@@ -300,4 +355,15 @@ def script(module: torch.nn.Module):
             positional_args = get_positional_args(param_names, *args, **lazy_params)
             return RelayFunction.apply(func, inplace_update_map, *positional_args)
 
-    return ScriptModule(cloned_module)
+        def native_cpu(self):
+            """Copy the current parameters to the native module on CPU for inference."""
+            cloned_module_state_dict = cloned_module.state_dict()
+            for raf_name in self._param_names:
+                torch_name = to_torch_name(raf_name)
+                if torch_name not in cloned_module_state_dict:
+                    continue
+                cloned_module_state_dict[torch_name] = getattr(self, raf_name).cpu()
+            cloned_module.load_state_dict(cloned_module_state_dict)
+            return cloned_module
+
+    return ScriptModule()

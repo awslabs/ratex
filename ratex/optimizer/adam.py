@@ -131,7 +131,7 @@ class Adam(Optimizer):
                             state["exp_avg_sq"] = torch.zeros(
                                 param.data.size(), dtype=torch.float32
                             ).to(device=param.data.device)
-                        if param.dtype == torch.float16:
+                        if param.dtype in (torch.float16, torch.bfloat16):
                             # master weight param
                             state["param"] = self._partition(param.data, state["exp_avg"]).float()
                     exp_avg = state["exp_avg"]
@@ -141,7 +141,7 @@ class Adam(Optimizer):
                         state["param"] if "param" in state else self._partition(param.data, exp_avg)
                     )
                     grad = self._partition(param.grad, exp_avg)
-                    if grad.dtype == torch.float16:
+                    if grad.dtype in (torch.float16, torch.bfloat16):
                         grad = grad.float()
                     state["step"] += 1
                     state_step = state["step"]
@@ -163,6 +163,8 @@ class Adam(Optimizer):
                     param_with_grad_local.addcdiv_(exp_avg, denom, value=-step_size)
                     if param.dtype == torch.float16:
                         updated_param_with_grad_local = param_with_grad_local.half()
+                    elif param.dtype == torch.bfloat16:
+                        updated_param_with_grad_local = param_with_grad_local.bfloat16()
                     else:
                         updated_param_with_grad_local = param_with_grad_local
 
@@ -170,7 +172,7 @@ class Adam(Optimizer):
                         all_gather(
                             updated_param_with_grad_local, dim=0, output=param_with_grad_global
                         )
-                    elif param.dtype == torch.float16:
+                    elif param.dtype in (torch.float16, torch.bfloat16):
                         param_with_grad_global.copy_(updated_param_with_grad_local)
 
                     if self._lm:

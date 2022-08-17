@@ -14,8 +14,8 @@ namespace ops {
 
 class ReduceScatter : public Node {
  public:
-  ReduceScatter(lazy_tensors::Span<const Value> operands, const Value& token,
-                AllReduceType reduce_type, std::vector<std::vector<int64_t>> groups);
+  ReduceScatter(const Value& input, const Value& token, AllReduceType reduce_type,
+                std::vector<std::vector<int64_t>> groups);
 
   std::string ToString() const override;
 
