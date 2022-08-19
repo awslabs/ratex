@@ -7,11 +7,14 @@ import torch
 import ratex
 import ratex.lazy_tensor_core.debug.metrics as metrics
 import ratex.lazy_tensor_core.core.lazy_model as lm
+from ratex.lazy_tensor_core.core.lazy_model import lazy_device
 
+from raf import distributed as dist
+from raf.testing import get_dist_comm_info
 
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
+import ratex.optimizer as optim
 from torch.optim import lr_scheduler
 import numpy as np
 import torchvision
@@ -20,45 +23,41 @@ import time
 import os
 import copy
 
+# import _RATEXC
+# _RATEXC._set_ratex_vlog_level(-5)
 
-class TorchLeNet(nn.Module):
+
+class SingleLayerLogistics(nn.Module):
     def __init__(self, input_shape=28, num_classes=10):
-        super(TorchLeNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, padding=2, bias=False)
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, bias=False)
-        self.linear1 = nn.Linear(((input_shape // 2 - 4) // 2) ** 2 * 16, 120)
-        self.linear2 = nn.Linear(120, 84)
-        self.linear3 = nn.Linear(84, num_classes)
+        super(SingleLayerLogistics, self).__init__()
+        self.log_softmax = nn.LogSoftmax(dim=-1)
+        self.linear = nn.Linear(784, num_classes)
 
     def forward(self, x):
-        out = self.conv1(x)
+        out = torch.flatten(x, 1)
+        out = self.linear(out)
         out = torch.relu(out)
-        out = F.avg_pool2d(out, (2, 2), (2, 2))
-        out = self.conv2(out)
-        out = torch.relu(out)  # pylint: disable=no-member
-        out = F.avg_pool2d(out, (2, 2), (2, 2))
-        out = torch.flatten(out, 1)  # pylint: disable=no-member
-        out = self.linear1(out)
-        out = self.linear2(out)
-        out = self.linear3(out)
+        out = self.log_softmax(out)
         return out
 
 
 def train(device, model, image_datasets):
-    dataloaders = torch.utils.data.DataLoader(
-        image_datasets, batch_size=1, shuffle=False, num_workers=1
-    )
-    dataset_size = len(image_datasets)
+    dataloaders = {
+        x: torch.utils.data.DataLoader(
+            image_datasets[x], batch_size=1, shuffle=False, num_workers=1
+        )
+        for x in ["train", "val"]
+    }
+
+    dataset_sizes = {x: len(image_datasets[x]) for x in ["train", "val"]}
+    model = model.to(device, dtype=torch.float32)
     model.train()
     criterion = lambda pred, true: nn.functional.nll_loss(nn.LogSoftmax(dim=-1)(pred), true)
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
     num_epochs = 10
     best_acc = 0.0
-
-    if device == "lazy":
-        model = ratex.jit.script(model)
-    model = model.to(device, dtype=torch.float32)
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
-
+    unscripted = model
+    model = ratex.jit.script(model)
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
@@ -66,7 +65,7 @@ def train(device, model, image_datasets):
         running_corrects = 0
 
         # Iterate over data.
-        for inputs, labels in dataloaders:
+        for inputs, labels in dataloaders["train"]:
             inputs = inputs.to(device)
             inputs.requires_grad = True
             labels_one_hot = torch.tensor(np.eye(10, dtype=np.float32)[labels])
@@ -80,42 +79,20 @@ def train(device, model, image_datasets):
             # this doesn't match nn.NLLLoss() exactly, but close...
             loss = -torch.sum(outputs * labels_one_hot) / inputs.size(0)
             loss.backward()
+            # AllReduce the gradients across ranks
+            ratex.core.lazy_model.reduce_gradients(optimizer)
             optimizer.step()
             lm.mark_step()
             running_loss += loss.item() * inputs.size(0)
             # running_corrects += torch.sum(preds == labels.data)
 
-        epoch_loss = running_loss / dataset_size
+        epoch_loss = running_loss / dataset_sizes["train"]
         epoch_acc = 0
         print("{} Loss: {:.4f}".format("train", epoch_loss))
-    return model
-
-
-def infer(device, model, image_datasets):
-    dataloader = torch.utils.data.DataLoader(
-        image_datasets, batch_size=1, shuffle=False, num_workers=1
-    )
-    dataset_size = len(image_datasets)
-    model.eval()
-    model = model.to(device)
-
-    running_corrects = 0
-
-    # Iterate over data.
-    for inputs, labels in dataloader:
-        inputs = inputs.to(device)
-        labels = labels.to(device)
-        with torch.no_grad():
-            preds = model(inputs)
-        running_corrects += torch.sum(preds == labels.data)
-
-    acc = running_corrects.double() / dataset_size
-    print("{} Acc: {:.4f}".format("test", acc))
 
 
 def main():
-    model_raf = TorchLeNet()
-    model_cpu = copy.deepcopy(model_raf)
+    model_mnm = SingleLayerLogistics()
     data_transforms = {
         "train": transforms.Compose(
             [
@@ -123,7 +100,7 @@ def main():
                 transforms.ToTensor(),
             ]
         ),
-        "test": transforms.Compose(
+        "val": transforms.Compose(
             [
                 transforms.CenterCrop(28),
                 transforms.ToTensor(),
@@ -134,18 +111,15 @@ def main():
         x: datasets.FakeData(
             size=1, image_size=(1, 28, 28), num_classes=10, transform=data_transforms[x]
         )
-        for x in ["train", "test"]
+        for x in ["train", "val"]
     }
-    print("raf starts...")
-    model_raf = train("lazy", model_raf, image_datasets["train"])
-    print("cpu starts...")
-    train("cpu", model_cpu, image_datasets["train"])
+
+    dcfg = dist.get_config()
+    dcfg.zero_opt_level = 1
+    total_rank, rank, local_rank = get_dist_comm_info()
 
     print("raf starts...")
-    infer("cpu", model_raf.native_cpu(), image_datasets["test"])
-
-    # statistics
-    print(metrics.metrics_report())
+    train(lazy_device(rank), model_mnm, image_datasets)
 
 
 if __name__ == "__main__":

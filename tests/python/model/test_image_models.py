@@ -3,24 +3,27 @@
 
 """Test torchvision models."""
 import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
-import raf
 import pytest
+import raf
 import torch.optim as optim
 import torchvision
+from raf.testing import check
 from ratex.optimizer import LANS, SGD, Adam
-from ratex.testing import TorchLeNet, fake_image_dataset, train, verify
 from ratex.testing import (
+    TorchLeNet,
+    dryrun_dumped_ir_file,
+    fake_image_dataset,
+    get_most_recent_alias,
+    train,
+    verify,
+    with_enable_param_aliasing,
+    with_mock_distributed_info,
     with_seed,
     with_temp_cache,
-    dryrun_dumped_ir_file,
-    with_enable_param_aliasing,
-    get_most_recent_alias,
-    with_mock_distributed_info,
 )
+from ratex.utils.utils import to_torch_name
 
 LENET_PARAM_NUM = 8
 
@@ -32,9 +35,22 @@ def test_lenet_cifar10(optimizer):
     batch_size = 1
     dataset = fake_image_dataset(batch_size, 1, 28, 10)
     model = TorchLeNet()
-    lazy_results = train("lazy", model, dataset, optimizer=optimizer, batch_size=batch_size)
+    lazy_results, lazy_model = train(
+        "lazy", model, dataset, optimizer=optimizer, batch_size=batch_size, return_model=True
+    )
     cpu_results = train("cpu", model, dataset, optimizer=optimizer, batch_size=batch_size)
+
+    # Verify the loss
     verify(lazy_results, cpu_results, tol=1e-3)
+
+    # Verify the parameter mapping for inference.
+    lazy_params = {k: v.cpu() for k, v in lazy_model.named_parameters()}
+    model = lazy_model.native_cpu()
+    model_dict = model.state_dict()
+    for raf_name, val in lazy_params.items():
+        torch_name = to_torch_name(raf_name)
+        if torch_name in model_dict:
+            check(model_dict[torch_name], val)
 
 
 @pytest.mark.parametrize("amp", [False, True])

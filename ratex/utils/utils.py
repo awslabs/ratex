@@ -56,6 +56,20 @@ def ltc_counter(name, value=1):
     _RATEXC._raf_ltc_counter_metric(name, value)
 
 
+def to_torch_name(name):
+    """Transform the parameter naming style to PyTorch."""
+    if name.startswith("model_"):
+        assert name.startswith("model_")
+        name = name[len("model_") :]
+        name = name.replace("_", ".")
+    return name
+
+
+def to_raf_name(name):
+    """Transform the parameter naming style to RAF."""
+    return "model_" + name.replace(".", "_")
+
+
 @tvm._ffi.register_func("ratex.utils.print_stack")
 def print_stack():
     """Print stack trace."""

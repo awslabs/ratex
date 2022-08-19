@@ -440,6 +440,7 @@ at::Tensor LazyNativeFunctions::where(const at::Tensor& condition, const at::Ten
 at::Tensor LazyNativeFunctions::_softmax(const at::Tensor& self, int64_t dim,
                                          bool /* half_to_float */) {
   LTC_FN_COUNTER("raf::");
+  LTC_CHECK_EQ(dim, self.dim() - 1);
   return bridge::AtenFromLtcTensor(
       LazyTensor::softmax(bridge::raf_backend::GetLtcTensor(self), dim, c10::nullopt));
 }
@@ -1064,6 +1065,10 @@ at::Tensor LazyNativeFunctions::dot(const at::Tensor& self, const at::Tensor& te
   }
   return bridge::AtenFromLtcTensor(LazyTensor::matmul(bridge::raf_backend::GetLtcTensor(self),
                                                       bridge::raf_backend::GetLtcTensor(tensor)));
+}
+
+at::Tensor LazyNativeFunctions::dropout(const at::Tensor& input, double p, bool train) {
+  return aten_autograd_ops::Dropout::apply(input, p, train);
 }
 
 at::Tensor LazyNativeFunctions::elu(const at::Tensor& self, const at::Scalar& alpha,

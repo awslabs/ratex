@@ -65,8 +65,7 @@ class RatexFullyShardedDataParallel(nn.Module):
         Returns:
           A tensor that corresponds to the respective shard of this rank
         """
-
-        if tensor.size()[0] % self.world_size != 0:
+        if self.rank == self.world_size - 1 and tensor.size()[0] % self.world_size != 0:
             padding = [0] * (len(tensor.size()) * 2)
             padding[-1] = self.world_size - (tensor.size()[0] % self.world_size)
             tensor = F.pad(tensor, tuple(padding))
