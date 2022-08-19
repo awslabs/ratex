@@ -151,6 +151,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(
             optimizer[0],
             optimizer[1],
             image_datasets,
+            dtype=dtype,
             seed=seed,
         )
 
