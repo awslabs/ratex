@@ -51,6 +51,8 @@ class RatexFullyShardedDataParallel(nn.Module):
         """
         for param in self.params:
             shard_data = self._shard_tensor(param.data)
+            if shard_data.dtype != torch.float32:
+                shard_data = shard_data.to(dtype=torch.float32)
             shard = nn.Parameter(shard_data, requires_grad=param.requires_grad)
             self.sharded_params.append(shard)
 
@@ -102,13 +104,19 @@ class RatexFullyShardedDataParallel(nn.Module):
         for param, shard in zip(self.params, self.sharded_params):
             if param.grad is not None:
                 all_reduce(REDUCE_SUM, [param.grad], scale=1.0 / self.world_size)
-                shard.grad = self._shard_tensor(param.grad)
+                grad_shard = self._shard_tensor(param.grad)
+                if grad_shard.dtype != torch.float32:
+                    grad_shard = grad_shard.to(dtype=torch.float32)
+                shard.grad = grad_shard
 
         # Step the wrapped optimizer
         loss = self.optimizer.step(*args, **kwargs)
 
         # All gather the new weights across the ranks and assign them to the full parameters
         for param, shard in zip(self.params, self.sharded_params):
-            param.data = all_gather(shard.data, dim=0)[: param.data.shape[0]]
+            full_weight = all_gather(shard.data, dim=0)[: param.data.shape[0]]
+            if full_weight.dtype != param.dtype:
+                full_weight = full_weight.to(dtype=param.dtype)
+            param.data = full_weight
 
         return loss
