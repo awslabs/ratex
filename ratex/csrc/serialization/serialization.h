@@ -26,26 +26,26 @@ class GenericComputationRAFNode : public Object {
   /*! \brief the raf function to be compiled */
   Expr computation;
   /*! \brief the parameters of computation_ that represent model states */
-  Array<Var> model_states;
+  Array<Var> marked_params;
   /*! \brief maps input to output if they are aliased */
   Map<Integer, Integer> alias;
 
   void VisitAttrs(AttrVisitor* v) {
     v->Visit("computation", &computation);
-    v->Visit("model_states", &model_states);
+    v->Visit("marked_params", &marked_params);
     v->Visit("alias", &alias);
   }
 
   bool SEqualReduce(const GenericComputationRAFNode* other, SEqualReducer equal) const {
     equal->MarkGraphNode();
-    return equal(computation, other->computation) && equal(model_states, other->model_states) &&
+    return equal(computation, other->computation) && equal(marked_params, other->marked_params) &&
            equal(alias, other->alias);
   }
 
   void SHashReduce(SHashReducer hash_reduce) const {
     hash_reduce->MarkGraphNode();
     hash_reduce(computation);
-    hash_reduce(model_states);
+    hash_reduce(marked_params);
     hash_reduce(alias);
   }
 

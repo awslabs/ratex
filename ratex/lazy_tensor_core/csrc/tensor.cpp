@@ -1143,7 +1143,8 @@ LazyTensor::SyncTensorCollection LazyTensor::CollectSyncTensors(
 LazyTensor::ComputationCache::TypePtr LazyTensor::LookupCachedCompile(
     const std::vector<LazyTensor>& tensors, const lazy_tensors::hash_t& hash) {
   ComputationCache::TypePtr cached_computation = GetComputationCache()->Get(hash);
-  if (cached_computation == nullptr) {
+  bool disable_cache = lazy_tensors::sys_util::GetEnvBool("LTC_DISABLE_CACHE", false);
+  if (cached_computation == nullptr || disable_cache) {
     LTC_COUNTER("UncachedCompile", 1);
     return nullptr;
   }

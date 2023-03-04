@@ -167,7 +167,7 @@ def with_dumped_tensor_file(orig_test):
             with patch.dict(
                 os.environ,
                 {
-                    "COMPILATION_CACHE_SIZE": "0",
+                    "LTC_DISABLE_CACHE": "true",
                     "LTC_SAVE_TENSORS_FILE": str(Path(temp_dir) / "ltc_file.txt"),
                 },
             ):
@@ -188,6 +188,7 @@ def dryrun_dumped_ir_file(orig_test):
                     "RATEX_DRY_RUN": "true",
                     "RATEX_SAVE_IR_FILE": str(Path(temp_dir) / "module.json"),
                     "RATEX_DUMP_ALIAS": str(Path(temp_dir) / "alias.txt"),
+                    "RATEX_DUMP_MARKED_PARAMS": str(Path(temp_dir) / "marked_params.txt"),
                 },
             ):
                 return orig_test(*args, **kwargs)
@@ -471,3 +472,13 @@ def get_most_recent_alias():
         alias_text = alias_file.read()
         alias = {line.split()[0]: line.split()[1] for line in alias_text.splitlines()}
     return alias
+
+
+def get_most_recent_marked_params():
+    """Return the marked parameters"""
+    marked_params_dump_file = os.environ["RATEX_DUMP_MARKED_PARAMS"]
+    assert marked_params_dump_file
+    with open(marked_params_dump_file, "r") as file:
+        marked_params = file.read()
+        param_ids = marked_params.split()
+    return param_ids
