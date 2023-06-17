@@ -47,6 +47,7 @@ def train(
 ):
     if seed is not None:
         torch.manual_seed(seed)
+
     dataloaders = {
         x: torch.utils.data.DataLoader(
             image_datasets[x], batch_size=1, shuffle=False, num_workers=1
@@ -57,7 +58,9 @@ def train(
 
     model = SingleLayerLogistics(input_shape=input_shape, num_classes=num_classes)
     model = ratex.jit.script(model)
-    model = model.to(device, dtype=dtype)
+    if dtype == torch.float16:
+        model.half()
+    model = model.to(device)
     if fsdp:
         model = RatexFullyShardedDataParallel(model, optimizer, optimizer_config)
         optimizer = model
@@ -70,7 +73,7 @@ def train(
         running_losses = []
         # Iterate over data.
         for inputs, labels in dataloaders["train"]:
-            inputs = inputs.to(device)
+            inputs = inputs.to(device=device, dtype=dtype)
             inputs.requires_grad = True
             labels_one_hot = torch.tensor(np.eye(num_classes, dtype=np.float32)[labels])
             labels_one_hot = labels_one_hot.to(device)  # One-hot
@@ -94,8 +97,9 @@ def train(
 @pytest.mark.parametrize(
     "optimizer", [(SGD, {"lr": 0.001, "momentum": 0.1}), (Adam, {"lr": 0.001})]
 )
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
 def test_ratex_fully_sharded_data_parallelism_zero1(
-    input_shape, num_classes, optimizer, tolerance=1e-10, seed=0
+    input_shape, num_classes, optimizer, dtype, tolerance=1e-10, seed=0
 ):
     data_transforms = {
         "train": transforms.Compose(
@@ -133,6 +137,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(
         optimizer[0],
         optimizer[1],
         image_datasets,
+        dtype=dtype,
         seed=seed,
     )
 
@@ -146,6 +151,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(
             optimizer[0],
             optimizer[1],
             image_datasets,
+            dtype=dtype,
             seed=seed,
         )
 
@@ -160,6 +166,7 @@ def test_ratex_fully_sharded_data_parallelism_zero1(
         optimizer[1],
         image_datasets,
         fsdp=True,
+        dtype=dtype,
         seed=seed,
     )
 
