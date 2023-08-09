@@ -84,6 +84,8 @@
 #include "lazy_tensor_core/csrc/ops/mse_loss_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_forward.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm_backward.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d_backward.h"
@@ -1618,6 +1620,26 @@ std::tuple<LazyTensor, LazyTensor, LazyTensor> LazyTensor::native_batch_norm_bac
   LazyTensor grad_bias = input.CreateFrom(ir::Value(node, 2));
   return std::make_tuple(std::move(grad_input), std::move(grad_weight), std::move(grad_bias));
 }
+  
+std::tuple<LazyTensor, LazyTensor, LazyTensor> LazyTensor::native_layer_norm(const LazyTensor& input, std::vector<int64_t> normalized_shape,
+                                  const LazyTensor& weight, const LazyTensor& bias, double eps) {
+    ir::NodePtr node = ir::MakeNode<ir::ops::NativeLayerNorm>(input.GetIrValue(), Helpers::I64List(normalized_shape),
+                                       weight.GetIrValue(), bias.GetIrValue(), eps);
+    return std::make_tuple(input.CreateFrom(ir::Value(node, 0)),
+                         input.CreateFrom(ir::Value(node, 2)), input.CreateFrom(ir::Value(node, 3)));
+}
+
+std::tuple<LazyTensor, LazyTensor, LazyTensor> LazyTensor::native_layer_norm_backward(const LazyTensor& grad_out, const LazyTensor& input, std::vector<int64_t> normalized_shape, 
+                                                const LazyTensor& mean, const LazyTensor& rstd, const LazyTensor& weight,   
+                                                const LazyTensor& bias) {
+  ir::NodePtr node = ir::MakeNode<ir::ops::NativeLayerNormBackward>(
+      grad_out.GetIrValue(), input.GetIrValue(), Helpers::I64List(normalized_shape), mean.GetIrValue(), rstd.GetIrValue(), weight.GetIrValue(), bias.GetIrValue()
+      );
+  LazyTensor grad_input = input.CreateFrom(ir::Value(node, 0));
+  LazyTensor grad_weight = input.CreateFrom(ir::Value(node, 1));
+  LazyTensor grad_bias = input.CreateFrom(ir::Value(node, 2));
+  return std::make_tuple(std::move(grad_input), std::move(grad_weight), std::move(grad_bias));
+} 
 
 LazyTensor LazyTensor::ne(const LazyTensor& input, const at::Scalar& other) {
   return DispatchComparisonOp(at::aten::ne, input, other);
