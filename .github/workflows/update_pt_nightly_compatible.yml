@@ -25,7 +25,7 @@ jobs:
           git config user.name "AIREMetaBot"
       - name: Create timestamp
         id: date
-        run: echo "::set-output name=now::$(date +'%Y-%m-%d-%H-%M-%S')"
+        run: echo "now=$(date +'%Y-%m-%d-%H-%M-%S')" >> "$GITHUB_OUTPUT"
       - name: Update pt-nightly-compatible
         run: |
           git checkout -b pt-nightly-compatible-${{ steps.date.outputs.now }}

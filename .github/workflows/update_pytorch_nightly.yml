@@ -26,7 +26,7 @@ jobs:
                     | grep torch | tr -d '()' | awk '{print $2'} | awk -F '+' '{print $1}')
           echo "Latest PyTorch nightly version: $version"
           echo $version > scripts/pinned_torch_nightly.txt
-          echo "::set-output name=version::${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v3
         with:

@@ -49,29 +49,29 @@ jobs:
         id: job_info
         run: |
           skip_ci=$(head -n 1 artifact/skip.txt)
-          echo "::set-output name=skip_ci::${skip_ci}"
+          echo "skip_ci=${skip_ci}" >> "$GITHUB_OUTPUT"
           ref=$(head -n 1 artifact/ref.txt)
-          echo "::set-output name=ref::${ref}"
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
           repo=$(head -n 1 artifact/repo.txt)
-          echo "::set-output name=repo::${repo}"
+          echo "repo=${repo}" >> "$GITHUB_OUTPUT"
           trigger=$(head -n 1 artifact/trigger.txt)
-          echo "::set-output name=trigger::${trigger}"
+          echo "trigger=${trigger}" >> "$GITHUB_OUTPUT"
       - name: Parse PR job info
         id: pr_job_info
         continue-on-error: true
         # Note that pr and sha only available for pull request, and will be empty for push events.
         run: |
           pr=$(head -n 1 artifact/pr.txt)
-          echo "::set-output name=pr::${pr}"
+          echo "pr=${pr}" >> "$GITHUB_OUTPUT"
           sha=$(head -n 1 artifact/sha.txt)
-          echo "::set-output name=sha::${sha}"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
       - name: Generate tag
         id: gen_tag
         # This tag is PR-unique so it can be used to connect jobs for the same PR.
         # For example, we use it to share ccache caches and cancel previous runs.
         run: |
           tag=${{ steps.job_info.outputs.repo }}/${{ steps.pr_job_info.outputs.pr }}
-          echo "::set-output name=tag::${tag}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
   test_on_gpu:
     # Run full tests with the latest docker image on GPU.
@@ -192,8 +192,8 @@ jobs:
         run: |
           pr=$(head -n 1 artifact/pr.txt)
           trigger=$(head -n 1 artifact/trigger.txt)
-          echo "::set-output name=pr::${pr}"
-          echo "::set-output name=trigger::${trigger}"
+          echo "pr=${pr}" >> "$GITHUB_OUTPUT"
+          echo "trigger=${trigger}" >> "$GITHUB_OUTPUT"
       - name: Generate CI badge
         id: badge
         run: |
@@ -208,15 +208,15 @@ jobs:
             echo "No need to update badge for nightly PR CI. Skip."
             exit 0
           fi
-          echo "::set-output name=gist_id::aeb41ce3096bc1aaeb671f2c58836a3f"
+          echo "gist_id=aeb41ce3096bc1aaeb671f2c58836a3f" >> "$GITHUB_OUTPUT"
           head_commit=$(git rev-parse --short HEAD)
           if [[ "${{ needs.test_on_gpu.result }}" == "success" &&
                 "${{ needs.test_on_multi_gpu.result }}" == "success" ]]; then
-            echo "::set-output name=message::passing (${head_commit})"
-            echo "::set-output name=color::success"
+            echo "message=passing (${head_commit})" >> "$GITHUB_OUTPUT"
+            echo "color=success" >> "$GITHUB_OUTPUT"
           else
-            echo "::set-output name=message::failing (${head_commit})"
-            echo "::set-output name=color::critical"
+            echo "message=failing (${head_commit})" >> "$GITHUB_OUTPUT"
+            echo "color=critical" >> "$GITHUB_OUTPUT"
           fi
       - name: Update CI badge
         # Intentionally fail this step with empty gist_id.
