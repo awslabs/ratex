@@ -15,6 +15,6 @@ a feature branch `pt-nightly-compatible`. We will
 2. Test `pt-nightly-compatible` with the latest PyTorch nightly regularly.
 3. Merge `pt-nightly-compatible` to `main` when there is a new stable release.
 
-Please switch to the `pt-nightly-compatible` branch and find `scripts/pinned_torch_nightly.txt`
+Please switch to the `pt-nightly-compatible` branch and find [`scripts/pinned_torch_nightly.txt`](https://github.com/awslabs/ratex/blob/pt-nightly-compatible/scripts/pinned_torch_nightly.txt)
 to see the current compatible PyTorch nightly version.
 
