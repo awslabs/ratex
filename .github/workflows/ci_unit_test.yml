@@ -36,9 +36,10 @@ jobs:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: Whether linting was failed
         if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
-          conclusion=${{ github.event.workflow_run.conclusion }}
-          echo "Linting wasn't successed: ${conclusion}"
+          echo "Linting wasn't successed: ${CONCLUSION}"
           exit 1
       - name: Download artifact
         uses: dawidd6/action-download-artifact@v2
@@ -69,8 +70,11 @@ jobs:
         id: gen_tag
         # This tag is PR-unique so it can be used to connect jobs for the same PR.
         # For example, we use it to share ccache caches and cancel previous runs.
+        env:
+          REPO: ${{ steps.job_info.outputs.repo }}
+          PR: ${{ steps.pr_job_info.outputs.pr }}
         run: |
-          tag=${{ steps.job_info.outputs.repo }}/${{ steps.pr_job_info.outputs.pr }}
+          tag=${REPO}/${PR}
           echo "::set-output name=tag::${tag}"
 
   test_on_gpu:
@@ -81,15 +85,24 @@ jobs:
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: List environments
+        env:
+          TRIGGER: ${{ needs.check_status.outputs.trigger }}
+          DOCKER_IMAGE: ${{ needs.check_status.outputs.ci_image }}
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
+          PR: ${{ needs.check_status.outputs.pr }}
+          SHA: ${{ needs.check_status.outputs.sha }}
         run: |
-          echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: ${{ needs.check_status.outputs.ci_image }}"
-          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
-          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
-          echo "REF: ${{ needs.check_status.outputs.ref }}"
-          echo "REPO: ${{ needs.check_status.outputs.repo }}"
-          echo "PR: ${{ needs.check_status.outputs.pr }}"
-          echo "SHA: ${{ needs.check_status.outputs.sha }}"
+          echo "Trigger: ${TRIGGER}"
+          echo "Docker Image: ${DOCKER_IMAGE}"
+          echo "Job tag: ${JOB_TAG}"
+          echo "Skip CI? ${SKIP_CI}"
+          echo "REF: ${REF}"
+          echo "REPO: ${REPO}"
+          echo "PR: ${PR}"
+          echo "SHA: ${SHA}"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -100,9 +113,16 @@ jobs:
         # No need to checkout submodules because we only need the script.
         uses: actions/checkout@v2
       - name: Lint-Build-Test
+        env:
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          CI_IMAGE: ${{ needs.check_status.outputs.ci_image }}
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
+          TRIGGER: ${{ needs.check_status.outputs.trigger }}
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+          if [ "${SKIP_CI}" == "1" ]; then
             echo "Skip unit tests"
             exit 0
           fi
@@ -110,16 +130,16 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/batch/submit-job.py \
             --job-type GPU \
-            --image ${{ needs.check_status.outputs.ci_image }} \
-            --name ci-ratex-gpu-${{ needs.check_status.outputs.job_tag }} \
+            --image ${CI_IMAGE} \
+            --name ci-ratex-gpu-${JOB_TAG} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
-            --source-ref ${{ needs.check_status.outputs.ref }} \
-            --repo ${{ needs.check_status.outputs.repo }} \
+            --source-ref ${REF} \
+            --repo ${REPO} \
             --wait \
-            --command "bash ./ci/batch/cli.sh set_pytorch ${{ needs.check_status.outputs.trigger }} &&
-              bash ./ci/batch/cli.sh compile ${{ needs.check_status.outputs.job_tag }} &&
+            --command "bash ./ci/batch/cli.sh set_pytorch ${TRIGGER} &&
+              bash ./ci/batch/cli.sh compile ${JOB_TAG} &&
               bash ./ci/batch/cli.sh lint && bash ./ci/batch/cli.sh unit_test GPU"
 
   test_on_multi_gpu:
@@ -129,15 +149,24 @@ jobs:
     steps:
       - uses: haya14busa/action-workflow_run-status@v1
       - name: List environments
+        env:
+          TRIGGER: ${{ needs.check_status.outputs.trigger }}
+          DOCKER_IMAGE: ${{ needs.check_status.outputs.ci_image }}
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
+          PR: ${{ needs.check_status.outputs.pr }}
+          SHA: ${{ needs.check_status.outputs.sha }}
         run: |
-          echo "Trigger: ${{ needs.check_status.outputs.trigger }}"
-          echo "Docker Image: ${{ needs.check_status.outputs.ci_image }}"
-          echo "Job tag: ${{ needs.check_status.outputs.job_tag }}"
-          echo "Skip CI? ${{ needs.check_status.outputs.skip_ci }}"
-          echo "REF: ${{ needs.check_status.outputs.ref }}"
-          echo "REPO: ${{ needs.check_status.outputs.repo }}"
-          echo "PR: ${{ needs.check_status.outputs.pr }}"
-          echo "SHA: ${{ needs.check_status.outputs.sha }}"
+          echo "Trigger: ${TRIGGER}"
+          echo "Docker Image: ${DOCKER_IMAGE}"
+          echo "Job tag: ${JOB_TAG}"
+          echo "Skip CI? ${SKIP_CI}"
+          echo "REF: ${REF}"
+          echo "REPO: ${REPO}"
+          echo "PR: ${PR}"
+          echo "SHA: ${SHA}"
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -148,9 +177,16 @@ jobs:
         # No need to checkout submodules because we only need the script.
         uses: actions/checkout@v2
       - name: Test
+        env:
+          SKIP_CI: ${{ needs.check_status.outputs.skip_ci }}
+          CI_IMAGE: ${{ needs.check_status.outputs.ci_image }}
+          JOB_TAG: ${{ needs.check_status.outputs.job_tag }}
+          REF: ${{ needs.check_status.outputs.ref }}
+          REPO: ${{ needs.check_status.outputs.repo }}
+          TRIGGER: ${{ needs.check_status.outputs.trigger }}
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
-          if [ "${{ needs.check_status.outputs.skip_ci }}" == "1" ]; then
+          if [ "${SKIP_CI}" == "1" ]; then
             echo "Skip multi-GPU tests"
             exit 0
           fi
@@ -158,16 +194,16 @@ jobs:
           python3 -m pip install argparse boto3
           python3 ./ci/batch/submit-job.py \
             --job-type multi-GPU \
-            --image ${{ needs.check_status.outputs.ci_image }} \
-            --name ci-ratex-multi-gpu-${{ needs.check_status.outputs.job_tag }} \
+            --image ${CI_IMAGE} \
+            --name ci-ratex-multi-gpu-${JOB_TAG} \
             --job-queue ci-gpu-queue \
             --job-def-cfg ./ci/batch/job-def-cfg.json \
             --entry-script /batch/entry.sh \
-            --source-ref ${{ needs.check_status.outputs.ref }} \
-            --repo ${{ needs.check_status.outputs.repo }} \
+            --source-ref ${REF} \
+            --repo ${REPO} \
             --wait \
-            --command "bash ./ci/batch/cli.sh set_pytorch ${{ needs.check_status.outputs.trigger }} &&
-              bash ./ci/batch/cli.sh compile multi-GPU-${{ needs.check_status.outputs.job_tag }} &&
+            --command "bash ./ci/batch/cli.sh set_pytorch ${TRIGGER} &&
+              bash ./ci/batch/cli.sh compile multi-GPU-${JOB_TAG} &&
               bash ./ci/batch/cli.sh unit_test multi-GPU"
 
   update_ci_badge:
@@ -196,22 +232,27 @@ jobs:
           echo "::set-output name=trigger::${trigger}"
       - name: Generate CI badge
         id: badge
+        env:
+          TRIGGER: ${{ steps.pr_job_info.outputs.trigger }}
+          PR: ${{ steps.pr_job_info.outputs.pr }}
+          GPU_RESULT: ${{ needs.test_on_gpu.result }}
+          MULTI_GPU_RESULT: ${{ needs.test_on_multi_gpu.result }}
         run: |
           # env vars are unavailable in job.if so we have to implement it here.
-          echo "Trigger: ${{ steps.pr_job_info.outputs.trigger }}"
-          echo "PR: ${{ steps.pr_job_info.outputs.pr }}"
-          if [ "${{ steps.pr_job_info.outputs.pr }}" != "" ]; then
+          echo "Trigger: ${TRIGGER}"
+          echo "PR: ${PR}"
+          if [ "${PR}" != "" ]; then
             echo "No need to update badge for PR CI. Skip."
             exit 0
           fi
-          if [ "${{ steps.pr_job_info.outputs.trigger }}" == "nightly" ]; then
+          if [ "${TRIGGER}" == "nightly" ]; then
             echo "No need to update badge for nightly PR CI. Skip."
             exit 0
           fi
           echo "::set-output name=gist_id::aeb41ce3096bc1aaeb671f2c58836a3f"
           head_commit=$(git rev-parse --short HEAD)
-          if [[ "${{ needs.test_on_gpu.result }}" == "success" &&
-                "${{ needs.test_on_multi_gpu.result }}" == "success" ]]; then
+          if [[ "${GPU_RESULT}" == "success" &&
+                "${MULTI_GPU_RESULT}" == "success" ]]; then
             echo "::set-output name=message::passing (${head_commit})"
             echo "::set-output name=color::success"
           else
