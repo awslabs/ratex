@@ -351,6 +351,13 @@ def script(module: torch.nn.Module):
                         )
                 # Updated cached function, param_names, and inplace update map
                 JIT_CACHE[cache_key] = (func, param_names, inplace_update_map)
+
+            # Mark parameters to provide hints for the downstream compiler
+            for name, param in self.named_parameters():
+                _RATEXC._raf_mark_parameter(param)
+                if param.requires_grad and param.grad is not None:
+                    _RATEXC._raf_mark_parameter(param.grad)
+
             lazy_params = {k: getattr(self, k) for k in self._param_names}
             positional_args = get_positional_args(param_names, *args, **lazy_params)
             return RelayFunction.apply(func, inplace_update_map, *positional_args)

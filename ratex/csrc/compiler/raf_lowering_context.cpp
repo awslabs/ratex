@@ -71,7 +71,7 @@ RAFLoweringContext::Build() {
   Array<Var> free_vars = FreeVars(func);
   LTC_CHECK(free_vars.size() == 0U);
   return std::shared_ptr<lazy_tensors::GenericComputation>(
-      new GenericComputationRAF(func, model_states_, alias_));
+      new GenericComputationRAF(func, marked_params_, alias_));
 }
 
 std::vector<Var> RAFLoweringContext::GetParams() const {
@@ -141,7 +141,7 @@ Var RAFLoweringContext::GetParameter(const std::shared_ptr<lazy_tensors::client:
     it = parameters_map_.emplace(handle, Parameter{param, parameters_.size()}).first;
     parameters_.push_back(data);
     if (static_cast<ratex::BaseComputationClient::BaseData*>(data.get())->is_param) {
-      model_states_.insert(param);
+      marked_params_.insert(param);
     }
   }
   parameter_sequence_.push_back(it->second.index);

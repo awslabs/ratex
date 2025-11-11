@@ -19,11 +19,11 @@ namespace raf_backend {
 
 class GenericComputationRAF : public lazy_tensors::GenericComputation {
  public:
-  GenericComputationRAF(
-      raf::ir::Expr computation,
-      const std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states,
-      const std::unordered_map<int64_t, int64_t>& alias)
-      : computation_(computation), model_states_(model_states), alias_(alias) {
+  GenericComputationRAF(raf::ir::Expr computation,
+                        const std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash,
+                                                 tvm::ObjectPtrEqual>& marked_params,
+                        const std::unordered_map<int64_t, int64_t>& alias)
+      : computation_(computation), marked_params_(marked_params), alias_(alias) {
   }
 
   lazy_tensors::StatusOr<lazy_tensors::ProgramShape> GetProgramShape() const override;
@@ -32,9 +32,9 @@ class GenericComputationRAF : public lazy_tensors::GenericComputation {
     return computation_;
   }
 
-  const std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& model_states()
+  const std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>& marked_params()
       const {
-    return model_states_;
+    return marked_params_;
   }
 
   const std::unordered_map<int64_t, int64_t>& alias() const {
@@ -45,7 +45,7 @@ class GenericComputationRAF : public lazy_tensors::GenericComputation {
   /*! \brief the raf function to be compiled */
   raf::ir::Expr computation_;
   /*! \brief the parameters of computation_ that represent model states */
-  std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual> model_states_;
+  std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual> marked_params_;
   /*! \brief maps input to output if they are aliased */
   std::unordered_map<int64_t, int64_t> alias_;
 };
@@ -119,7 +119,7 @@ class RAFLoweringContext : public ir::LoweringContext {
   std::vector<raf::ir::Var> root_tuple_;
   ir::OutputMap<raf::ir::Var> emitted_outputs_;
   /*! \brief the parameters of computation_ that represent model states */
-  std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual> model_states_;
+  std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual> marked_params_;
   /*! \brief maps input to output if they are aliased */
   std::unordered_map<int64_t, int64_t> alias_;
 };

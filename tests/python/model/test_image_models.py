@@ -22,6 +22,8 @@ from ratex.testing import (
     with_mock_distributed_info,
     with_seed,
     with_temp_cache,
+    get_most_recent_marked_params,
+    with_dumped_tensor_file,
 )
 from ratex.utils.utils import to_torch_name
 
@@ -152,6 +154,41 @@ def test_compile_lenet_zero1(optimizer, grad_inplace):
     # If not, expected alias num = #grads + #weights + #model_states
     expected_alias_num = LENET_PARAM_NUM * (grad_inplace + 1 + optimizer[2])
     assert len(alias) >= expected_alias_num
+
+
+@with_dumped_tensor_file
+@dryrun_dumped_ir_file
+@with_enable_param_aliasing
+@pytest.mark.parametrize("optimizer", [(Adam, {"lr": 0.001}, 2)])
+def test_mark_params(optimizer):
+    batch_size = 1
+    dataset = fake_image_dataset(batch_size, 1, 28, 10)
+    model = TorchLeNet()
+
+    train(
+        "lazy",
+        model,
+        dataset,
+        optimizer=optimizer[0],
+        optimizer_params=optimizer[1],
+        batch_size=batch_size,
+        num_epochs=2,
+        trim=True,
+        set_to_none=False,
+    )
+
+    meta_ir_file = os.environ["RATEX_SAVE_IR_FILE"]
+    with open(meta_ir_file) as module_file:
+        module_json = module_file.read()
+        module = raf.ir.serialization.LoadJSON(module_json)
+
+    text = raf.ir.AsText(module)
+    print(text)
+
+    # Gradients, weights and model states should be marked
+    marked_params = get_most_recent_marked_params()
+    print(marked_params)
+    assert len(marked_params) == LENET_PARAM_NUM * (2 + optimizer[2])
 
 
 if __name__ == "__main__":

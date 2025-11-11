@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Adam optimizer"""
-# pylint: disable=too-many-arguments, too-many-locals
+# pylint: disable=too-many-arguments, too-many-locals, c-extension-no-member, protected-access
 import math
 from importlib import import_module
 
 import torch
 from raf import distributed as dist
+
+import _RATEXC
 
 from ratex.core.lazy_model import all_gather
 
@@ -101,6 +103,7 @@ class Adam(Optimizer):
 
             for param in group["params"]:
                 if param.grad is not None:
+                    _RATEXC._raf_mark_parameter(param.grad)
                     param_with_grad_global = param
                     if param.grad.is_sparse:
                         raise RuntimeError(
@@ -118,22 +121,29 @@ class Adam(Optimizer):
                         # state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                         # pylint: enable=line-too-long
                         if self._need_partition(param):
-                            state["exp_avg"] = self._create_partitioned_buffer(
-                                param, dtype=torch.float32
+                            state["exp_avg"] = _RATEXC._raf_mark_parameter(
+                                self._create_partitioned_buffer(param, dtype=torch.float32)
                             )
-                            state["exp_avg_sq"] = self._create_partitioned_buffer(
-                                param, dtype=torch.float32
+                            state["exp_avg_sq"] = _RATEXC._raf_mark_parameter(
+                                self._create_partitioned_buffer(param, dtype=torch.float32)
                             )
                         else:
-                            state["exp_avg"] = torch.zeros(
-                                param.data.size(), dtype=torch.float32
-                            ).to(device=param.data.device)
-                            state["exp_avg_sq"] = torch.zeros(
-                                param.data.size(), dtype=torch.float32
-                            ).to(device=param.data.device)
+                            state["exp_avg"] = _RATEXC._raf_mark_parameter(
+                                torch.zeros(param.data.size(), dtype=torch.float32).to(
+                                    device=param.data.device
+                                )
+                            )
+                            state["exp_avg_sq"] = _RATEXC._raf_mark_parameter(
+                                torch.zeros(param.data.size(), dtype=torch.float32).to(
+                                    device=param.data.device
+                                )
+                            )
+
                         if param.dtype in (torch.float16, torch.bfloat16):
                             # master weight param
-                            state["param"] = self._partition(param.data, state["exp_avg"]).float()
+                            state["param"] = _RATEXC._raf_mark_parameter(
+                                self._partition(param.data, state["exp_avg"]).float()
+                            )
                     exp_avg = state["exp_avg"]
                     exp_avg_sq = state["exp_avg_sq"]
                     assert exp_avg.shape == exp_avg_sq.shape

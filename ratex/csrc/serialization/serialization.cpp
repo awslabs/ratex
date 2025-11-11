@@ -15,7 +15,7 @@ using namespace raf::ir;
 GenericComputationRAF::GenericComputationRAF(LTCGenericComputationRAF x) {
   ObjectPtr<GenericComputationRAFNode> n = make_object<GenericComputationRAFNode>();
   n->computation = x.computation();
-  n->model_states = ToTVMFromLTC<Array<Var>>(x.model_states());
+  n->marked_params = ToTVMFromLTC<Array<Var>>(x.marked_params());
   n->alias = ToTVMFromLTC<Map<Integer, Integer>>(x.alias());
   data_ = std::move(n);
 }
@@ -24,7 +24,7 @@ GenericComputationRAF::operator LTCGenericComputationRAF() const {
   return LTCGenericComputationRAF{
       get()->computation,
       ToLTCFromTVM<std::unordered_set<raf::ir::Var, tvm::ObjectPtrHash, tvm::ObjectPtrEqual>>(
-          get()->model_states),
+          get()->marked_params),
       ToLTCFromTVM<std::unordered_map<int64_t, int64_t>>(get()->alias)};
 }
 
@@ -33,7 +33,7 @@ TVM_REGISTER_NODE_TYPE(GenericComputationRAFNode);
 TVM_STATIC_IR_FUNCTOR(ReprPrinter, vtable)
     .set_dispatch<GenericComputationRAFNode>([](const ObjectRef& ref, ReprPrinter* p) {
       auto* node = static_cast<const GenericComputationRAFNode*>(ref.get());
-      p->stream << "GenericComputationRAFNode(" << node->computation << ", " << node->model_states
+      p->stream << "GenericComputationRAFNode(" << node->computation << ", " << node->marked_params
                 << ", " << node->alias << ")";
     });
 

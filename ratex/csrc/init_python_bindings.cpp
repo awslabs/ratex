@@ -133,6 +133,10 @@ void InitRAFModuleBindings(py::module m) {
   m.def("_raf_create_token", [](const std::string& device) { return CreateToken(device); });
 
   m.def("_raf_mark_parameter", [](at::Tensor tensor) -> at::Tensor {
+    auto xtensor = bridge::TryGetLtcTensor(tensor);
+    if (!xtensor) {
+      return tensor;
+    }
     LazyTensor lazy_tensor = bridge::GetLtcTensor(tensor);
     ir::Value ir_value = lazy_tensor.GetIrValue();
     GetRAFModelState()->AddModelState(lazy_tensor);
