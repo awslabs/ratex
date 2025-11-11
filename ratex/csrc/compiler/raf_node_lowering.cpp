@@ -70,6 +70,8 @@
 #include "lazy_tensor_core/csrc/ops/mse_loss_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_backward.h"
 #include "lazy_tensor_core/csrc/ops/native_batch_norm_forward.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm.h"
+#include "lazy_tensor_core/csrc/ops/native_layer_norm_backward.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d.h"
 #include "lazy_tensor_core/csrc/ops/nll_loss2d_backward.h"
@@ -249,6 +251,7 @@ class RAFNodeLowering : public NodeLowering {
   DECLARE_OP2(Mean);
   DECLARE_OP2(SoftmaxBackward);
   DECLARE_OP2(Softmax);
+  DECLARE_OP2(NativeLayerNorm);
   lazy_tensors::Shape InferNe(const ir::Node* node);
   lazy_tensors::Shape InferEq(const ir::Node* node);
   lazy_tensors::Shape InferGt(const ir::Node* node);
@@ -282,6 +285,7 @@ class RAFNodeLowering : public NodeLowering {
   lazy_tensors::Shape InferConvolutionOverrideable(const ir::ops::ConvolutionOverrideable* node);
   lazy_tensors::Shape InferEmbedding(const ir::ops::Embedding* node);
   lazy_tensors::Shape InferMean(const ir::ops::Mean* node);
+  lazy_tensors::Shape InferNativeLayerNorm(const ir::ops::NativeLayerNorm* node);
 };
 
 #undef DECLARE_OP2
@@ -359,6 +363,7 @@ Var RAFNodeLowering::LowerToRAF(const ir::Node* node) {
     HANDLE_GENERIC_OP2(Mean, at::aten::mean)
     HANDLE_GENERIC_OP2(Softmax, at::aten::softmax)
     HANDLE_GENERIC_OP2(SoftmaxBackward, at::aten::_softmax_backward_data)
+    HANDLE_GENERIC_OP2(NativeLayerNorm, at::aten::layer_norm)
     case at::prim::Constant: {
       // TODO(asuhan): rework to remove ambiguity between Scalar and Constant
       // nodes to make dynamic_cast unnecessary.
@@ -922,6 +927,23 @@ Var RAFNodeLowering::LowerLogSoftmaxBackwardUseIn(const ir::ops::LogSoftmaxBackw
   }
   return BuildLogSoftmaxBackwardUseIn(ops, node);
 }
+ 
+Var BuildNativeLayerNorm(const std::vector<Var>& ops, const ir::ops::NativeLayerNorm* node) {
+  LTC_CHECK_EQ(ops.size(), 3U);
+  Var x = ops[0];
+  Var scale = ops[1];
+  Var bias = ops[2];
+  Expr axis = MakeConstant(Int(node->normalized_shape().size()));
+  Expr eps = MakeConstant(Double(node->eps()));
+  return BindSymbol(raf::ir::Call(Op::Get("raf.op.layer_norm_train"), {x, scale, bias, axis, eps}));
+}
+
+Var RAFNodeLowering::LowerNativeLayerNorm(const ir::ops::NativeLayerNorm* node) {
+  std::vector<Var> ops;
+  for (const auto& op : node->operands()) ops.push_back(loctx()->GetOutputOp(op));
+  return BuildNativeLayerNorm(ops, node);
+}
+
 
 Var BuildPermute(const std::vector<Var>& ops, const ir::ops::Permute* node) {
   LTC_CHECK_EQ(node->num_outputs(), 1);
@@ -1495,6 +1517,10 @@ lazy_tensors::Shape RAFNodeLowering::Infer(const ir::Node* node) {
     case at::aten::lt: {
       return InferLt(node);
     }
+    case at::aten::layer_norm: {
+      return InferNativeLayerNorm(
+          ir::NodeCast<ir::ops::NativeLayerNorm>(node, ir::OpKind(at::aten::layer_norm)));
+    }
     default: {
       if (kind == *ir::ops::ltc_generic_slice) {
         return InferGenericSlice(
@@ -1781,6 +1807,16 @@ lazy_tensors::Shape RAFNodeLowering::InferEmbedding(const ir::ops::Embedding* no
     ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
   }
   Var out = BuildEmbedding(ops, node);
+  Expr body = InferType(ExtractBinding(out, ops));
+  return ToLTCShape(body->checked_type());
+}
+
+lazy_tensors::Shape RAFNodeLowering::InferNativeLayerNorm(const ir::ops::NativeLayerNorm* node) {
+  std::vector<Var> ops;
+  for (const auto& x : node->operands()) {
+    ops.push_back(MakeVar("operand", ToRAFType(x.shape())));
+  }
+  Var out = BuildNativeLayerNorm(ops, node);
   Expr body = InferType(ExtractBinding(out, ops));
   return ToLTCShape(body->checked_type());
 }

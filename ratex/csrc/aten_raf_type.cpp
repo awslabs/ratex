@@ -1896,6 +1896,39 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> LazyNativeFunctions::native_batch
       output_mask[1] ? bridge::AtenFromLtcTensor(std::get<1>(gradients)) : undefined,
       output_mask[2] ? bridge::AtenFromLtcTensor(std::get<2>(gradients)) : undefined);
 }
+  
+std::tuple<at::Tensor, at::Tensor, at::Tensor> LazyNativeFunctions::native_layer_norm(const at::Tensor& input,
+                                           at::IntArrayRef normalized_shape,
+                                           const c10::optional<at::Tensor>& weight,
+                                           const c10::optional<at::Tensor>& bias, double eps
+                                           ) {                             
+  LazyTensor self_tensor = bridge::raf_backend::GetLtcTensor(input);
+  LazyTensor weight_tensor = bridge::GetOrCreateLtcTensor(weight, self_tensor.GetDevice());
+  LazyTensor bias_tensor = bridge::GetOrCreateLtcTensor(bias, self_tensor.GetDevice());
+  auto outputs = LazyTensor::native_layer_norm(self_tensor, lazy_tensors::util::ToVector<int64_t>(normalized_shape),
+                             weight_tensor, bias_tensor, eps);
+  return std::make_tuple(bridge::AtenFromLtcTensor(std::get<0>(outputs)),
+                         bridge::AtenFromLtcTensor(std::get<1>(outputs)),
+                         bridge::AtenFromLtcTensor(std::get<2>(outputs)));
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> LazyNativeFunctions::native_layer_norm_backward(const at::Tensor& grad_out, const at::Tensor& input, 
+                                              at::IntArrayRef normalized_shape, const at::Tensor& mean,
+                                              const at::Tensor& rstd, const c10::optional<at::Tensor>& weight, 
+                                              const c10::optional<at::Tensor>& bias, std::array<bool,3> output_mask
+                                              ) {       
+  LazyTensor grad_out_tensor = bridge::raf_backend::GetLtcTensor(grad_out);
+  const Device& device = grad_out_tensor.GetDevice();
+  auto gradients = LazyTensor::native_layer_norm_backward(
+      bridge::raf_backend::GetLtcTensor(grad_out), bridge::raf_backend::GetLtcTensor(input), lazy_tensors::util::ToVector<int64_t>(normalized_shape),
+      bridge::raf_backend::GetLtcTensor(mean), bridge::raf_backend::GetLtcTensor(rstd), bridge::GetOrCreateLtcTensor(weight, device),
+      bridge::GetOrCreateLtcTensor(bias, device));
+  at::Tensor undefined;
+  return std::make_tuple(
+      output_mask[0] ? bridge::AtenFromLtcTensor(std::get<0>(gradients)) : undefined,
+      output_mask[1] ? bridge::AtenFromLtcTensor(std::get<1>(gradients)) : undefined,
+      output_mask[2] ? bridge::AtenFromLtcTensor(std::get<2>(gradients)) : undefined);
+} 
 
 at::Tensor LazyNativeFunctions::ne(const at::Tensor& self, const at::Scalar& other) {
   LTC_FN_COUNTER("raf::");

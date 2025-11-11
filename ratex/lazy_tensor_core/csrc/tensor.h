@@ -713,6 +713,14 @@ class LazyTensor {
   static std::tuple<LazyTensor, LazyTensor, LazyTensor> native_batch_norm_backward(
       const LazyTensor& grad_out, const LazyTensor& input, const LazyTensor& weight,
       const LazyTensor& save_mean, const LazyTensor& save_invstd, bool training, double eps);
+  
+   // Returns the input, weight, and bias gradients.
+  static std::tuple<LazyTensor, LazyTensor, LazyTensor> native_layer_norm(const LazyTensor& input, std::vector<int64_t> normalized_shape,
+        const LazyTensor& weight, const LazyTensor& bias, double eps);
+
+  // Like native_layer_norm, but returns additional mean and rstd used by the backward pass. 
+  static std::tuple<LazyTensor, LazyTensor, LazyTensor> native_layer_norm_backward(const LazyTensor& grad_out, const LazyTensor& input, std::vector<int64_t> normalized_shape, 
+          const LazyTensor& mean, const LazyTensor& rstd, const LazyTensor& weight, const LazyTensor& bias);
 
   static LazyTensor ne(const LazyTensor& input, const at::Scalar& other);
 
